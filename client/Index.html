@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>DARAH · Joias</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand-bar">
+        <span class="brand-name">DARAH</span>
+      </div>
+
+      <nav class="main-nav">
+        <div class="nav-left">
+          <button class="nav-link active" data-view="home">Início</button>
+          <button class="nav-link" data-view="rings">Anéis</button>
+          <button class="nav-link" data-view="necklaces">Colares</button>
+          <button class="nav-link" data-view="bracelets">Pulseiras</button>
+          <button class="nav-link" data-view="earrings">Brincos</button>
+        </div>
+        <button class="cart-button" id="cartButton" aria-label="Ver carrinho">
+          <span class="cart-icon">🛒</span>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+      </nav>
+    </header>
+
+    <main class="main-content">
+      <!-- Home / About -->
+      <section id="view-home" class="view active-view">
+        <section class="hero">
+          <div class="hero-images" id="heroImages">
+            <!-- Filled from API: homepage.heroImages -->
+          </div>
+          <div class="hero-about">
+            <h1 class="hero-title">Joias DARAH</h1>
+            <p id="aboutText" class="hero-text">
+              DARAH é uma joalheria dedicada a peças elegantes e atemporais,
+              criadas para acompanhar você em todos os momentos especiais.
+            </p>
+          </div>
+        </section>
+
+        <section class="home-highlight">
+          <h2>Seleção em destaque</h2>
+          <p class="home-highlight-text">
+            Explore nossas coleções de anéis, colares, pulseiras e brincos,
+            cuidadosamente escolhidas para valorizar a beleza de cada momento.
+          </p>
+        </section>
+      </section>
+
+      <!-- Rings -->
+      <section id="view-rings" class="view">
+        <h2 class="section-title">Anéis</h2>
+        <div id="ringsList" class="product-grid"></div>
+      </section>
+
+      <!-- Necklaces -->
+      <section id="view-necklaces" class="view">
+        <h2 class="section-title">Colares</h2>
+        <div id="necklacesList" class="product-grid"></div>
+      </section>
+
+      <!-- Bracelets -->
+      <section id="view-bracelets" class="view">
+        <h2 class="section-title">Pulseiras</h2>
+        <div id="braceletsList" class="product-grid"></div>
+      </section>
+
+      <!-- Earrings -->
+      <section id="view-earrings" class="view">
+        <h2 class="section-title">Brincos</h2>
+        <div id="earringsList" class="product-grid"></div>
+      </section>
+
+      <!-- Checkout -->
+      <section id="view-checkout" class="view checkout-view">
+        <h2 class="section-title">Seu carrinho</h2>
+
+        <div class="checkout-layout">
+          <!-- Left: items -->
+          <div class="checkout-items" id="checkoutItems">
+            <!-- Filled from /api/cart -->
+          </div>
+
+          <!-- Right: totals -->
+          <aside class="checkout-summary">
+            <h3>Resumo do pedido</h3>
+            <div class="summary-line">
+              <span>Subtotal</span>
+              <span id="summarySubtotal">R$ 0,00</span>
+            </div>
+            <div class="summary-line">
+              <span>Impostos</span>
+              <span id="summaryTaxes">R$ 0,00</span>
+            </div>
+            <div class="summary-line summary-total">
+              <span>Total</span>
+              <span id="summaryTotal">R$ 0,00</span>
+            </div>
+
+            <button id="checkoutButton" class="primary-button">
+              Finalizar pedido no WhatsApp
+            </button>
+            <p class="checkout-note">
+              O pedido será enviado para o WhatsApp oficial da DARAH com todos
+              os itens e valores preenchidos para confirmação.
+            </p>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        © <span id="year"></span> DARAH · Joias elegantes e atemporais
+      </p>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>
