@@ -184,6 +184,96 @@
         margin-top: 6px;
       }
 
+      /* Login view */
+
+      .admin-login {
+        max-width: 420px;
+        margin: 40px auto;
+      }
+
+      .admin-login-title {
+        margin: 0 0 8px 0;
+      }
+
+      .admin-login-subtitle {
+        margin: 0 0 18px 0;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .admin-login-error {
+        display: none;
+      }
+
+      /* Loading view */
+
+      .admin-loading-section {
+        display: none;
+        justify-content: center;
+        align-items: center;
+        margin-top: 40px;
+      }
+
+      .admin-loading-card {
+        text-align: center;
+      }
+
+      .loading-circle-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 24px 0;
+      }
+
+      .loading-circle {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .loading-circle-fill {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: conic-gradient(var(--accent) 0deg, #f0f0f0 0deg);
+        transform: rotate(-90deg);
+        animation: loadingFill 4s linear forwards;
+      }
+
+      .loading-circle-inner {
+        position: absolute;
+        inset: 16px;
+        border-radius: 50%;
+        background: var(--card-bg);
+      }
+
+      .loading-circle-message {
+        position: relative;
+        z-index: 2;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-main);
+        padding: 0 12px;
+      }
+
+      @keyframes loadingFill {
+        from {
+          background: conic-gradient(var(--accent) 0deg, #f0f0f0 0deg);
+        }
+        to {
+          background: conic-gradient(var(--accent) 360deg, #f0f0f0 0deg);
+        }
+      }
+
+      .admin-panel {
+        display: none;
+      }
+
       @media (max-width: 900px) {
         .admin-layout {
           grid-template-columns: minmax(0, 1fr);
@@ -207,168 +297,261 @@
     </header>
 
     <main class="admin-main">
-      <header>
-        <h1 class="admin-header-title">Painel DARAH</h1>
-        <p class="admin-header-subtitle">
-          Atualize o conteúdo da página inicial e gerencie o catálogo de joias
-          em tempo real. Esta área é reservada apenas para a administração.
+      <!-- Login -->
+      <section id="adminLoginSection" class="admin-card admin-login">
+        <h1 class="admin-header-title admin-login-title">
+          Acesso administrativo
+        </h1>
+        <p class="admin-login-subtitle">
+          Digite seu usuário e senha para entrar no painel da DARAH.
         </p>
-      </header>
 
-      <section class="admin-layout">
-        <!-- Homepage content -->
-        <section class="admin-card">
-          <h2>Página inicial</h2>
-          <p class="admin-help">
-            Edite o texto de apresentação e as imagens da homepage. As alterações
-            aparecem diretamente no site principal.
+        <div class="admin-field">
+          <label for="adminUsername" class="admin-label">Username</label>
+          <input
+            id="adminUsername"
+            class="admin-input"
+            type="text"
+            autocomplete="username"
+          />
+        </div>
+
+        <div class="admin-field">
+          <label for="adminPassword" class="admin-label">Password</label>
+          <input
+            id="adminPassword"
+            class="admin-input"
+            type="password"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <button id="adminLoginButton" class="primary-button">
+          Entrar
+        </button>
+        <p
+          id="adminLoginError"
+          class="admin-status admin-login-error error"
+        ></p>
+      </section>
+
+      <!-- Loading / welcome -->
+      <section
+        id="adminLoadingSection"
+        class="admin-loading-section"
+        aria-hidden="true"
+      >
+        <div class="admin-card admin-loading-card">
+          <p class="admin-header-subtitle">
+            Preparando o painel administrativo.
           </p>
-
-          <div class="admin-field">
-            <label for="adminAboutText" class="admin-label">
-              Texto "Sobre" da homepage
-            </label>
-            <textarea
-              id="adminAboutText"
-              class="admin-textarea"
-              placeholder="Digite aqui a história, valores e identidade da DARAH"
-            ></textarea>
+          <div class="loading-circle-wrapper">
+            <div class="loading-circle">
+              <div class="loading-circle-fill"></div>
+              <div class="loading-circle-inner"></div>
+              <div
+                class="loading-circle-message"
+                id="adminWelcomeMessage"
+              >
+                Welcome, Danielle!
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
 
-          <div class="admin-field">
-            <label for="adminHeroImages" class="admin-label">
-              Imagens da homepage (URLs, uma por linha)
-            </label>
-            <textarea
-              id="adminHeroImages"
-              class="admin-textarea"
-              placeholder="https://exemplo.com/imagem1.jpg&#10;https://exemplo.com/imagem2.jpg"
-            ></textarea>
-          </div>
-
-          <button id="saveHomepageBtn" class="primary-button">
-            Salvar página inicial
-          </button>
-          <p id="adminHomepageStatus" class="admin-status"></p>
-        </section>
-
-        <!-- Products management -->
-        <section class="admin-card">
-          <h2>Catálogo de produtos</h2>
-          <p class="admin-help">
-            Cadastre novas peças ou edite joias existentes nas coleções de anéis,
-            colares, pulseiras e brincos.
+      <!-- Authenticated admin panel -->
+      <section id="adminPanelSection" class="admin-panel">
+        <header>
+          <h1 class="admin-header-title">Painel DARAH</h1>
+          <p class="admin-header-subtitle">
+            Atualize o conteúdo da página inicial e gerencie o catálogo de
+            joias em tempo real. Esta área é reservada apenas para a
+            administração.
           </p>
+        </header>
 
-          <form id="productForm">
-            <div class="admin-field">
-              <label for="productCategory" class="admin-label">
-                Categoria
-              </label>
-              <select id="productCategory" class="admin-select" required>
-                <option value="rings">Anéis</option>
-                <option value="necklaces">Colares</option>
-                <option value="bracelets">Pulseiras</option>
-                <option value="earrings">Brincos</option>
-              </select>
-            </div>
+        <section class="admin-layout">
+          <!-- Homepage content -->
+          <section class="admin-card">
+            <h2>Página inicial</h2>
+            <p class="admin-help">
+              Edite o texto de apresentação e as imagens da homepage. As
+              alterações aparecem diretamente no site principal.
+            </p>
 
             <div class="admin-field">
-              <label for="productName" class="admin-label">
-                Nome do produto
-              </label>
-              <input
-                id="productName"
-                class="admin-input"
-                type="text"
-                required
-                placeholder="Exemplo: Anel dourado com zircônia"
-              />
-            </div>
-
-            <div class="admin-field">
-              <label for="productDescription" class="admin-label">
-                Descrição
+              <label for="adminAboutText" class="admin-label">
+                Texto "Sobre" da homepage
               </label>
               <textarea
-                id="productDescription"
+                id="adminAboutText"
                 class="admin-textarea"
-                placeholder="Detalhes sobre o material, acabamento e estilo da peça"
+                placeholder="Digite aqui a história, valores e identidade da DARAH"
               ></textarea>
             </div>
 
             <div class="admin-field">
-              <label for="productPrice" class="admin-label">
-                Preço (em reais, use ponto para centavos)
+              <label for="adminHeroImages" class="admin-label">
+                Imagens da homepage (URLs ou fotos, uma por linha)
               </label>
+              <textarea
+                id="adminHeroImages"
+                class="admin-textarea"
+                placeholder="Cole URLs de imagens ou use o botão abaixo para escolher fotos do dispositivo"
+              ></textarea>
+              <!-- file input and button will be wired in admin.js -->
               <input
-                id="productPrice"
-                class="admin-input"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                placeholder="Exemplo: 149.90"
+                id="adminHeroImagesFile"
+                type="file"
+                accept="image/*"
+                multiple
+                style="display: none"
               />
+              <button
+                type="button"
+                id="adminHeroImagesFileButton"
+                class="admin-button-secondary"
+              >
+                Escolher fotos do dispositivo
+              </button>
             </div>
 
-            <div class="admin-field">
-              <label for="productStock" class="admin-label">
-                Quantidade em estoque
-              </label>
-              <input
-                id="productStock"
-                class="admin-input"
-                type="number"
-                min="0"
-                required
-                placeholder="Exemplo: 10"
-              />
-            </div>
-
-            <div class="admin-field">
-              <label for="productImageUrl" class="admin-label">
-                URL da imagem do produto
-              </label>
-              <input
-                id="productImageUrl"
-                class="admin-input"
-                type="url"
-                placeholder="https://exemplo.com/imagem-produto.jpg"
-              />
-            </div>
-
-            <button type="submit" class="primary-button">
-              Adicionar produto
+            <button id="saveHomepageBtn" class="primary-button">
+              Salvar página inicial
             </button>
-            <p id="adminProductFormStatus" class="admin-status"></p>
-          </form>
+            <p id="adminHomepageStatus" class="admin-status"></p>
+          </section>
 
-          <div class="admin-table-wrapper">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Categoria</th>
-                  <th>Preço</th>
-                  <th>Estoque</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="adminProductsTableBody">
-                <!-- Filled by admin.js -->
-              </tbody>
-            </table>
-          </div>
+          <!-- Products management -->
+          <section class="admin-card">
+            <h2>Catálogo de produtos</h2>
+            <p class="admin-help">
+              Cadastre novas peças ou edite joias existentes nas coleções de
+              anéis, colares, pulseiras e brincos.
+            </p>
+
+            <form id="productForm">
+              <div class="admin-field">
+                <label for="productCategory" class="admin-label">
+                  Categoria
+                </label>
+                <select id="productCategory" class="admin-select" required>
+                  <option value="rings">Anéis</option>
+                  <option value="necklaces">Colares</option>
+                  <option value="bracelets">Pulseiras</option>
+                  <option value="earrings">Brincos</option>
+                </select>
+              </div>
+
+              <div class="admin-field">
+                <label for="productName" class="admin-label">
+                  Nome do produto
+                </label>
+                <input
+                  id="productName"
+                  class="admin-input"
+                  type="text"
+                  required
+                  placeholder="Exemplo: Anel dourado com zircônia"
+                />
+              </div>
+
+              <div class="admin-field">
+                <label for="productDescription" class="admin-label">
+                  Descrição
+                </label>
+                <textarea
+                  id="productDescription"
+                  class="admin-textarea"
+                  placeholder="Detalhes sobre o material, acabamento e estilo da peça"
+                ></textarea>
+              </div>
+
+              <div class="admin-field">
+                <label for="productPrice" class="admin-label">
+                  Preço (em reais, use ponto para centavos)
+                </label>
+                <input
+                  id="productPrice"
+                  class="admin-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  placeholder="Exemplo: 149.90"
+                />
+              </div>
+
+              <div class="admin-field">
+                <label for="productStock" class="admin-label">
+                  Quantidade em estoque
+                </label>
+                <input
+                  id="productStock"
+                  class="admin-input"
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="Exemplo: 10"
+                />
+              </div>
+
+              <div class="admin-field">
+                <label for="productImageUrl" class="admin-label">
+                  Imagem do produto
+                </label>
+                <input
+                  id="productImageUrl"
+                  class="admin-input"
+                  type="text"
+                  placeholder="Cole uma URL ou escolha uma foto do dispositivo"
+                />
+                <input
+                  id="productImageFile"
+                  type="file"
+                  accept="image/*"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  id="productImageFileButton"
+                  class="admin-button-secondary"
+                >
+                  Escolher foto do dispositivo
+                </button>
+              </div>
+
+              <button type="submit" class="primary-button">
+                Adicionar produto
+              </button>
+              <p id="adminProductFormStatus" class="admin-status"></p>
+            </form>
+
+            <div class="admin-table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Preço</th>
+                    <th>Estoque</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="adminProductsTableBody">
+                  <!-- Filled by admin.js -->
+                </tbody>
+              </table>
+            </div>
+          </section>
         </section>
       </section>
     </main>
 
     <footer class="site-footer">
-      <p>
-        © <span id="adminYear"></span> DARAH · Área administrativa
-      </p>
+      <p>© 2025 DARAH All rights reserved</p>
     </footer>
 
     <script src="admin.js"></script>
