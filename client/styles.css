@@ -1,13 +1,13 @@
 :root {
-  --banner-bg: #c9d8b4;
+  --banner-bg: #c9d8b4; /* logo green */
   --banner-text: #2f261f;
-  --page-bg: #f6f6f2;
+  --page-bg: #f4f4f4;
   --card-bg: #ffffff;
-  --accent: #7c6b54;
-  --accent-soft: #e6dfd2;
-  --border-soft: #ddd7c8;
-  --text-main: #2f2a24;
-  --text-muted: #746c62;
+  --accent: #4b4b4b;
+  --accent-soft: #e0e0e0;
+  --border-soft: #d3d3d3;
+  --text-main: #333333;
+  --text-muted: #777777;
   --error: #b3261e;
   --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
@@ -171,7 +171,7 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: 150px;
   gap: 10px;
-  background: #d3e0c4;
+  background: #e3e3e3;
   border-radius: 20px;
   padding: 14px;
   box-shadow: var(--shadow-soft);
@@ -270,7 +270,7 @@ body {
   position: relative;
   width: 100%;
   padding-top: 80%;
-  background: #d8e2cf;
+  background: #ececec;
 }
 
 .product-image-wrapper img {
@@ -332,13 +332,13 @@ body {
 }
 
 .primary-button:hover {
-  background: #64553f;
+  background: #393939;
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
 }
 
 .primary-button:disabled {
-  background: #c7c0b5;
+  background: #c7c7c7;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -387,7 +387,7 @@ body {
   width: 96px;
   height: 96px;
   border-radius: 12px;
-  background: #d8e2cf;
+  background: #ececec;
   overflow: hidden;
 }
 
