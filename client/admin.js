@@ -82,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let allProducts = [];
   let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
   let currentProductEditing = null; // { id, category, ... } or null
+  let currentProductImageDataUrl = ""; // keeps the full image data URL outside of any input limits
 
   // Allowed users and welcome messages
   const VALID_USERS = {
@@ -564,6 +565,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!hiddenForm.el || !productModalBackdrop) return;
 
     currentProductEditing = productOrNull || null;
+    currentProductImageDataUrl =
+      productOrNull && productOrNull.imageUrl ? productOrNull.imageUrl : "";
 
     // Reset form and status
     hiddenForm.el.reset();
@@ -604,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Image
     if (hiddenForm.imageUrl) {
-      const url = productOrNull && productOrNull.imageUrl ? productOrNull.imageUrl : "";
+      const url = currentProductImageDataUrl || "";
       hiddenForm.imageUrl.value = url;
       if (productImagePreview && productImagePlaceholder) {
         if (url) {
@@ -641,6 +644,7 @@ document.addEventListener("DOMContentLoaded", () => {
       productModalBackdrop.style.display = "none";
     }
     currentProductEditing = null;
+    currentProductImageDataUrl = "";
     setFormStatus("", "");
     if (hiddenForm.el) {
       hiddenForm.el.reset();
@@ -674,7 +678,11 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         setFormStatus("Carregando imagem selecionada...", "");
         const url = await fileToDataUrl(file);
-        if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = url;
+        currentProductImageDataUrl = url;
+        if (hiddenForm.imageUrl) {
+          // keep for debugging if you want, but payload uses currentProductImageDataUrl
+          hiddenForm.imageUrl.value = url;
+        }
         if (productImagePreview && productImagePlaceholder) {
           productImagePreview.src = url;
           productImagePreview.style.display = "block";
@@ -699,7 +707,8 @@ document.addEventListener("DOMContentLoaded", () => {
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price: hiddenForm.price ? parseFloat(hiddenForm.price.value) : NaN,
         stock: hiddenForm.stock ? parseInt(hiddenForm.stock.value, 10) : NaN,
-        imageUrl: hiddenForm.imageUrl ? hiddenForm.imageUrl.value.trim() : ""
+        // use JS state, not the hidden input, to avoid any truncation
+        imageUrl: currentProductImageDataUrl || ""
       };
 
       if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock)) {
