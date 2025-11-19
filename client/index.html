@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme-variant="default">
   <head>
     <meta charset="utf-8" />
     <title>DARAH · Joias</title>
@@ -31,7 +31,16 @@
       <!-- HOME -->
       <section id="view-home" class="view active-view">
         <!-- Avisos ficam acima do bloco Sobre -->
-        <div id="siteNotices" style="display:none"></div>
+        <section
+          id="siteNotices"
+          class="home-highlight"
+          style="display:none; margin-bottom:18px"
+        >
+          <h2>Avisos</h2>
+          <div id="siteNoticesList" class="home-highlight-text">
+            <!-- Avisos renderizados por main.js -->
+          </div>
+        </section>
 
         <section class="hero">
           <div id="heroImages" class="hero-images">
@@ -113,7 +122,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>© <span id="year">2025</span> DARAH All rights reserved</p>
+      <p>© <span id="year">2025</span> DARAH. Todos os direitos reservados.</p>
     </footer>
 
     <script src="main.js"></script>
