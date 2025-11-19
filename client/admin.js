@@ -28,6 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const welcomeMessageEl = document.getElementById("adminWelcomeMessage");
   const panelSection = document.getElementById("adminPanelSection");
 
+  // Theme
+  const themeSelect = document.getElementById("adminThemeSelect");
+
   // Homepage admin controls
   const aboutTextEl = document.getElementById("adminAboutText");
   const heroGalleryEl = document.getElementById("adminHeroGallery");
@@ -40,8 +43,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // Optional site notices
   const addNoticeBtn = document.getElementById("adminAddNoticeBtn");
   const noticeListEl = document.getElementById("adminNoticeList");
+  const noticeStatusEl = document.getElementById("adminNoticeStatus");
+  const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
-  // Hidden product form kept for API functions reuse
+  // Product modal and templates
+  const productModalBackdrop = document.getElementById("adminProductModalBackdrop");
+  const productModalTitle = document.getElementById("adminProductModalTitle");
+  const productModalClose = document.getElementById("adminProductModalClose");
+  const productDeleteButton = document.getElementById("productDeleteButton");
+  const addCardTemplate = document.getElementById("adminAddCardTemplate");
+  const productCardTemplate = document.getElementById("adminProductCardTemplate");
+  const productImagePreview = document.getElementById("productImagePreview");
+  const productImagePlaceholder = document.getElementById("productImagePlaceholder");
+  const productImageFileButton = document.getElementById("productImageFileButton");
+
+  // Product form (in modal)
   const hiddenForm = {
     el: document.getElementById("productForm"),
     category: document.getElementById("productCategory"),
@@ -64,7 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // State
   let allProducts = [];
-  let homepageState = { aboutText: "", heroImages: [], notices: [] };
+  let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
+  let currentProductEditing = null; // { id, category, ... } or null
 
   // Allowed users and welcome messages
   const VALID_USERS = {
@@ -99,6 +116,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "error") homepageStatusEl.classList.add("error");
   }
 
+  function setNoticeStatus(message, type) {
+    if (!noticeStatusEl) return;
+    noticeStatusEl.textContent = message || "";
+    noticeStatusEl.classList.remove("ok", "error");
+    if (type === "ok") noticeStatusEl.classList.add("ok");
+    if (type === "error") noticeStatusEl.classList.add("error");
+  }
+
   function formatBRL(value) {
     if (value == null || Number.isNaN(Number(value))) return "R$ 0,00";
     try {
@@ -122,15 +147,28 @@ document.addEventListener("DOMContentLoaded", () => {
   function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : String(reader.result));
-      reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo de imagem."));
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : String(reader.result));
+      reader.onerror = () =>
+        reject(reader.error || new Error("Falha ao ler arquivo de imagem."));
       reader.readAsDataURL(file);
     });
   }
 
+  function applyThemeVariant(variant) {
+    const root = document.documentElement;
+    const value = variant === "natal" ? "natal" : "default";
+    if (root) {
+      root.dataset.themeVariant = value;
+    }
+    if (themeSelect && themeSelect.value !== value) {
+      themeSelect.value = value;
+    }
+  }
+
   // View switching inside admin
   function switchView(id) {
-    Object.values(views).forEach((v) => v && (v.classList.remove("active-view")));
+    Object.values(views).forEach((v) => v && v.classList.remove("active-view"));
     const el = views[id];
     if (el) el.classList.add("active-view");
     navLinks.forEach((b) => b.classList.toggle("active", b.dataset.view === id));
@@ -142,6 +180,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (id) switchView(id);
     });
   });
+
+  // Theme selector handler
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      const value = themeSelect.value === "natal" ? "natal" : "default";
+      homepageState.theme = value;
+      applyThemeVariant(value);
+      setHomepageStatus("Tema atualizado. Clique em salvar para aplicar no site.", "ok");
+    });
+  }
 
   // =========================
   // Homepage load and save
@@ -155,9 +203,11 @@ document.addEventListener("DOMContentLoaded", () => {
       homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
       homepageState.heroImages = Array.isArray(hp.heroImages) ? hp.heroImages.slice(0) : [];
       homepageState.notices = Array.isArray(hp.notices) ? hp.notices.slice(0) : [];
+      homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
 
       if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
       if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
+      applyThemeVariant(homepageState.theme);
       renderHeroGallery();
       renderNotices();
 
@@ -172,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!heroGalleryEl) return;
     heroGalleryEl.innerHTML = "";
     if (!homepageState.heroImages.length) {
-      // Show a subtle placeholder cell
+      // Placeholder
       const ph = document.createElement("div");
       ph.style.borderRadius = "14px";
       ph.style.background = "#dcdcdc";
@@ -182,9 +232,11 @@ document.addEventListener("DOMContentLoaded", () => {
       homepageState.heroImages.forEach((url, idx) => {
         const wrap = document.createElement("div");
         wrap.style.position = "relative";
+
         const img = document.createElement("img");
         img.src = url;
         img.alt = "Imagem da homepage";
+
         const del = document.createElement("button");
         del.type = "button";
         del.textContent = "×";
@@ -204,6 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
           renderHeroGallery();
         });
+
         wrap.appendChild(img);
         wrap.appendChild(del);
         heroGalleryEl.appendChild(wrap);
@@ -214,43 +267,110 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderNotices() {
     if (!noticeListEl) return;
     noticeListEl.innerHTML = "";
-    if (!homepageState.notices.length) {
+    setNoticeStatus("", "");
+
+    if (!homepageState.notices || !homepageState.notices.length) {
       const p = document.createElement("p");
       p.className = "home-highlight-text";
       p.textContent = "Nenhum aviso no momento.";
       noticeListEl.appendChild(p);
       return;
     }
+
     homepageState.notices.forEach((text, idx) => {
-      const row = document.createElement("div");
-      row.className = "notice-row";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "admin-input";
-      input.value = text;
-      input.addEventListener("input", debounce(() => {
-        homepageState.notices[idx] = input.value.trim();
-      }, 150));
+      const value = typeof text === "string" ? text : "";
+      if (noticeItemTemplate && "content" in noticeItemTemplate) {
+        const fragment = document.importNode(noticeItemTemplate.content, true);
+        const itemEl = fragment.querySelector(".admin-notice-item");
+        const textSpan = fragment.querySelector(".admin-notice-text");
+        const editBtn = fragment.querySelector(".admin-notice-edit");
+        const deleteBtn = fragment.querySelector(".admin-notice-delete");
+        if (!itemEl) return;
+        if (textSpan) textSpan.textContent = value;
+        if (editBtn) {
+          editBtn.addEventListener("click", () => {
+            const current = homepageState.notices[idx] || "";
+            const updated = window.prompt("Editar aviso", current);
+            if (updated == null) return;
+            const trimmed = updated.trim();
+            if (!trimmed) {
+              homepageState.notices.splice(idx, 1);
+              renderNotices();
+              setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
+              return;
+            }
+            homepageState.notices[idx] = trimmed;
+            renderNotices();
+            setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
+          });
+        }
+        if (deleteBtn) {
+          deleteBtn.addEventListener("click", () => {
+            if (!window.confirm("Remover este aviso?")) return;
+            homepageState.notices.splice(idx, 1);
+            renderNotices();
+            setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
+          });
+        }
+        noticeListEl.appendChild(fragment);
+      } else {
+        const row = document.createElement("div");
+        row.className = "admin-notice-item";
 
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "admin-button-secondary";
-      remove.textContent = "Remover";
-      remove.addEventListener("click", () => {
-        homepageState.notices.splice(idx, 1);
-        renderNotices();
-      });
+        const textSpan = document.createElement("span");
+        textSpan.className = "admin-notice-text";
+        textSpan.textContent = value;
 
-      row.appendChild(input);
-      row.appendChild(remove);
-      noticeListEl.appendChild(row);
+        const btnBox = document.createElement("div");
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "admin-button-ghost";
+        editBtn.textContent = "Editar";
+        editBtn.addEventListener("click", () => {
+          const current = homepageState.notices[idx] || "";
+          const updated = window.prompt("Editar aviso", current);
+          if (updated == null) return;
+          const trimmed = updated.trim();
+          if (!trimmed) {
+            homepageState.notices.splice(idx, 1);
+            renderNotices();
+            setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
+            return;
+          }
+          homepageState.notices[idx] = trimmed;
+          textSpan.textContent = trimmed;
+          setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "admin-button-ghost";
+        deleteBtn.textContent = "Excluir";
+        deleteBtn.addEventListener("click", () => {
+          if (!window.confirm("Remover este aviso?")) return;
+          homepageState.notices.splice(idx, 1);
+          renderNotices();
+          setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
+        });
+
+        btnBox.appendChild(editBtn);
+        btnBox.appendChild(deleteBtn);
+
+        row.appendChild(textSpan);
+        row.appendChild(btnBox);
+        noticeListEl.appendChild(row);
+      }
     });
   }
 
   if (addNoticeBtn) {
     addNoticeBtn.addEventListener("click", () => {
-      homepageState.notices.push("");
+      const text = window.prompt("Novo aviso");
+      if (!text || !text.trim()) return;
+      homepageState.notices.push(text.trim());
       renderNotices();
+      setNoticeStatus("Aviso adicionado. Clique em salvar para publicar no site.", "ok");
     });
   }
 
@@ -285,15 +405,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
         const heroImages = homepageState.heroImages.slice(0);
         const notices = homepageState.notices.filter((n) => n && n.trim().length);
+        const theme = homepageState.theme || "default";
 
         const res = await fetch("/api/homepage", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aboutText, heroImages, notices })
+          body: JSON.stringify({ aboutText, heroImages, notices, theme })
         });
         if (!res.ok) throw new Error("Falha ao salvar a homepage.");
         await res.json();
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
+        setNoticeStatus("Avisos publicados na vitrine.", "ok");
       } catch (err) {
         console.error(err);
         setHomepageStatus("Não foi possível salvar a homepage.", "error");
@@ -338,267 +460,244 @@ document.addEventListener("DOMContentLoaded", () => {
 
     container.innerHTML = "";
 
-    // Add card goes first
-    const addCard = createAddProductCardElement(categoryKey);
-    container.appendChild(addCard);
-
     const items = allProducts.filter((p) => p.category === categoryKey);
-    if (!items.length) return;
 
-    items.forEach((product) => {
-      const card = document.createElement("article");
-      card.className = "admin-product-card";
-
-      const imageWrapper = document.createElement("div");
-      imageWrapper.className = "product-image-wrapper";
-      if (product.imageUrl) {
-        const img = document.createElement("img");
-        img.src = product.imageUrl;
-        img.alt = product.name || "Imagem do produto";
-        imageWrapper.appendChild(img);
+    // Sort newest first by createdAt then id if available
+    items.sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        const ad = new Date(a.createdAt).getTime();
+        const bd = new Date(b.createdAt).getTime();
+        return bd - ad;
       }
+      if (a.id && b.id) {
+        return String(b.id).localeCompare(String(a.id));
+      }
+      return 0;
+    });
 
-      const content = document.createElement("div");
-      content.className = "admin-product-content";
+    const hasProducts = items.length > 0;
 
-      const headerLine = document.createElement("div");
-      headerLine.className = "admin-product-header-line";
+    const addCardFragment = createAddProductCardFragment(categoryKey);
+    if (hasProducts) {
+      // First product
+      const first = items[0];
+      const firstCard = createProductCardFragment(first);
+      if (firstCard) container.appendChild(firstCard);
+      if (addCardFragment) container.appendChild(addCardFragment);
+      // Remaining products
+      for (let i = 1; i < items.length; i += 1) {
+        const card = createProductCardFragment(items[i]);
+        if (card) container.appendChild(card);
+      }
+    } else if (addCardFragment) {
+      container.appendChild(addCardFragment);
+    }
+  }
 
-      const nameEl = document.createElement("div");
-      nameEl.className = "admin-product-name";
-      nameEl.textContent = product.name || "Produto";
+  function createAddProductCardFragment(categoryKey) {
+    if (!addCardTemplate || !("content" in addCardTemplate)) {
+      return null;
+    }
+    const fragment = document.importNode(addCardTemplate.content, true);
+    const button = fragment.querySelector(".admin-add-product-button");
+    if (button) {
+      button.addEventListener("click", () => openProductModal(categoryKey, null));
+    }
+    return fragment;
+  }
 
-      const categoryEl = document.createElement("div");
-      categoryEl.className = "admin-product-category";
-      categoryEl.textContent = categoryLabel(product.category);
+  function createProductCardFragment(product) {
+    if (!productCardTemplate || !("content" in productCardTemplate)) {
+      return null;
+    }
+    const fragment = document.importNode(productCardTemplate.content, true);
+    const article = fragment.querySelector("article");
+    if (!article) return null;
 
-      headerLine.appendChild(nameEl);
-      headerLine.appendChild(categoryEl);
+    article.dataset.productId = product.id || "";
 
-      const descriptionEl = document.createElement("div");
-      descriptionEl.className = "product-description";
-      descriptionEl.textContent = product.description || "Peça da coleção DARAH.";
+    const imgEl = fragment.querySelector(".admin-product-image");
+    if (imgEl) {
+      if (product.imageUrl) {
+        imgEl.src = product.imageUrl;
+        imgEl.alt = product.name || "Imagem do produto";
+      } else {
+        imgEl.style.display = "none";
+      }
+    }
 
-      const metaLine = document.createElement("div");
-      metaLine.className = "admin-product-meta-line";
+    const titleEl = fragment.querySelector(".admin-product-title");
+    if (titleEl) {
+      titleEl.textContent = product.name || "Produto";
+    }
 
-      const priceEl = document.createElement("div");
-      priceEl.className = "admin-product-price";
+    const descEl = fragment.querySelector(".admin-product-description");
+    if (descEl) {
+      descEl.textContent = product.description || "Peça da coleção DARAH.";
+    }
+
+    const priceEl = fragment.querySelector(".admin-product-price");
+    if (priceEl) {
       priceEl.textContent = formatBRL(product.price);
+    }
 
-      const stockEl = document.createElement("div");
-      stockEl.className = "admin-product-stock";
-      stockEl.textContent =
-        typeof product.stock === "number" ? `Estoque: ${product.stock}` : "Estoque: -";
+    const stockEl = fragment.querySelector(".admin-product-stock");
+    if (stockEl) {
+      if (typeof product.stock === "number") {
+        stockEl.textContent = "Estoque: " + product.stock;
+      } else {
+        stockEl.textContent = "Estoque: -";
+      }
+    }
 
-      metaLine.appendChild(priceEl);
-      metaLine.appendChild(stockEl);
+    const editBtn = fragment.querySelector(".admin-edit-product-button");
+    if (editBtn) {
+      editBtn.addEventListener("click", () => openProductModal(product.category, product));
+    }
 
-      const actionsRow = document.createElement("div");
-      actionsRow.className = "admin-product-actions-row";
+    return fragment;
+  }
 
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.className = "admin-button-secondary";
-      editBtn.textContent = "Editar";
-      editBtn.addEventListener("click", () => openInlineEditor(container, categoryKey, product));
+  function openProductModal(categoryKey, productOrNull) {
+    if (!hiddenForm.el || !productModalBackdrop) return;
 
-      const toggleBtn = document.createElement("button");
-      toggleBtn.type = "button";
-      toggleBtn.className = "admin-button-secondary";
-      const inactive = product.active === false || product.stock <= 0;
-      toggleBtn.textContent = inactive ? "Ativar" : "Desativar";
-      toggleBtn.addEventListener("click", () => {
-        if (inactive) {
-          activateProduct(product.id);
+    currentProductEditing = productOrNull || null;
+
+    // Reset form and status
+    hiddenForm.el.reset();
+    setFormStatus("", "");
+
+    // Category
+    if (hiddenForm.category) {
+      hiddenForm.category.value =
+        productOrNull && productOrNull.category ? productOrNull.category : categoryKey;
+    }
+
+    // Name and description
+    if (hiddenForm.name) {
+      hiddenForm.name.value = productOrNull && productOrNull.name ? productOrNull.name : "";
+    }
+    if (hiddenForm.description) {
+      hiddenForm.description.value =
+        productOrNull && productOrNull.description ? productOrNull.description : "";
+    }
+
+    // Price
+    if (hiddenForm.price) {
+      const priceValue =
+        productOrNull && typeof productOrNull.price === "number"
+          ? String(productOrNull.price)
+          : "";
+      hiddenForm.price.value = priceValue;
+    }
+
+    // Stock
+    if (hiddenForm.stock) {
+      const stockValue =
+        productOrNull && typeof productOrNull.stock === "number"
+          ? String(productOrNull.stock)
+          : "";
+      hiddenForm.stock.value = stockValue;
+    }
+
+    // Image
+    if (hiddenForm.imageUrl) {
+      const url = productOrNull && productOrNull.imageUrl ? productOrNull.imageUrl : "";
+      hiddenForm.imageUrl.value = url;
+      if (productImagePreview && productImagePlaceholder) {
+        if (url) {
+          productImagePreview.src = url;
+          productImagePreview.style.display = "block";
+          productImagePlaceholder.style.display = "none";
         } else {
-          const confirmMsg =
-            "Tem certeza de que deseja desativar este produto? Ele não aparecerá mais na loja.";
-          if (window.confirm(confirmMsg)) deactivateProduct(product.id);
+          productImagePreview.src = "";
+          productImagePreview.style.display = "none";
+          productImagePlaceholder.style.display = "flex";
         }
-      });
+      }
+    }
 
-      actionsRow.appendChild(editBtn);
-      actionsRow.appendChild(toggleBtn);
+    // Delete button
+    if (productDeleteButton) {
+      if (productOrNull && productOrNull.id) {
+        productDeleteButton.style.display = "inline-flex";
+      } else {
+        productDeleteButton.style.display = "none";
+      }
+    }
 
-      content.appendChild(headerLine);
-      content.appendChild(descriptionEl);
-      content.appendChild(metaLine);
-      content.appendChild(actionsRow);
+    // Modal title
+    if (productModalTitle) {
+      productModalTitle.textContent = productOrNull ? "Editar produto" : "Novo produto";
+    }
 
-      card.appendChild(imageWrapper);
-      card.appendChild(content);
+    productModalBackdrop.style.display = "flex";
+  }
 
-      container.appendChild(card);
+  function closeProductModal() {
+    if (productModalBackdrop) {
+      productModalBackdrop.style.display = "none";
+    }
+    currentProductEditing = null;
+    setFormStatus("", "");
+    if (hiddenForm.el) {
+      hiddenForm.el.reset();
+    }
+    if (productImagePreview && productImagePlaceholder) {
+      productImagePreview.src = "";
+      productImagePreview.style.display = "none";
+      productImagePlaceholder.style.display = "flex";
+    }
+  }
+
+  if (productModalClose && productModalBackdrop) {
+    productModalClose.addEventListener("click", () => {
+      closeProductModal();
+    });
+    productModalBackdrop.addEventListener("click", (event) => {
+      if (event.target === productModalBackdrop) {
+        closeProductModal();
+      }
     });
   }
 
-  function createAddProductCardElement(categoryKey) {
-    const card = document.createElement("article");
-    card.className = "admin-product-card add-card";
-
-    const inner = document.createElement("div");
-    inner.className = "add-card-inner";
-
-    const icon = document.createElement("div");
-    icon.className = "add-card-icon";
-    icon.textContent = "+";
-
-    const textMain = document.createElement("div");
-    textMain.className = "add-card-text-main";
-    textMain.textContent = "Adicionar novo produto";
-
-    const textSub = document.createElement("div");
-    textSub.className = "add-card-text-sub";
-    textSub.textContent = "Toque para cadastrar nome, preço, descrição e foto.";
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "add-card-button";
-    button.textContent = "Novo produto";
-
-    inner.appendChild(icon);
-    inner.appendChild(textMain);
-    inner.appendChild(textSub);
-    inner.appendChild(button);
-    card.appendChild(inner);
-
-    const open = () => openInlineEditor(grids[categoryKey], categoryKey, null);
-    button.addEventListener("click", open);
-    card.addEventListener("click", (e) => {
-      if (e.target instanceof HTMLElement && e.target.closest("button")) return;
-      open();
+  if (productImageFileButton && hiddenForm.imageFile) {
+    productImageFileButton.addEventListener("click", () => {
+      hiddenForm.imageFile.click();
     });
 
-    return card;
-  }
-
-  function openInlineEditor(container, categoryKey, productOrNull) {
-    // Remove any existing inline editor in this container
-    const existing = container.querySelector(".admin-inline-editor");
-    if (existing) existing.remove();
-
-    const editor = document.createElement("div");
-    editor.className = "admin-product-card admin-inline-editor";
-    editor.style.border = "1px solid var(--accent-soft)";
-    editor.style.padding = "12px";
-
-    // Fields
-    const name = document.createElement("input");
-    name.className = "admin-input";
-    name.placeholder = "Nome da peça";
-    name.value = productOrNull ? productOrNull.name || "" : "";
-
-    const desc = document.createElement("textarea");
-    desc.className = "admin-textarea";
-    desc.placeholder = "Descrição";
-    desc.value = productOrNull ? productOrNull.description || "" : "";
-
-    const price = document.createElement("input");
-    price.type = "number";
-    price.step = "0.01";
-    price.min = "0";
-    price.className = "admin-input";
-    price.placeholder = "Preço em reais";
-    price.value = productOrNull && typeof productOrNull.price === "number" ? String(productOrNull.price) : "";
-
-    const stock = document.createElement("input");
-    stock.type = "number";
-    stock.min = "0";
-    stock.className = "admin-input";
-    stock.placeholder = "Quantidade em estoque";
-    stock.value = productOrNull && typeof productOrNull.stock === "number" ? String(productOrNull.stock) : "";
-
-    const imageUrl = document.createElement("input");
-    imageUrl.type = "text";
-    imageUrl.className = "admin-input";
-    imageUrl.placeholder = "Cole uma URL ou escolha uma foto";
-    imageUrl.value = productOrNull ? productOrNull.imageUrl || "" : "";
-
-    const file = document.createElement("input");
-    file.type = "file";
-    file.accept = "image/*";
-    file.style.display = "none";
-
-    const pickBtn = document.createElement("button");
-    pickBtn.type = "button";
-    pickBtn.className = "admin-button-secondary";
-    pickBtn.textContent = "Escolher foto do dispositivo";
-    pickBtn.addEventListener("click", () => file.click());
-
-    file.addEventListener("change", async () => {
-      const f = file.files ? file.files[0] : null;
-      if (!f) return;
+    hiddenForm.imageFile.addEventListener("change", async () => {
+      const file = hiddenForm.imageFile.files && hiddenForm.imageFile.files[0];
+      if (!file) return;
       try {
         setFormStatus("Carregando imagem selecionada...", "");
-        const url = await fileToDataUrl(f);
-        imageUrl.value = url;
+        const url = await fileToDataUrl(file);
+        if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = url;
+        if (productImagePreview && productImagePlaceholder) {
+          productImagePreview.src = url;
+          productImagePreview.style.display = "block";
+          productImagePlaceholder.style.display = "none";
+        }
         setFormStatus("Imagem adicionada. Salve para aplicar.", "ok");
       } catch (err) {
         console.error(err);
         setFormStatus("Não foi possível processar a imagem selecionada.", "error");
       } finally {
-        file.value = "";
+        hiddenForm.imageFile.value = "";
       }
     });
+  }
 
-    const rowButtons = document.createElement("div");
-    rowButtons.style.display = "flex";
-    rowButtons.style.gap = "8px";
-    rowButtons.style.marginTop = "8px";
-
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "primary-button";
-    saveBtn.textContent = productOrNull ? "Salvar alterações" : "Adicionar produto";
-
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "admin-button-secondary";
-    cancelBtn.textContent = "Cancelar";
-    cancelBtn.addEventListener("click", () => editor.remove());
-
-    rowButtons.appendChild(saveBtn);
-    rowButtons.appendChild(pickBtn);
-    rowButtons.appendChild(cancelBtn);
-
-    // Assemble editor
-    const wrapField = (labelText, el) => {
-      const wrap = document.createElement("div");
-      wrap.className = "admin-field";
-      const label = document.createElement("label");
-      label.className = "admin-label";
-      label.textContent = labelText;
-      wrap.appendChild(label);
-      wrap.appendChild(el);
-      return wrap;
-    };
-
-    editor.appendChild(wrapField("Nome do produto", name));
-    editor.appendChild(wrapField("Descrição", desc));
-    editor.appendChild(wrapField("Preço (R$)", price));
-    editor.appendChild(wrapField("Estoque", stock));
-    editor.appendChild(wrapField("Imagem do produto", imageUrl));
-    editor.appendChild(file);
-    editor.appendChild(rowButtons);
-
-    // Insert right after the add-card
-    const addCard = container.querySelector(".admin-product-card.add-card");
-    if (addCard && addCard.nextSibling) {
-      container.insertBefore(editor, addCard.nextSibling);
-    } else {
-      container.appendChild(editor);
-    }
-
-    // Save handler
-    saveBtn.addEventListener("click", () => {
+  if (hiddenForm.el) {
+    hiddenForm.el.addEventListener("submit", async (event) => {
+      event.preventDefault();
       const payload = {
-        category: categoryKey,
-        name: name.value.trim(),
-        description: desc.value.trim(),
-        price: parseFloat(price.value),
-        stock: parseInt(stock.value, 10),
-        imageUrl: imageUrl.value.trim()
+        category: hiddenForm.category ? hiddenForm.category.value : "",
+        name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
+        description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
+        price: hiddenForm.price ? parseFloat(hiddenForm.price.value) : NaN,
+        stock: hiddenForm.stock ? parseInt(hiddenForm.stock.value, 10) : NaN,
+        imageUrl: hiddenForm.imageUrl ? hiddenForm.imageUrl.value.trim() : ""
       };
 
       if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock)) {
@@ -606,10 +705,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (productOrNull) {
-        updateProduct(productOrNull.id, payload);
-      } else {
-        createProduct(payload);
+      try {
+        if (currentProductEditing && currentProductEditing.id) {
+          await updateProduct(currentProductEditing.id, payload);
+        } else {
+          await createProduct(payload);
+        }
+        closeProductModal();
+      } catch {
+        // Errors already handled inside create/update
+      }
+    });
+  }
+
+  if (productDeleteButton) {
+    productDeleteButton.addEventListener("click", async () => {
+      if (!currentProductEditing || !currentProductEditing.id) return;
+      if (!window.confirm("Excluir este produto?")) return;
+      try {
+        await deleteProduct(currentProductEditing.id);
+        closeProductModal();
+      } catch {
+        // Error handled in deleteProduct
       }
     });
   }
@@ -632,19 +749,22 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       setFormStatus(err.message, "error");
+      throw err;
     }
   }
 
   async function updateProduct(id, payload) {
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+      const res = await fetch("/api/products/" + encodeURIComponent(id), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body && body.error ? body.error : "Não foi possível atualizar o produto.");
+        throw new Error(
+          body && body.error ? body.error : "Não foi possível atualizar o produto."
+        );
       }
       await res.json();
       setFormStatus("Produto atualizado com sucesso.", "ok");
@@ -652,42 +772,26 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       setFormStatus(err.message, "error");
+      throw err;
     }
   }
 
-  async function deactivateProduct(id) {
+  async function deleteProduct(id) {
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body && body.error ? body.error : "Não foi possível desativar o produto.");
-      }
-      await res.json();
-      setFormStatus("Produto desativado.", "ok");
-      await loadProducts();
-    } catch (err) {
-      console.error(err);
-      setFormStatus(err.message, "error");
-    }
-  }
-
-  async function activateProduct(id) {
-    try {
-      const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: true })
+      const res = await fetch("/api/products/" + encodeURIComponent(id), {
+        method: "DELETE"
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body && body.error ? body.error : "Não foi possível ativar o produto.");
+        throw new Error(body && body.error ? body.error : "Não foi possível excluir o produto.");
       }
       await res.json();
-      setFormStatus("Produto ativado.", "ok");
+      setFormStatus("Produto excluído.", "ok");
       await loadProducts();
     } catch (err) {
       console.error(err);
       setFormStatus(err.message, "error");
+      throw err;
     }
   }
 
@@ -787,7 +891,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ignore
   }
 
-  // Small utility: debounce
+  // Small utility: debounce (kept in case needed later)
   function debounce(fn, ms) {
     let t = null;
     return (...args) => {
