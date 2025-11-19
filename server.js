@@ -76,7 +76,7 @@ const db = {
     notices: [],
     theme: "default"
   },
-  products: [] // no prefilled products
+  products: [] // sem produtos pré preenchidos
 };
 
 function brl(n) {
@@ -107,7 +107,12 @@ function summarizeCart(cart) {
     .map((it) => {
       const product = db.products.find((p) => p.id === it.productId);
       if (!product) return null;
-      const quantity = Math.max(0, Number(it.quantity || 0));
+
+      const rawQuantity = Number(it.quantity || 0);
+      const maxStock =
+        typeof product.stock === "number" && product.stock > 0 ? product.stock : Infinity;
+      const quantity = Math.max(0, Math.min(rawQuantity, maxStock));
+
       const lineTotal = quantity * Number(product.price || 0);
       return {
         id: product.id,
@@ -208,7 +213,7 @@ app.put("/api/products/:id", (req, res) => {
 app.delete("/api/products/:id", (req, res) => {
   const idx = db.products.findIndex((p) => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Produto não encontrado." });
-  db.products.splice(idx, 1); // remove completely
+  db.products.splice(idx, 1);
   res.json({ ok: true });
 });
 
@@ -219,15 +224,23 @@ app.post("/api/cart/add", (req, res) => {
   const { productId } = req.body || {};
   const product = db.products.find((p) => p.id === productId && p.active !== false);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
+  if (!product.stock || product.stock <= 0) {
+    return res.status(400).json({ error: "Produto sem estoque." });
+  }
 
   const cart = ensureSessionCart(req);
-  const existing = cart.items.find((it) => it.productId === productId);
-  if (existing) {
-    const next = existing.quantity + 1;
-    existing.quantity = next;
+  const item = cart.items.find((it) => it.productId === productId);
+
+  if (item) {
+    const next = item.quantity + 1;
+    if (next > product.stock) {
+      return res.status(400).json({ error: "Quantidade além do estoque disponível." });
+    }
+    item.quantity = next;
   } else {
     cart.items.push({ productId, quantity: 1 });
   }
+
   res.json(summarizeCart(cart));
 });
 
@@ -242,11 +255,15 @@ app.post("/api/cart/update", (req, res) => {
 
   const q = Number(quantity);
   if (Number.isNaN(q) || q < 0) return res.status(400).json({ error: "Quantidade inválida." });
+
   if (q === 0) {
     cart.items = cart.items.filter((it) => it.productId !== productId);
+  } else if (q > product.stock) {
+    return res.status(400).json({ error: "Quantidade além do estoque disponível." });
   } else {
     item.quantity = q;
   }
+
   res.json(summarizeCart(cart));
 });
 
@@ -279,7 +296,6 @@ app.post("/api/checkout-link", (req, res) => {
 /* ------------------------------------------------------------------ */
 app.get("/admin", (_req, res) => {
   if (fs.existsSync(ADMIN_HTML)) return res.sendFile(ADMIN_HTML);
-  // fallback if route only works with hash or you renamed the file
   return res.redirect("/admin.html");
 });
 
