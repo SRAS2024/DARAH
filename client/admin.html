@@ -8,277 +8,81 @@
     <link rel="stylesheet" href="styles.css" />
 
     <style>
-      .admin-main {
-        max-width: 1180px;
-        margin: 24px auto 40px auto;
-        padding: 0 20px;
-      }
+      .admin-main{max-width:1180px;margin:24px auto 40px auto;padding:0 20px}
+      .admin-header-title{font-family:"Georgia","Times New Roman",serif;font-size:22px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 6px 0}
+      .admin-header-subtitle{margin:0 0 22px 0;font-size:13px;color:var(--text-muted)}
+      .admin-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr);gap:24px;align-items:flex-start}
+      .admin-card{background:var(--card-bg);border-radius:18px;padding:18px 18px 20px 18px;box-shadow:var(--shadow-soft);border:1px solid rgba(0,0,0,.02)}
+      .admin-card h2{margin:0 0 10px 0;font-size:16px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+      .admin-card p.admin-help{margin:0 0 14px 0;font-size:13px;color:var(--text-muted)}
+      .admin-field{margin-bottom:14px}
+      .admin-label{display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text-main)}
+      .admin-input,.admin-textarea,.admin-select{width:100%;border-radius:10px;border:1px solid var(--border-soft);padding:8px 10px;font-size:14px;font-family:inherit;background:#fbfbfb}
+      .admin-textarea{min-height:90px;resize:vertical}
+      .admin-status{margin-top:6px;font-size:12px;color:var(--text-muted)}
+      .admin-status.ok{color:#2e7d32}
+      .admin-status.error{color:var(--error)}
+      .admin-product-actions{display:flex;gap:6px}
+      .admin-button-secondary{border-radius:999px;border:1px solid var(--border-soft);padding:6px 10px;font-size:12px;background:#f4f4f4;cursor:pointer}
+      .admin-button-secondary:hover{background:#ececec}
+      .admin-table-wrapper{margin-top:12px;max-height:420px;overflow:auto;border-radius:14px;border:1px solid rgba(0,0,0,.03)}
+      table.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+      table.admin-table th,table.admin-table td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(0,0,0,.04)}
+      table.admin-table th{background:#f3f3f3;font-weight:600;color:var(--text-main);position:sticky;top:0;z-index:1}
+      table.admin-table tr:nth-child(even) td{background:#fafafa}
+      .admin-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+      .admin-pill-active{background:#dfe7dc;color:#304b25}
+      .admin-pill-inactive{background:#f7dada;color:var(--error)}
+      .admin-badge-top{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.04);color:var(--text-muted);margin-top:6px}
 
-      .admin-header-title {
-        font-family: "Georgia", "Times New Roman", serif;
-        font-size: 22px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--accent);
-        margin: 0 0 6px 0;
-      }
+      /* Login */
+      .admin-login{max-width:420px;margin:40px auto}
+      .admin-login-title{margin:0 0 8px 0}
+      .admin-login-subtitle{margin:0 0 18px 0;font-size:13px;color:var(--text-muted)}
+      .admin-login-error{display:none}
 
-      .admin-header-subtitle {
-        margin: 0 0 22px 0;
-        font-size: 13px;
-        color: var(--text-muted);
-      }
+      /* Loading */
+      .admin-loading-section{display:none;justify-content:center;align-items:center;margin-top:40px}
+      .admin-loading-card{text-align:center}
+      .loading-circle-wrapper{display:flex;justify-content:center;align-items:center;padding:24px 0}
+      .loading-circle{position:relative;width:160px;height:160px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+      .loading-circle-fill{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--accent) 0deg,#f0f0f0 0deg);transform:rotate(-90deg);animation:loadingFill 4s linear forwards}
+      .loading-circle-fill.accent-blue{background:conic-gradient(var(--accent-blue, #8ec5ff) 0deg,#f0f0f0 0deg)}
+      .loading-circle-inner{position:absolute;inset:16px;border-radius:50%;background:var(--card-bg)}
+      .loading-circle-message{position:relative;z-index:2;font-size:14px;font-weight:600;color:var(--text-main);padding:0 12px}
+      @keyframes loadingFill{from{background:conic-gradient(var(--accent-blue, #8ec5ff) 0deg,#f0f0f0 0deg)}to{background:conic-gradient(var(--accent-blue, #8ec5ff) 360deg,#f0f0f0 0deg)}}
 
-      .admin-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
-        gap: 24px;
-        align-items: flex-start;
-      }
+      .admin-panel{display:none}
 
-      .admin-card {
-        background: var(--card-bg);
-        border-radius: 18px;
-        padding: 18px 18px 20px 18px;
-        box-shadow: var(--shadow-soft);
-        border: 1px solid rgba(0, 0, 0, 0.02);
-      }
+      /* Homepage gallery and notices */
+      .admin-hero-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:8px}
+      .admin-hero-card{position:relative;border:1px solid var(--border-soft);border-radius:12px;overflow:hidden;background:#fff}
+      .admin-hero-card img{display:block;width:100%;height:120px;object-fit:cover}
+      .admin-hero-actions{display:flex;gap:8px;justify-content:flex-end;padding:8px;background:#f7f7f7;border-top:1px solid var(--border-soft)}
+      .admin-hero-add{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;border:1px dashed var(--border-soft);border-radius:12px;background:#fbfbfb;font-size:28px;cursor:pointer}
+      .admin-notice-toolbar{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
+      .admin-notice-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+      .admin-notice-row input{flex:1}
 
-      .admin-card h2 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
+      /* Product grid parity */
+      .admin-product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+      .admin-product-card{background:#fff;border:1px solid var(--border-soft);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+      .admin-product-card.add-card{opacity:.7;cursor:pointer}
+      .add-card-inner{padding:20px;text-align:center}
+      .add-card-icon{font-size:28px;margin-bottom:8px}
+      .admin-product-card.editing{outline:2px solid var(--border-soft)}
+      .product-image-wrapper{width:100%;height:180px;background:#f3f3f3;display:flex;align-items:center;justify-content:center;overflow:hidden}
+      .product-image-wrapper img{width:100%;height:100%;object-fit:cover}
+      .admin-product-photo-row{display:flex;gap:8px;justify-content:flex-end;padding:10px;background:#fafafa;border-top:1px solid var(--border-soft)}
+      .admin-product-content{padding:12px}
+      .admin-product-header-line{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
+      .admin-product-name{font-weight:600}
+      .admin-product-category{font-size:12px;color:var(--text-muted)}
+      .product-description{width:100%}
+      .admin-product-meta-line{display:flex;gap:12px;align-items:center;margin:10px 0}
+      .admin-product-actions-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 
-      .admin-card p.admin-help {
-        margin: 0 0 14px 0;
-        font-size: 13px;
-        color: var(--text-muted);
-      }
-
-      .admin-field {
-        margin-bottom: 14px;
-      }
-
-      .admin-label {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 4px;
-        color: var(--text-main);
-      }
-
-      .admin-input,
-      .admin-textarea,
-      .admin-select {
-        width: 100%;
-        border-radius: 10px;
-        border: 1px solid var(--border-soft);
-        padding: 8px 10px;
-        font-size: 14px;
-        font-family: inherit;
-        background: #fbfaf7;
-      }
-
-      .admin-textarea {
-        min-height: 90px;
-        resize: vertical;
-      }
-
-      .admin-status {
-        margin-top: 6px;
-        font-size: 12px;
-        color: var(--text-muted);
-      }
-
-      .admin-status.ok {
-        color: #2e7d32;
-      }
-
-      .admin-status.error {
-        color: var(--error);
-      }
-
-      .admin-product-actions {
-        display: flex;
-        gap: 6px;
-      }
-
-      .admin-button-secondary {
-        border-radius: 999px;
-        border: 1px solid var(--border-soft);
-        padding: 6px 10px;
-        font-size: 12px;
-        background: #f7f3ec;
-        cursor: pointer;
-      }
-
-      .admin-button-secondary:hover {
-        background: #ebe1d1;
-      }
-
-      .admin-table-wrapper {
-        margin-top: 12px;
-        max-height: 420px;
-        overflow: auto;
-        border-radius: 14px;
-        border: 1px solid rgba(0, 0, 0, 0.03);
-      }
-
-      table.admin-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-
-      table.admin-table th,
-      table.admin-table td {
-        padding: 8px 10px;
-        text-align: left;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-      }
-
-      table.admin-table th {
-        background: #f5f1ea;
-        font-weight: 600;
-        color: var(--text-main);
-        position: sticky;
-        top: 0;
-        z-index: 1;
-      }
-
-      table.admin-table tr:nth-child(even) td {
-        background: #fdfcf9;
-      }
-
-      .admin-pill {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-
-      .admin-pill-active {
-        background: #d8e2cf;
-        color: #345026;
-      }
-
-      .admin-pill-inactive {
-        background: #f5d5d3;
-        color: var(--error);
-      }
-
-      .admin-badge-top {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        padding: 3px 8px;
-        border-radius: 999px;
-        background: rgba(0, 0, 0, 0.04);
-        color: var(--text-muted);
-        margin-top: 6px;
-      }
-
-      /* Login view */
-
-      .admin-login {
-        max-width: 420px;
-        margin: 40px auto;
-      }
-
-      .admin-login-title {
-        margin: 0 0 8px 0;
-      }
-
-      .admin-login-subtitle {
-        margin: 0 0 18px 0;
-        font-size: 13px;
-        color: var(--text-muted);
-      }
-
-      .admin-login-error {
-        display: none;
-      }
-
-      /* Loading view */
-
-      .admin-loading-section {
-        display: none;
-        justify-content: center;
-        align-items: center;
-        margin-top: 40px;
-      }
-
-      .admin-loading-card {
-        text-align: center;
-      }
-
-      .loading-circle-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 24px 0;
-      }
-
-      .loading-circle {
-        position: relative;
-        width: 160px;
-        height: 160px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-
-      .loading-circle-fill {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background: conic-gradient(var(--accent) 0deg, #f0f0f0 0deg);
-        transform: rotate(-90deg);
-        animation: loadingFill 4s linear forwards;
-      }
-
-      .loading-circle-inner {
-        position: absolute;
-        inset: 16px;
-        border-radius: 50%;
-        background: var(--card-bg);
-      }
-
-      .loading-circle-message {
-        position: relative;
-        z-index: 2;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-main);
-        padding: 0 12px;
-      }
-
-      @keyframes loadingFill {
-        from {
-          background: conic-gradient(var(--accent) 0deg, #f0f0f0 0deg);
-        }
-        to {
-          background: conic-gradient(var(--accent) 360deg, #f0f0f0 0deg);
-        }
-      }
-
-      .admin-panel {
-        display: none;
-      }
-
-      @media (max-width: 900px) {
-        .admin-layout {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
+      @media (max-width:900px){.admin-layout{grid-template-columns:minmax(0,1fr)}}
     </style>
   </head>
   <body>
@@ -288,9 +92,7 @@
       </div>
       <nav class="main-nav">
         <div class="nav-left">
-          <span class="admin-badge-top">
-            Painel administrativo privado
-          </span>
+          <span class="admin-badge-top">Painel administrativo privado</span>
         </div>
         <div></div>
       </nav>
@@ -299,62 +101,32 @@
     <main class="admin-main">
       <!-- Login -->
       <section id="adminLoginSection" class="admin-card admin-login">
-        <h1 class="admin-header-title admin-login-title">
-          Acesso administrativo
-        </h1>
-        <p class="admin-login-subtitle">
-          Digite seu usuário e senha para entrar no painel da DARAH.
-        </p>
+        <h1 class="admin-header-title admin-login-title">Acesso administrativo</h1>
+        <p class="admin-login-subtitle">Digite seu usuário e senha para entrar no painel da DARAH.</p>
 
         <div class="admin-field">
-          <label for="adminUsername" class="admin-label">Username</label>
-          <input
-            id="adminUsername"
-            class="admin-input"
-            type="text"
-            autocomplete="username"
-          />
+          <label for="adminUsername" class="admin-label">Usuário</label>
+          <input id="adminUsername" class="admin-input" type="text" autocomplete="username" />
         </div>
 
         <div class="admin-field">
-          <label for="adminPassword" class="admin-label">Password</label>
-          <input
-            id="adminPassword"
-            class="admin-input"
-            type="password"
-            autocomplete="current-password"
-          />
+          <label for="adminPassword" class="admin-label">Senha</label>
+          <input id="adminPassword" class="admin-input" type="password" autocomplete="current-password" />
         </div>
 
-        <button id="adminLoginButton" class="primary-button">
-          Entrar
-        </button>
-        <p
-          id="adminLoginError"
-          class="admin-status admin-login-error error"
-        ></p>
+        <button id="adminLoginButton" class="primary-button">Entrar</button>
+        <p id="adminLoginError" class="admin-status admin-login-error error"></p>
       </section>
 
       <!-- Loading / welcome -->
-      <section
-        id="adminLoadingSection"
-        class="admin-loading-section"
-        aria-hidden="true"
-      >
+      <section id="adminLoadingSection" class="admin-loading-section" aria-hidden="true">
         <div class="admin-card admin-loading-card">
-          <p class="admin-header-subtitle">
-            Preparando o painel administrativo.
-          </p>
+          <p class="admin-header-subtitle">Preparando o painel administrativo.</p>
           <div class="loading-circle-wrapper">
             <div class="loading-circle">
-              <div class="loading-circle-fill"></div>
+              <div class="loading-circle-fill accent-blue"></div>
               <div class="loading-circle-inner"></div>
-              <div
-                class="loading-circle-message"
-                id="adminWelcomeMessage"
-              >
-                Welcome, Danielle!
-              </div>
+              <div class="loading-circle-message" id="adminWelcomeMessage">Bem-vinda!</div>
             </div>
           </div>
         </div>
@@ -365,9 +137,7 @@
         <header>
           <h1 class="admin-header-title">Painel DARAH</h1>
           <p class="admin-header-subtitle">
-            Atualize o conteúdo da página inicial e gerencie o catálogo de
-            joias em tempo real. Esta área é reservada apenas para a
-            administração.
+            Atualize a página inicial e gerencie o catálogo em tempo real. Área exclusiva da administração.
           </p>
         </header>
 
@@ -375,51 +145,37 @@
           <!-- Homepage content -->
           <section class="admin-card">
             <h2>Página inicial</h2>
-            <p class="admin-help">
-              Edite o texto de apresentação e as imagens da homepage. As
-              alterações aparecem diretamente no site principal.
-            </p>
+            <p class="admin-help">Edite o texto de apresentação e as imagens da homepage. As alterações aparecem direto no site.</p>
 
             <div class="admin-field">
-              <label for="adminAboutText" class="admin-label">
-                Texto "Sobre" da homepage
-              </label>
-              <textarea
-                id="adminAboutText"
-                class="admin-textarea"
-                placeholder="Digite aqui a história, valores e identidade da DARAH"
-              ></textarea>
+              <label for="adminAboutText" class="admin-label">Texto "Sobre" da homepage</label>
+              <textarea id="adminAboutText" class="admin-textarea" placeholder="História, valores e identidade da DARAH"></textarea>
             </div>
 
+            <!-- Live gallery that mirrors the public collage -->
             <div class="admin-field">
-              <label for="adminHeroImages" class="admin-label">
-                Imagens da homepage (URLs ou fotos, uma por linha)
-              </label>
-              <textarea
-                id="adminHeroImages"
-                class="admin-textarea"
-                placeholder="Cole URLs de imagens ou use o botão abaixo para escolher fotos do dispositivo"
-              ></textarea>
-              <!-- file input and button will be wired in admin.js -->
-              <input
-                id="adminHeroImagesFile"
-                type="file"
-                accept="image/*"
-                multiple
-                style="display: none"
-              />
-              <button
-                type="button"
-                id="adminHeroImagesFileButton"
-                class="admin-button-secondary"
-              >
+              <label class="admin-label">Imagens da homepage</label>
+              <div id="adminHeroGallery" class="admin-hero-gallery"></div>
+
+              <!-- Hidden legacy textarea kept for backward compatibility with old data shape -->
+              <textarea id="adminHeroImages" class="admin-textarea" style="display:none"></textarea>
+
+              <input id="adminHeroImagesFile" type="file" accept="image/*" multiple style="display:none" />
+              <button type="button" id="adminHeroImagesFileButton" class="admin-button-secondary">
                 Escolher fotos do dispositivo
               </button>
             </div>
 
-            <button id="saveHomepageBtn" class="primary-button">
-              Salvar página inicial
-            </button>
+            <!-- Notices -->
+            <div class="admin-field">
+              <div class="admin-notice-toolbar">
+                <span class="admin-label">Avisos do site</span>
+                <button type="button" id="adminAddNoticeBtn" class="admin-button-secondary">Adicionar aviso</button>
+              </div>
+              <div id="adminNoticeList"></div>
+            </div>
+
+            <button id="saveHomepageBtn" class="primary-button">Salvar página inicial</button>
             <p id="adminHomepageStatus" class="admin-status"></p>
           </section>
 
@@ -427,44 +183,25 @@
           <section class="admin-card">
             <h2>Catálogo de produtos</h2>
             <p class="admin-help">
-              Cadastre novas peças ou edite joias existentes nas coleções de
-              anéis, colares, pulseiras e brincos. Abaixo você vê as peças em
-              cards, como na vitrine principal.
+              Cadastre novas peças ou edite joias existentes. Os cards abaixo espelham a vitrine principal.
             </p>
 
-            <!-- Grid de cards de produtos (espelha o site principal) -->
             <div id="adminProductGrid" class="admin-product-grid">
-              <!-- Cards de produtos preenchidos por admin.js -->
-              <article
-                class="admin-product-card add-card"
-                id="adminAddProductCard"
-              >
+              <!-- Cards gerados por admin.js -->
+              <article class="admin-product-card add-card" id="adminAddProductCard">
                 <div class="add-card-inner">
                   <div class="add-card-icon">+</div>
-                  <div class="add-card-text-main">
-                    Adicionar novo produto
-                  </div>
-                  <div class="add-card-text-sub">
-                    Clique para cadastrar uma nova peça com nome, preço,
-                    descrição e foto.
-                  </div>
-                  <button
-                    type="button"
-                    class="add-card-button"
-                    id="adminAddProductButton"
-                  >
-                    Novo produto
-                  </button>
+                  <div class="add-card-text-main">Adicionar novo produto</div>
+                  <div class="add-card-text-sub">Clique para cadastrar nome, preço, descrição e foto.</div>
+                  <button type="button" class="add-card-button" id="adminAddProductButton">Novo produto</button>
                 </div>
               </article>
             </div>
 
-            <!-- Formulário de cadastro / edição -->
+            <!-- Formulário legado, mantém compatibilidade e APIs -->
             <form id="productForm">
               <div class="admin-field">
-                <label for="productCategory" class="admin-label">
-                  Categoria
-                </label>
+                <label for="productCategory" class="admin-label">Categoria</label>
                 <select id="productCategory" class="admin-select" required>
                   <option value="rings">Anéis</option>
                   <option value="necklaces">Colares</option>
@@ -474,90 +211,36 @@
               </div>
 
               <div class="admin-field">
-                <label for="productName" class="admin-label">
-                  Nome do produto
-                </label>
-                <input
-                  id="productName"
-                  class="admin-input"
-                  type="text"
-                  required
-                  placeholder="Exemplo: Anel dourado com zircônia"
-                />
+                <label for="productName" class="admin-label">Nome do produto</label>
+                <input id="productName" class="admin-input" type="text" required placeholder="Exemplo: Anel dourado com zircônia" />
               </div>
 
               <div class="admin-field">
-                <label for="productDescription" class="admin-label">
-                  Descrição
-                </label>
-                <textarea
-                  id="productDescription"
-                  class="admin-textarea"
-                  placeholder="Detalhes sobre o material, acabamento e estilo da peça"
-                ></textarea>
+                <label for="productDescription" class="admin-label">Descrição</label>
+                <textarea id="productDescription" class="admin-textarea" placeholder="Material, acabamento e estilo"></textarea>
               </div>
 
               <div class="admin-field">
-                <label for="productPrice" class="admin-label">
-                  Preço (em reais, use ponto para centavos)
-                </label>
-                <input
-                  id="productPrice"
-                  class="admin-input"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  placeholder="Exemplo: 149.90"
-                />
+                <label for="productPrice" class="admin-label">Preço em reais</label>
+                <input id="productPrice" class="admin-input" type="number" step="0.01" min="0" required placeholder="Exemplo: 149.90" />
               </div>
 
               <div class="admin-field">
-                <label for="productStock" class="admin-label">
-                  Quantidade em estoque
-                </label>
-                <input
-                  id="productStock"
-                  class="admin-input"
-                  type="number"
-                  min="0"
-                  required
-                  placeholder="Exemplo: 10"
-                />
+                <label for="productStock" class="admin-label">Quantidade em estoque</label>
+                <input id="productStock" class="admin-input" type="number" min="0" required placeholder="Exemplo: 10" />
               </div>
 
               <div class="admin-field">
-                <label for="productImageUrl" class="admin-label">
-                  Imagem do produto
-                </label>
-                <input
-                  id="productImageUrl"
-                  class="admin-input"
-                  type="text"
-                  placeholder="Cole uma URL ou escolha uma foto do dispositivo"
-                />
-                <input
-                  id="productImageFile"
-                  type="file"
-                  accept="image/*"
-                  style="display: none"
-                />
-                <button
-                  type="button"
-                  id="productImageFileButton"
-                  class="admin-button-secondary"
-                >
-                  Escolher foto do dispositivo
-                </button>
+                <label for="productImageUrl" class="admin-label">Imagem do produto</label>
+                <input id="productImageUrl" class="admin-input" type="text" placeholder="Será preenchido ao escolher uma foto" />
+                <input id="productImageFile" type="file" accept="image/*" style="display:none" />
+                <button type="button" id="productImageFileButton" class="admin-button-secondary">Escolher foto do dispositivo</button>
               </div>
 
-              <button type="submit" class="primary-button">
-                Adicionar produto
-              </button>
+              <button type="submit" class="primary-button">Adicionar produto</button>
               <p id="adminProductFormStatus" class="admin-status"></p>
             </form>
 
-            <!-- Lista detalhada opcional, em formato de tabela -->
             <div class="admin-table-wrapper">
               <table class="admin-table">
                 <thead>
@@ -570,9 +253,7 @@
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody id="adminProductsTableBody">
-                  <!-- Filled by admin.js -->
-                </tbody>
+                <tbody id="adminProductsTableBody"></tbody>
               </table>
             </div>
           </section>
@@ -581,7 +262,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>© 2025 DARAH All rights reserved</p>
+      <p>2025 DARAH All rights reserved</p>
     </footer>
 
     <script src="admin.js"></script>
