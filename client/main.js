@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const cartCountEl = document.getElementById("cartCount");
   const yearEl = document.getElementById("year");
   const checkoutButton = document.getElementById("checkoutButton");
+  const rootEl = document.documentElement;
 
   // Views mirror
   const views = {
@@ -21,7 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Homepage elements
   const aboutTextEl = document.getElementById("aboutText");
   const heroImagesEl = document.getElementById("heroImages");
-  const siteNoticesEl = document.getElementById("siteNotices"); // optional container placed above "Sobre"
+  const siteNoticesEl = document.getElementById("siteNotices");
+  const siteNoticesListEl = document.getElementById("siteNoticesList");
 
   // =========================
   // Helpers
@@ -38,6 +40,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function applyThemeVariant(theme) {
+    const variant = theme === "natal" ? "natal" : "default";
+    if (rootEl) {
+      rootEl.setAttribute("data-theme-variant", variant);
+    }
+  }
+
   function setActiveView(key) {
     Object.entries(views).forEach(([name, el]) => {
       if (!el) return;
@@ -47,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Highlight nav except on checkout
     navLinks.forEach((btn) => {
-      const viewKey = btn.dataset.view; // "home", "rings", ...
+      const viewKey = btn.dataset.view;
       btn.classList.toggle("active", key !== "checkout" && viewKey === key);
     });
 
@@ -79,26 +88,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // Homepage
   // =========================
   function renderNotices(notices) {
-    if (!siteNoticesEl) return;
-    siteNoticesEl.innerHTML = "";
+    if (!siteNoticesEl || !siteNoticesListEl) return;
+
+    siteNoticesListEl.innerHTML = "";
     const list = Array.isArray(notices) ? notices.filter((n) => n && n.trim().length) : [];
     if (!list.length) {
       siteNoticesEl.style.display = "none";
       return;
     }
+
     siteNoticesEl.style.display = "block";
 
     list.forEach((text) => {
-      const card = document.createElement("div");
-      card.className = "home-highlight";
-      const h = document.createElement("h2");
-      h.textContent = "Aviso";
       const p = document.createElement("p");
       p.className = "home-highlight-text";
       p.textContent = text;
-      card.appendChild(h);
-      card.appendChild(p);
-      siteNoticesEl.appendChild(card);
+      siteNoticesListEl.appendChild(p);
     });
   }
 
@@ -136,11 +141,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (aboutTextEl && typeof hp.aboutText === "string") {
         aboutTextEl.textContent = hp.aboutText;
       }
+      if (hp && typeof hp.theme === "string") {
+        applyThemeVariant(hp.theme);
+      } else {
+        applyThemeVariant("default");
+      }
       renderHeroImages(hp.heroImages);
       renderNotices(hp.notices);
     } catch (err) {
       console.error(err);
       // Soft fallback placeholders to keep layout stable
+      applyThemeVariant("default");
       renderHeroImages([]);
       renderNotices([]);
       if (aboutTextEl) aboutTextEl.textContent = "";
@@ -181,10 +192,10 @@ document.addEventListener("DOMContentLoaded", () => {
       content.className = "product-content";
 
       const headerLine = document.createElement("div");
-      headerLine.className = "admin-product-header-line";
+      headerLine.className = "product-meta";
 
       const nameEl = document.createElement("h3");
-      nameEl.className = "product-name admin-product-name";
+      nameEl.className = "product-name";
       nameEl.textContent = product.name || "Produto";
       headerLine.appendChild(nameEl);
 
@@ -193,22 +204,22 @@ document.addEventListener("DOMContentLoaded", () => {
       descEl.textContent = product.description || "Joia exclusiva DARAH.";
 
       const metaLine = document.createElement("div");
-      metaLine.className = "admin-product-meta-line";
+      metaLine.className = "product-meta";
 
       const priceEl = document.createElement("span");
-      priceEl.className = "product-price admin-product-price";
+      priceEl.className = "product-price";
       priceEl.textContent = formatBRL(product.price);
 
       const stockEl = document.createElement("span");
-      stockEl.className = "product-stock admin-product-stock";
+      stockEl.className = "product-stock";
       stockEl.textContent =
-        typeof product.stock === "number" ? `Estoque: ${product.stock}` : "";
+        typeof product.stock === "number" ? "Estoque: " + product.stock : "";
 
       metaLine.appendChild(priceEl);
       metaLine.appendChild(stockEl);
 
       const actionsRow = document.createElement("div");
-      actionsRow.className = "admin-product-actions-row";
+      actionsRow.style.marginTop = "8px";
 
       const button = document.createElement("button");
       button.className = "primary-button";
@@ -458,11 +469,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   navLinks.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const key = btn.dataset.view; // "home", "rings", ...
+      const key = btn.dataset.view;
       if (!key) return;
       setActiveView(key);
       if (key === "home") {
-        // Ensure homepage visuals are fresh if coming back
         loadHomepage();
       }
     });
@@ -483,6 +493,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // Initial load
   // =========================
+  // Honor any initial theme set in HTML but let backend override when homepage loads
+  const initialVariant = rootEl ? rootEl.getAttribute("data-theme-variant") : null;
+  applyThemeVariant(initialVariant || "default");
+
   setActiveView("home");
   loadHomepage();
   loadProducts();
