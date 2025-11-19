@@ -36,6 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const productFormStatusEl = document.getElementById("adminProductFormStatus");
   const productsTableBody = document.getElementById("adminProductsTableBody");
 
+  // Admin product grid elements
+  const adminProductGrid = document.getElementById("adminProductGrid");
+  const adminAddProductCard = document.getElementById("adminAddProductCard");
+  const adminAddProductButton = document.getElementById("adminAddProductButton");
+
   // Old footer span is optional now
   const adminYearEl = document.getElementById("adminYear");
 
@@ -304,6 +309,179 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function renderProductsGrid(products) {
+    if (!adminProductGrid) return;
+
+    // Keep the add card if it exists, remove only dynamic cards
+    const addCard = adminAddProductCard || adminProductGrid.querySelector(
+      "#adminAddProductCard"
+    );
+    Array.from(adminProductGrid.children).forEach((child) => {
+      if (child !== addCard) {
+        adminProductGrid.removeChild(child);
+      }
+    });
+
+    if (!Array.isArray(products) || products.length === 0) {
+      // Only add card is shown when there are no products
+      if (!addCard) {
+        const createdAddCard = createAddProductCardElement();
+        adminProductGrid.appendChild(createdAddCard);
+      } else {
+        adminProductGrid.appendChild(addCard);
+      }
+      return;
+    }
+
+    products.forEach((product) => {
+      const card = document.createElement("article");
+      card.className = "admin-product-card";
+
+      const imageWrapper = document.createElement("div");
+      imageWrapper.className = "product-image-wrapper";
+
+      if (product.imageUrl) {
+        const img = document.createElement("img");
+        img.src = product.imageUrl;
+        img.alt = product.name || "Imagem do produto";
+        imageWrapper.appendChild(img);
+      }
+
+      const content = document.createElement("div");
+      content.className = "admin-product-content";
+
+      const headerLine = document.createElement("div");
+      headerLine.className = "admin-product-header-line";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "admin-product-name";
+      nameEl.textContent = product.name || "Produto";
+
+      const categoryEl = document.createElement("div");
+      categoryEl.className = "admin-product-category";
+      categoryEl.textContent = categoryLabel(product.category);
+
+      headerLine.appendChild(nameEl);
+      headerLine.appendChild(categoryEl);
+
+      const descriptionEl = document.createElement("div");
+      descriptionEl.className = "product-description";
+      descriptionEl.textContent =
+        product.description || "Peça da coleção DARAH.";
+
+      const metaLine = document.createElement("div");
+      metaLine.className = "admin-product-meta-line";
+
+      const priceEl = document.createElement("div");
+      priceEl.className = "admin-product-price";
+      priceEl.textContent = formatBRL(product.price);
+
+      const stockEl = document.createElement("div");
+      stockEl.className = "admin-product-stock";
+      stockEl.textContent =
+        typeof product.stock === "number"
+          ? `Estoque: ${product.stock}`
+          : "Estoque: -";
+
+      metaLine.appendChild(priceEl);
+      metaLine.appendChild(stockEl);
+
+      const actionsRow = document.createElement("div");
+      actionsRow.className = "admin-product-actions-row";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "admin-button-secondary";
+      editBtn.textContent = "Editar";
+      editBtn.dataset.action = "edit";
+      editBtn.dataset.id = product.id;
+
+      const toggleBtn = document.createElement("button");
+      toggleBtn.type = "button";
+      toggleBtn.className = "admin-button-secondary";
+      toggleBtn.dataset.id = product.id;
+      if (product.active === false || product.stock <= 0) {
+        toggleBtn.dataset.action = "activate";
+        toggleBtn.textContent = "Ativar";
+      } else {
+        toggleBtn.dataset.action = "deactivate";
+        toggleBtn.textContent = "Desativar";
+      }
+
+      actionsRow.appendChild(editBtn);
+      actionsRow.appendChild(toggleBtn);
+
+      content.appendChild(headerLine);
+      content.appendChild(descriptionEl);
+      content.appendChild(metaLine);
+      content.appendChild(actionsRow);
+
+      card.appendChild(imageWrapper);
+      card.appendChild(content);
+
+      if (addCard && adminProductGrid.contains(addCard)) {
+        adminProductGrid.insertBefore(card, addCard);
+      } else {
+        adminProductGrid.appendChild(card);
+      }
+    });
+
+    if (addCard && !adminProductGrid.contains(addCard)) {
+      adminProductGrid.appendChild(addCard);
+    } else if (!addCard) {
+      const createdAddCard = createAddProductCardElement();
+      adminProductGrid.appendChild(createdAddCard);
+    }
+  }
+
+  function createAddProductCardElement() {
+    const card = document.createElement("article");
+    card.className = "admin-product-card add-card";
+    card.id = "adminAddProductCard";
+
+    const inner = document.createElement("div");
+    inner.className = "add-card-inner";
+
+    const icon = document.createElement("div");
+    icon.className = "add-card-icon";
+    icon.textContent = "+";
+
+    const textMain = document.createElement("div");
+    textMain.className = "add-card-text-main";
+    textMain.textContent = "Adicionar novo produto";
+
+    const textSub = document.createElement("div");
+    textSub.className = "add-card-text-sub";
+    textSub.textContent =
+      "Clique para cadastrar uma nova peça com nome, preço, descrição e foto.";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "add-card-button";
+    button.id = "adminAddProductButton";
+    button.textContent = "Novo produto";
+
+    inner.appendChild(icon);
+    inner.appendChild(textMain);
+    inner.appendChild(textSub);
+    inner.appendChild(button);
+    card.appendChild(inner);
+
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      startAddProductFlow();
+    });
+
+    card.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("button")) return;
+      startAddProductFlow();
+    });
+
+    return card;
+  }
+
   async function loadProductsAdmin() {
     try {
       const res = await fetch("/api/admin/products");
@@ -311,6 +489,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const products = await res.json();
       allProducts = Array.isArray(products) ? products : [];
       renderProductsTable(allProducts);
+      renderProductsGrid(allProducts);
     } catch (err) {
       console.error(err);
       setProductFormStatus("Não foi possível carregar os produtos.", "error");
@@ -423,6 +602,51 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       setProductFormStatus(err.message, "error");
+    }
+  }
+
+  function startAddProductFlow() {
+    clearProductForm();
+    setProductFormStatus(
+      'Preencha os dados do novo produto e clique em "Adicionar produto".',
+      "ok"
+    );
+    if (productForm) {
+      productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (productNameEl) {
+      productNameEl.focus();
+    }
+  }
+
+  function handleProductAction(action, id) {
+    if (!action || !id) return;
+
+    if (action === "edit") {
+      const product = allProducts.find((p) => p.id === id);
+      if (!product) {
+        setProductFormStatus("Produto não encontrado para edição.", "error");
+        return;
+      }
+      fillProductForm(product);
+      setProductFormStatus(
+        "Editando produto. Salve para aplicar as alterações.",
+        "ok"
+      );
+      if (productForm) {
+        productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (productNameEl) {
+        productNameEl.focus();
+      }
+    } else if (action === "deactivate") {
+      const confirmMsg =
+        "Tem certeza de que deseja desativar este produto? Ele não aparecerá mais na loja.";
+      if (window.confirm(confirmMsg)) {
+        deactivateProduct(id);
+      }
+    } else if (action === "activate") {
+      activateProduct(id);
     }
   }
 
@@ -614,28 +838,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const action = btn.dataset.action;
       const id = btn.dataset.id;
+      handleProductAction(action, id);
+    });
+  }
+
+  if (adminProductGrid) {
+    adminProductGrid.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const btn = target.closest("button");
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
       if (!action || !id) return;
 
-      if (action === "edit") {
-        const product = allProducts.find((p) => p.id === id);
-        if (!product) {
-          setProductFormStatus("Produto não encontrado para edição.", "error");
-          return;
-        }
-        fillProductForm(product);
-        setProductFormStatus(
-          "Editando produto. Salve para aplicar as alterações.",
-          "ok"
-        );
-      } else if (action === "deactivate") {
-        const confirmMsg =
-          "Tem certeza de que deseja desativar este produto? Ele não aparecerá mais na loja.";
-        if (window.confirm(confirmMsg)) {
-          deactivateProduct(id);
-        }
-      } else if (action === "activate") {
-        activateProduct(id);
-      }
+      handleProductAction(action, id);
+    });
+  }
+
+  if (adminAddProductButton) {
+    adminAddProductButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      startAddProductFlow();
+    });
+  }
+
+  if (adminAddProductCard) {
+    adminAddProductCard.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("button")) return;
+      startAddProductFlow();
     });
   }
 
