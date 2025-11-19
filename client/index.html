@@ -4,15 +4,14 @@
     <meta charset="utf-8" />
     <title>DARAH · Joias</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- Cabeçalho igual ao do admin -->
     <header class="site-header">
       <div class="brand-bar">
         <span class="brand-name">DARAH</span>
       </div>
-
       <nav class="main-nav">
         <div class="nav-left">
           <button class="nav-link active" data-view="home">Início</button>
@@ -21,75 +20,75 @@
           <button class="nav-link" data-view="bracelets">Pulseiras</button>
           <button class="nav-link" data-view="earrings">Brincos</button>
         </div>
-        <button class="cart-button" id="cartButton" aria-label="Ver carrinho">
+        <button id="cartButton" class="cart-button" aria-label="Abrir carrinho">
           <span class="cart-icon">🛒</span>
-          <span class="cart-count" id="cartCount">0</span>
+          <span id="cartCount" class="cart-count">0</span>
         </button>
       </nav>
     </header>
 
     <main class="main-content">
-      <!-- Home / About -->
+      <!-- HOME -->
       <section id="view-home" class="view active-view">
+        <!-- Avisos ficam acima do bloco Sobre -->
+        <div id="siteNotices" style="display:none"></div>
+
         <section class="hero">
-          <div class="hero-images" id="heroImages">
-            <!-- Filled from API: homepage.heroImages -->
+          <div id="heroImages" class="hero-images">
+            <!-- Imagens da homepage renderizadas por main.js -->
           </div>
-          <div class="hero-about">
-            <h1 class="hero-title">Joias DARAH</h1>
+
+          <article class="hero-about">
+            <h2 class="hero-title">Sobre a DARAH</h2>
             <p id="aboutText" class="hero-text">
-              DARAH é uma joalheria dedicada a peças elegantes e atemporais,
-              criadas para acompanhar você em todos os momentos especiais.
+              <!-- Texto preenchido por /api/homepage -->
             </p>
-          </div>
+          </article>
         </section>
 
         <section class="home-highlight">
           <h2>Seleção em destaque</h2>
           <p class="home-highlight-text">
-            Explore nossas coleções de anéis, colares, pulseiras e brincos,
-            cuidadosamente escolhidas para valorizar a beleza de cada momento.
+            Explore nossas coleções de anéis, colares, pulseiras e brincos.
           </p>
         </section>
       </section>
 
-      <!-- Rings -->
+      <!-- ANÉIS -->
       <section id="view-rings" class="view">
         <h2 class="section-title">Anéis</h2>
         <div id="ringsList" class="product-grid"></div>
       </section>
 
-      <!-- Necklaces -->
+      <!-- COLARES -->
       <section id="view-necklaces" class="view">
         <h2 class="section-title">Colares</h2>
         <div id="necklacesList" class="product-grid"></div>
       </section>
 
-      <!-- Bracelets -->
+      <!-- PULSEIRAS -->
       <section id="view-bracelets" class="view">
         <h2 class="section-title">Pulseiras</h2>
         <div id="braceletsList" class="product-grid"></div>
       </section>
 
-      <!-- Earrings -->
+      <!-- BRINCOS -->
       <section id="view-earrings" class="view">
         <h2 class="section-title">Brincos</h2>
         <div id="earringsList" class="product-grid"></div>
       </section>
 
-      <!-- Checkout -->
+      <!-- CHECKOUT -->
       <section id="view-checkout" class="view checkout-view">
-        <h2 class="section-title">Seu carrinho</h2>
+        <h2 class="section-title">Finalizar pedido</h2>
 
         <div class="checkout-layout">
-          <!-- Left: items -->
-          <div class="checkout-items" id="checkoutItems">
-            <!-- Filled from /api/cart -->
-          </div>
+          <section id="checkoutItems" class="checkout-items">
+            <!-- Linhas do carrinho renderizadas por main.js -->
+          </section>
 
-          <!-- Right: totals -->
           <aside class="checkout-summary">
-            <h3>Resumo do pedido</h3>
+            <h3>Resumo</h3>
             <div class="summary-line">
               <span>Subtotal</span>
               <span id="summarySubtotal">R$ 0,00</span>
@@ -102,13 +101,11 @@
               <span>Total</span>
               <span id="summaryTotal">R$ 0,00</span>
             </div>
-
-            <button id="checkoutButton" class="primary-button">
-              Finalizar pedido no WhatsApp
+            <button id="checkoutButton" class="primary-button" disabled>
+              Ir para o WhatsApp
             </button>
             <p class="checkout-note">
-              O pedido será enviado para o WhatsApp oficial da DARAH com todos
-              os itens e valores preenchidos para confirmação.
+              O checkout é realizado pelo WhatsApp com uma mensagem preenchida com seus itens.
             </p>
           </aside>
         </div>
@@ -116,7 +113,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>© 2025 DARAH All rights reserved</p>
+      <p>© <span id="year">2025</span> DARAH All rights reserved</p>
     </footer>
 
     <script src="main.js"></script>
