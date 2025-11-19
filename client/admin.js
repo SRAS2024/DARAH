@@ -1,11 +1,27 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Login and auth elements
+  const loginSection = document.getElementById("adminLoginSection");
+  const loginButton = document.getElementById("adminLoginButton");
+  const usernameInput = document.getElementById("adminUsername");
+  const passwordInput = document.getElementById("adminPassword");
+  const loginErrorEl = document.getElementById("adminLoginError");
+  const loadingSection = document.getElementById("adminLoadingSection");
+  const welcomeMessageEl = document.getElementById("adminWelcomeMessage");
+  const panelSection = document.getElementById("adminPanelSection");
+
+  // Homepage admin elements
   const aboutTextEl = document.getElementById("adminAboutText");
   const heroImagesEl = document.getElementById("adminHeroImages");
+  const heroImagesFileInput = document.getElementById("adminHeroImagesFile");
+  const heroImagesFileButton = document.getElementById(
+    "adminHeroImagesFileButton"
+  );
   const saveHomepageBtn = document.getElementById("saveHomepageBtn");
   const homepageStatusEl = document.getElementById("adminHomepageStatus");
 
+  // Product admin elements
   const productForm = document.getElementById("productForm");
   const productCategoryEl = document.getElementById("productCategory");
   const productNameEl = document.getElementById("productName");
@@ -13,12 +29,41 @@ document.addEventListener("DOMContentLoaded", () => {
   const productPriceEl = document.getElementById("productPrice");
   const productStockEl = document.getElementById("productStock");
   const productImageUrlEl = document.getElementById("productImageUrl");
+  const productImageFileInput = document.getElementById("productImageFile");
+  const productImageFileButton = document.getElementById(
+    "productImageFileButton"
+  );
   const productFormStatusEl = document.getElementById("adminProductFormStatus");
   const productsTableBody = document.getElementById("adminProductsTableBody");
+
+  // Old footer span is optional now
   const adminYearEl = document.getElementById("adminYear");
 
   let allProducts = [];
   let editingProductId = null;
+
+  const VALID_USERS = {
+    "Danielle Almeida": {
+      password: "Eu amo meu genro",
+      welcome: "Welcome, Danielle!"
+    },
+    "Maria Eduarda Almeida Simonds": {
+      password: "Estou apaixonada por Ryan Simonds",
+      welcome: "Welcome, Maria Eduarda"
+    }
+  };
+
+  function setLoginError(message) {
+    if (!loginErrorEl) return;
+    loginErrorEl.textContent = message || "";
+    if (!message) {
+      loginErrorEl.style.display = "none";
+      loginErrorEl.classList.remove("error");
+    } else {
+      loginErrorEl.style.display = "block";
+      loginErrorEl.classList.add("error");
+    }
+  }
 
   function formatBRL(value) {
     if (value == null || Number.isNaN(Number(value))) {
@@ -69,6 +114,23 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (type === "error") {
       productFormStatusEl.classList.add("error");
     }
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(
+          typeof reader.result === "string"
+            ? reader.result
+            : String(reader.result)
+        );
+      };
+      reader.onerror = () => {
+        reject(reader.error || new Error("Falha ao ler arquivo de imagem."));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   async function loadHomepageAdmin() {
@@ -128,8 +190,13 @@ document.addEventListener("DOMContentLoaded", () => {
     productPriceEl.value = "";
     productStockEl.value = "";
     productImageUrlEl.value = "";
+    if (productImageFileInput) {
+      productImageFileInput.value = "";
+    }
     editingProductId = null;
-    const submitBtn = productForm.querySelector("button[type=submit]");
+    const submitBtn = productForm
+      ? productForm.querySelector("button[type=submit]")
+      : null;
     if (submitBtn) {
       submitBtn.textContent = "Adicionar produto";
     }
@@ -145,7 +212,9 @@ document.addEventListener("DOMContentLoaded", () => {
       typeof product.stock === "number" ? String(product.stock) : "";
     productImageUrlEl.value = product.imageUrl || "";
     editingProductId = product.id;
-    const submitBtn = productForm.querySelector("button[type=submit]");
+    const submitBtn = productForm
+      ? productForm.querySelector("button[type=submit]")
+      : null;
     if (submitBtn) {
       submitBtn.textContent = "Salvar alterações";
     }
@@ -357,13 +426,146 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Events
+  function startAdminSession(username) {
+    const info = VALID_USERS[username];
+    if (!info) return;
+
+    try {
+      sessionStorage.setItem(
+        "darahAdminUser",
+        JSON.stringify({ username: username })
+      );
+    } catch (err) {
+      // storage can fail silently
+    }
+
+    if (loginSection) {
+      loginSection.style.display = "none";
+    }
+
+    if (loadingSection) {
+      if (welcomeMessageEl) {
+        welcomeMessageEl.textContent = info.welcome;
+      }
+
+      // restart loading circle animation by cloning the fill element
+      const fill = loadingSection.querySelector(".loading-circle-fill");
+      if (fill && fill.parentElement) {
+        const clone = fill.cloneNode(true);
+        fill.parentElement.replaceChild(clone, fill);
+      }
+
+      loadingSection.style.display = "flex";
+
+      setTimeout(() => {
+        loadingSection.style.display = "none";
+        if (panelSection) {
+          panelSection.style.display = "block";
+        }
+        loadHomepageAdmin();
+        loadProductsAdmin();
+      }, 4000);
+    } else if (panelSection) {
+      panelSection.style.display = "block";
+      loadHomepageAdmin();
+      loadProductsAdmin();
+    }
+  }
+
+  function handleLoginSubmit() {
+    if (!usernameInput || !passwordInput) return;
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    const info = VALID_USERS[username];
+    if (!info || info.password !== password) {
+      setLoginError("Usuário ou senha inválidos.");
+      return;
+    }
+
+    setLoginError("");
+    startAdminSession(username);
+  }
+
+  // Events and handlers
 
   if (saveHomepageBtn) {
     saveHomepageBtn.addEventListener("click", (event) => {
       event.preventDefault();
       setHomepageStatus("Salvando...", "");
       saveHomepage();
+    });
+  }
+
+  // Homepage image picker
+  if (heroImagesFileButton && heroImagesFileInput && heroImagesEl) {
+    heroImagesFileButton.addEventListener("click", () => {
+      heroImagesFileInput.click();
+    });
+
+    heroImagesFileInput.addEventListener("change", async () => {
+      const files = Array.from(heroImagesFileInput.files || []);
+      if (!files.length) return;
+
+      try {
+        setHomepageStatus("Carregando imagens selecionadas...", "");
+        const urls = [];
+        for (const file of files) {
+          const url = await fileToDataUrl(file);
+          urls.push(url);
+        }
+
+        const existingLines = heroImagesEl.value
+          .split("\n")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        heroImagesEl.value = [...existingLines, ...urls].join("\n");
+        setHomepageStatus(
+          'Imagens adicionadas. Clique em "Salvar página inicial" para aplicar.',
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setHomepageStatus(
+          "Não foi possível processar as imagens selecionadas.",
+          "error"
+        );
+      } finally {
+        heroImagesFileInput.value = "";
+      }
+    });
+  }
+
+  // Product image picker
+  if (productImageFileButton && productImageFileInput && productImageUrlEl) {
+    productImageFileButton.addEventListener("click", () => {
+      productImageFileInput.click();
+    });
+
+    productImageFileInput.addEventListener("change", async () => {
+      const file = productImageFileInput.files
+        ? productImageFileInput.files[0]
+        : null;
+      if (!file) return;
+
+      try {
+        setProductFormStatus("Carregando imagem selecionada...", "");
+        const url = await fileToDataUrl(file);
+        productImageUrlEl.value = url;
+        setProductFormStatus(
+          "Imagem adicionada. Preencha os dados e salve.",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setProductFormStatus(
+          "Não foi possível processar a imagem selecionada.",
+          "error"
+        );
+      } finally {
+        productImageFileInput.value = "";
+      }
     });
   }
 
@@ -441,7 +643,71 @@ document.addEventListener("DOMContentLoaded", () => {
     adminYearEl.textContent = String(new Date().getFullYear());
   }
 
-  // Initial load
-  loadHomepageAdmin();
-  loadProductsAdmin();
+  // Login events
+  if (loginButton) {
+    loginButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      handleLoginSubmit();
+    });
+  }
+
+  if (usernameInput) {
+    usernameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleLoginSubmit();
+      }
+    });
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleLoginSubmit();
+      }
+    });
+  }
+
+  // Restore existing admin session if present
+  let restoredUser = null;
+  try {
+    const stored = sessionStorage.getItem("darahAdminUser");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && parsed.username && VALID_USERS[parsed.username]) {
+        restoredUser = parsed.username;
+      }
+    }
+  } catch (err) {
+    // ignore storage errors
+  }
+
+  if (restoredUser && panelSection) {
+    if (loginSection) {
+      loginSection.style.display = "none";
+    }
+    if (loadingSection) {
+      loadingSection.style.display = "none";
+    }
+    panelSection.style.display = "block";
+
+    const info = VALID_USERS[restoredUser];
+    if (welcomeMessageEl && info) {
+      welcomeMessageEl.textContent = info.welcome;
+    }
+
+    loadHomepageAdmin();
+    loadProductsAdmin();
+  } else {
+    if (panelSection) {
+      panelSection.style.display = "none";
+    }
+    if (loadingSection) {
+      loadingSection.style.display = "none";
+    }
+    if (loginSection) {
+      loginSection.style.display = "block";
+    }
+  }
 });
