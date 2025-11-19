@@ -72,7 +72,8 @@ const db = {
     aboutText:
       "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
     heroImages: [],
-    notices: []
+    notices: [],
+    theme: "default" // "default" ou "natal"
   },
   products: []
 };
@@ -157,23 +158,33 @@ app.get("/api/homepage", (_req, res) => {
   res.json({
     aboutText: db.homepage.aboutText || "",
     heroImages: Array.isArray(db.homepage.heroImages) ? db.homepage.heroImages : [],
-    notices: Array.isArray(db.homepage.notices) ? db.homepage.notices : []
+    notices: Array.isArray(db.homepage.notices) ? db.homepage.notices : [],
+    theme: db.homepage.theme === "natal" ? "natal" : "default"
   });
 });
+
 app.put("/api/homepage", (req, res) => {
-  const { aboutText, heroImages, notices } = req.body || {};
+  const { aboutText, heroImages, notices, theme } = req.body || {};
+
   if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
+
   if (Array.isArray(heroImages)) {
     db.homepage.heroImages = heroImages
       .filter((s) => typeof s === "string" && s.trim().length)
       .slice(0, 20);
   }
+
   if (Array.isArray(notices)) {
     db.homepage.notices = notices
       .map((n) => String(n || "").trim())
       .filter((n) => n.length)
       .slice(0, 10);
   }
+
+  if (theme === "default" || theme === "natal") {
+    db.homepage.theme = theme;
+  }
+
   res.json({ ok: true });
 });
 
@@ -234,7 +245,9 @@ app.post("/api/cart/add", (req, res) => {
   if (existing) {
     const next = existing.quantity + 1;
     if (next > product.stock) {
-      return res.status(400).json({ error: "Quantidade além do estoque disponível." });
+      return res
+        .status(400)
+        .json({ error: "Quantidade além do estoque disponível." });
     }
     existing.quantity = next;
   } else {
@@ -252,11 +265,15 @@ app.post("/api/cart/update", (req, res) => {
   if (!item) return res.status(404).json({ error: "Item não está no carrinho." });
 
   const q = Number(quantity);
-  if (Number.isNaN(q) || q < 0) return res.status(400).json({ error: "Quantidade inválida." });
+  if (Number.isNaN(q) || q < 0) {
+    return res.status(400).json({ error: "Quantidade inválida." });
+  }
   if (q === 0) {
     cart.items = cart.items.filter((it) => it.productId !== productId);
   } else if (q > product.stock) {
-    return res.status(400).json({ error: "Quantidade além do estoque disponível." });
+    return res
+      .status(400)
+      .json({ error: "Quantidade além do estoque disponível." });
   } else {
     item.quantity = q;
   }
@@ -272,7 +289,9 @@ app.post("/api/checkout-link", (req, res) => {
   lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
   lines.push("");
   summary.items.forEach((it, i) => {
-    lines.push(`${i + 1}. ${it.name} — ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`);
+    lines.push(
+      `${i + 1}. ${it.name} — ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
+    );
   });
   lines.push("");
   lines.push(`Total: ${brl(summary.total)}`);
