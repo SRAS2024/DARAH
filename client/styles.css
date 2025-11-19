@@ -1,5 +1,5 @@
 :root {
-  /* Darker stone gray theme */
+  /* Tema padrão cinza pedra */
   --banner-bg: #c4c4c4;
   --banner-text: #222222;
   --page-bg: #ededed;
@@ -17,6 +17,23 @@
 
   /* Admin welcome loader accent */
   --accent-blue: #8ec5ff;
+}
+
+/* Tema de Natal vermelho e dourado */
+html[data-theme-variant="natal"] {
+  --banner-bg: #8b0000;       /* vermelho Natal */
+  --banner-text: #fdf5e6;     /* marfim suave */
+  --page-bg: #fff7f7;
+  --card-bg: #ffffff;
+
+  --accent: #b22222;          /* vermelho mais profundo */
+  --accent-soft: #f2d6a2;     /* dourado suave */
+  --border-soft: #e1c58c;
+
+  --text-main: #3b290c;
+  --text-muted: #7a5f2b;
+
+  --accent-blue: #ffd27f;     /* dourado claro no loader */
 }
 
 *,
@@ -185,7 +202,7 @@ body {
   overflow: hidden;
 }
 
-/* If there are real images they can be inserted as <img> inside hero-images */
+/* Imagens da hero na vitrine e no admin */
 .hero-images img {
   width: 100%;
   height: 100%;
@@ -370,63 +387,71 @@ body {
   position: relative;
 }
 
-.admin-product-card .product-image-wrapper {
-  background: #e8e8e8;
+/* Imagem proporcional em todos os dispositivos no admin */
+.admin-product-image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 75%;
+  background: #ececec;
+  overflow: hidden;
 }
 
-.admin-product-content {
-  padding: 14px 14px 16px 14px;
+.admin-product-image-wrapper img,
+.admin-product-card .admin-product-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Corpo do card de produto no admin */
+
+.admin-product-body {
+  padding: 12px 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.admin-product-header-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-}
-
-.admin-product-name {
-  font-size: 15px;
+.admin-product-title {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.admin-product-category {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.admin-product-description {
+  font-size: 12px;
   color: var(--text-muted);
+  min-height: 32px;
 }
 
-.admin-product-meta-line {
+.admin-product-meta-row {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   margin-top: 4px;
+  gap: 6px;
 }
 
 .admin-product-price {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-product-stock {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 .admin-product-actions-row {
-  margin-top: 8px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-end;
+  padding: 0 14px 12px;
   gap: 8px;
 }
 
+/* Inline editor actions keep full width buttons */
 .admin-product-actions-row .admin-button-secondary {
-  flex: 1;
   text-align: center;
 }
 
@@ -670,6 +695,7 @@ body {
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
   }
 
   .product-grid {
@@ -696,6 +722,7 @@ body {
     flex-direction: row;
     align-items: flex-start;
     gap: 10px;
+    padding: 8px 12px;
   }
 
   .nav-left {
@@ -704,12 +731,46 @@ body {
     padding-bottom: 4px;
   }
 
+  .main-content {
+    margin: 16px auto 28px auto;
+    padding: 0 14px;
+  }
+
+  .hero {
+    gap: 16px;
+  }
+
+  .hero-about {
+    padding: 16px 16px 18px;
+  }
+
+  .hero-images {
+    grid-auto-rows: 130px;
+    padding: 10px;
+  }
+
   .product-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-product-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .product-content,
+  .admin-product-body {
+    padding: 10px 12px 12px;
+  }
+
+  .product-name,
+  .admin-product-title {
+    font-size: 14px;
+  }
+
+  .product-price,
+  .admin-product-price {
+    font-size: 14px;
   }
 
   .checkout-item {
