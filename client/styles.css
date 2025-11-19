@@ -17,6 +17,9 @@
 
   /* Admin welcome loader accent */
   --accent-blue: #8ec5ff;
+
+  /* Dourado para o logotipo DARAH no Natal */
+  --brand-gold: #ffd700;
 }
 
 /* Tema de Natal vermelho e dourado */
@@ -34,6 +37,11 @@ html[data-theme-variant="natal"] {
   --text-muted: #7a5f2b;
 
   --accent-blue: #ffd27f;     /* dourado claro no loader */
+}
+
+/* DARAH em dourado 24k no tema de Natal */
+html[data-theme-variant="natal"] .brand-name {
+  color: var(--brand-gold);
 }
 
 *,
