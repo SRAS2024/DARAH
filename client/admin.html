@@ -428,9 +428,38 @@
             <h2>Catálogo de produtos</h2>
             <p class="admin-help">
               Cadastre novas peças ou edite joias existentes nas coleções de
-              anéis, colares, pulseiras e brincos.
+              anéis, colares, pulseiras e brincos. Abaixo você vê as peças em
+              cards, como na vitrine principal.
             </p>
 
+            <!-- Grid de cards de produtos (espelha o site principal) -->
+            <div id="adminProductGrid" class="admin-product-grid">
+              <!-- Cards de produtos preenchidos por admin.js -->
+              <article
+                class="admin-product-card add-card"
+                id="adminAddProductCard"
+              >
+                <div class="add-card-inner">
+                  <div class="add-card-icon">+</div>
+                  <div class="add-card-text-main">
+                    Adicionar novo produto
+                  </div>
+                  <div class="add-card-text-sub">
+                    Clique para cadastrar uma nova peça com nome, preço,
+                    descrição e foto.
+                  </div>
+                  <button
+                    type="button"
+                    class="add-card-button"
+                    id="adminAddProductButton"
+                  >
+                    Novo produto
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <!-- Formulário de cadastro / edição -->
             <form id="productForm">
               <div class="admin-field">
                 <label for="productCategory" class="admin-label">
@@ -528,6 +557,7 @@
               <p id="adminProductFormStatus" class="admin-status"></p>
             </form>
 
+            <!-- Lista detalhada opcional, em formato de tabela -->
             <div class="admin-table-wrapper">
               <table class="admin-table">
                 <thead>
