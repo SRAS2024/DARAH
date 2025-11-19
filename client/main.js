@@ -1,12 +1,14 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Navigation and common UI
   const navLinks = Array.from(document.querySelectorAll(".nav-link"));
   const cartButton = document.getElementById("cartButton");
   const cartCountEl = document.getElementById("cartCount");
   const yearEl = document.getElementById("year");
   const checkoutButton = document.getElementById("checkoutButton");
 
+  // Views mirror
   const views = {
     home: document.getElementById("view-home"),
     rings: document.getElementById("view-rings"),
@@ -16,63 +18,112 @@ document.addEventListener("DOMContentLoaded", () => {
     checkout: document.getElementById("view-checkout")
   };
 
+  // Homepage elements
+  const aboutTextEl = document.getElementById("aboutText");
+  const heroImagesEl = document.getElementById("heroImages");
+  const siteNoticesEl = document.getElementById("siteNotices"); // optional container placed above "Sobre"
+
+  // =========================
+  // Helpers
+  // =========================
   function formatBRL(value) {
-    if (value == null || Number.isNaN(Number(value))) {
-      return "R$ 0,00";
-    }
+    if (value == null || Number.isNaN(Number(value))) return "R$ 0,00";
     try {
       return Number(value).toLocaleString("pt-BR", {
         style: "currency",
         currency: "BRL"
       });
-    } catch (err) {
+    } catch {
       return "R$ " + Number(value).toFixed(2).replace(".", ",");
     }
   }
 
-  function setActiveView(viewName) {
+  function setActiveView(key) {
     Object.entries(views).forEach(([name, el]) => {
       if (!el) return;
-      if (name === viewName) {
-        el.classList.add("active-view");
-      } else {
-        el.classList.remove("active-view");
-      }
+      if (name === key) el.classList.add("active-view");
+      else el.classList.remove("active-view");
     });
 
+    // Highlight nav except on checkout
     navLinks.forEach((btn) => {
-      if (btn.dataset.view === viewName.replace("view-", "")) {
-        btn.classList.add("active");
-      } else if (viewName === "checkout") {
-        // When viewing checkout, highlight nothing in the main nav list
-        btn.classList.remove("active");
-      } else {
-        btn.classList.toggle("active", btn.dataset.view === viewName);
-      }
+      const viewKey = btn.dataset.view; // "home", "rings", ...
+      btn.classList.toggle("active", key !== "checkout" && viewKey === key);
     });
+
+    // Lazy loads when we switch to checkout
+    if (key === "checkout") loadCartView();
   }
 
   function updateCartCountFromCartData(cartData) {
     if (!cartData || !Array.isArray(cartData.items)) {
-      cartCountEl.textContent = "0";
+      if (cartCountEl) cartCountEl.textContent = "0";
       return;
     }
-    const totalItems = cartData.items.reduce(
-      (sum, item) => sum + (item.quantity || 0),
-      0
-    );
-    cartCountEl.textContent = String(totalItems);
+    const total = cartData.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+    if (cartCountEl) cartCountEl.textContent = String(total);
   }
 
   async function refreshCartCount() {
     try {
       const res = await fetch("/api/cart");
-      if (!res.ok) throw new Error("Erro ao buscar carrinho");
+      if (!res.ok) throw new Error();
       const cartData = await res.json();
       updateCartCountFromCartData(cartData);
-    } catch (err) {
-      console.error(err);
-      cartCountEl.textContent = "0";
+    } catch {
+      if (cartCountEl) cartCountEl.textContent = "0";
+    }
+  }
+
+  // =========================
+  // Homepage
+  // =========================
+  function renderNotices(notices) {
+    if (!siteNoticesEl) return;
+    siteNoticesEl.innerHTML = "";
+    const list = Array.isArray(notices) ? notices.filter((n) => n && n.trim().length) : [];
+    if (!list.length) {
+      siteNoticesEl.style.display = "none";
+      return;
+    }
+    siteNoticesEl.style.display = "block";
+
+    list.forEach((text) => {
+      const card = document.createElement("div");
+      card.className = "home-highlight";
+      const h = document.createElement("h2");
+      h.textContent = "Aviso";
+      const p = document.createElement("p");
+      p.className = "home-highlight-text";
+      p.textContent = text;
+      card.appendChild(h);
+      card.appendChild(p);
+      siteNoticesEl.appendChild(card);
+    });
+  }
+
+  function renderHeroImages(srcs) {
+    if (!heroImagesEl) return;
+    heroImagesEl.innerHTML = "";
+
+    const imgs = Array.isArray(srcs) ? srcs : [];
+
+    if (imgs.length) {
+      imgs.forEach((src) => {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = "Joia DARAH";
+        heroImagesEl.appendChild(img);
+      });
+      return;
+    }
+
+    // Placeholders in gray palette
+    for (let i = 0; i < 4; i += 1) {
+      const ph = document.createElement("div");
+      ph.style.borderRadius = "14px";
+      ph.style.background = i % 2 === 0 ? "#dcdcdc" : "#eaeaea";
+      heroImagesEl.appendChild(ph);
     }
   }
 
@@ -82,44 +133,30 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Erro ao carregar conteúdo da página inicial");
       const hp = await res.json();
 
-      const aboutTextEl = document.getElementById("aboutText");
       if (aboutTextEl && typeof hp.aboutText === "string") {
         aboutTextEl.textContent = hp.aboutText;
       }
-
-      const heroImagesEl = document.getElementById("heroImages");
-      if (heroImagesEl) {
-        heroImagesEl.innerHTML = "";
-        if (Array.isArray(hp.heroImages) && hp.heroImages.length > 0) {
-          hp.heroImages.forEach((src) => {
-            const img = document.createElement("img");
-            img.src = src;
-            img.alt = "Joia DARAH";
-            heroImagesEl.appendChild(img);
-          });
-        } else {
-          // Placeholders in the new gray palette if no images are set yet
-          for (let i = 0; i < 4; i += 1) {
-            const placeholder = document.createElement("div");
-            placeholder.style.borderRadius = "14px";
-            placeholder.style.background =
-              i % 2 === 0 ? "#e0e0e0" : "#f0f0f0";
-            heroImagesEl.appendChild(placeholder);
-          }
-        }
-      }
+      renderHeroImages(hp.heroImages);
+      renderNotices(hp.notices);
     } catch (err) {
       console.error(err);
+      // Soft fallback placeholders to keep layout stable
+      renderHeroImages([]);
+      renderNotices([]);
+      if (aboutTextEl) aboutTextEl.textContent = "";
     }
   }
 
+  // =========================
+  // Products and categories
+  // =========================
   function renderProductList(containerId, products) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     container.innerHTML = "";
 
-    if (!Array.isArray(products) || products.length === 0) {
+    if (!Array.isArray(products) || !products.length) {
       const empty = document.createElement("p");
       empty.className = "checkout-empty";
       empty.textContent = "Ainda não há produtos nesta categoria.";
@@ -133,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const imageWrapper = document.createElement("div");
       imageWrapper.className = "product-image-wrapper";
-
       if (product.imageUrl) {
         const img = document.createElement("img");
         img.src = product.imageUrl;
@@ -144,21 +180,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const content = document.createElement("div");
       content.className = "product-content";
 
-      // Header line mirrored from admin layout (name on top)
       const headerLine = document.createElement("div");
       headerLine.className = "admin-product-header-line";
 
       const nameEl = document.createElement("h3");
       nameEl.className = "product-name admin-product-name";
       nameEl.textContent = product.name || "Produto";
-
       headerLine.appendChild(nameEl);
 
       const descEl = document.createElement("p");
       descEl.className = "product-description";
       descEl.textContent = product.description || "Joia exclusiva DARAH.";
 
-      // Meta line mirrored from admin layout (price + stock)
       const metaLine = document.createElement("div");
       metaLine.className = "admin-product-meta-line";
 
@@ -169,31 +202,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const stockEl = document.createElement("span");
       stockEl.className = "product-stock admin-product-stock";
       stockEl.textContent =
-        typeof product.stock === "number"
-          ? `Estoque: ${product.stock}`
-          : "";
+        typeof product.stock === "number" ? `Estoque: ${product.stock}` : "";
 
       metaLine.appendChild(priceEl);
       metaLine.appendChild(stockEl);
 
-      // Actions row mirrored from admin layout, but with Add to cart button
       const actionsRow = document.createElement("div");
       actionsRow.className = "admin-product-actions-row";
 
       const button = document.createElement("button");
       button.className = "primary-button";
-      button.textContent = "Adicionar ao carrinho";
-
-      const available =
-        typeof product.stock === "number" && product.stock > 0;
+      const available = typeof product.stock === "number" && product.stock > 0;
 
       if (!available) {
         button.disabled = true;
         button.textContent = "Esgotado";
       } else {
-        button.addEventListener("click", () => {
-          addToCart(product.id);
-        });
+        button.textContent = "Adicionar ao carrinho";
+        button.addEventListener("click", () => addToCart(product.id));
       }
 
       actionsRow.appendChild(button);
@@ -234,12 +260,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => null);
-        const message =
-          errorBody && errorBody.error
-            ? errorBody.error
+        const body = await res.json().catch(() => null);
+        const msg =
+          body && body.error
+            ? body.error
             : "Não foi possível adicionar o produto ao carrinho.";
-        alert(message);
+        alert(msg);
         return;
       }
 
@@ -251,6 +277,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // =========================
+  // Checkout view and cart
+  // =========================
   function renderCart(cartData) {
     const itemsContainer = document.getElementById("checkoutItems");
     const subtotalEl = document.getElementById("summarySubtotal");
@@ -261,11 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     itemsContainer.innerHTML = "";
 
-    if (
-      !cartData ||
-      !Array.isArray(cartData.items) ||
-      cartData.items.length === 0
-    ) {
+    const emptyAndReset = () => {
       const empty = document.createElement("div");
       empty.className = "checkout-empty";
       empty.textContent = "Seu carrinho está vazio no momento.";
@@ -274,6 +299,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (taxesEl) taxesEl.textContent = "R$ 0,00";
       if (totalEl) totalEl.textContent = "R$ 0,00";
       if (checkoutButton) checkoutButton.disabled = true;
+    };
+
+    if (!cartData || !Array.isArray(cartData.items) || !cartData.items.length) {
+      emptyAndReset();
       return;
     }
 
@@ -299,8 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const unitEl = document.createElement("div");
       unitEl.className = "checkout-item-unit";
-      const unitPrice = formatBRL(item.price);
-      unitEl.textContent = `${unitPrice} por unidade`;
+      unitEl.textContent = `${formatBRL(item.price)} por unidade`;
 
       const totalElItem = document.createElement("div");
       totalElItem.className = "checkout-item-total";
@@ -341,7 +369,6 @@ document.addEventListener("DOMContentLoaded", () => {
       qtyControls.appendChild(minusBtn);
       qtyControls.appendChild(qtyValue);
       qtyControls.appendChild(plusBtn);
-
       controls.appendChild(qtyControls);
 
       row.appendChild(imageWrapper);
@@ -379,12 +406,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => null);
-        const message =
-          errorBody && errorBody.error
-            ? errorBody.error
+        const body = await res.json().catch(() => null);
+        const msg =
+          body && body.error
+            ? body.error
             : "Não foi possível atualizar a quantidade do item.";
-        alert(message);
+        alert(msg);
         return;
       }
 
@@ -405,12 +432,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => null);
-        const message =
-          errorBody && errorBody.error
-            ? errorBody.error
+        const body = await res.json().catch(() => null);
+        const msg =
+          body && body.error
+            ? body.error
             : "Não foi possível gerar o link de checkout.";
-        alert(message);
+        alert(msg);
         return;
       }
 
@@ -426,24 +453,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Navigation events
+  // =========================
+  // Events
+  // =========================
   navLinks.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const view = btn.dataset.view;
-      if (!view) return;
-      if (view === "home") {
-        setActiveView("home");
-      } else {
-        setActiveView(view);
+      const key = btn.dataset.view; // "home", "rings", ...
+      if (!key) return;
+      setActiveView(key);
+      if (key === "home") {
+        // Ensure homepage visuals are fresh if coming back
+        loadHomepage();
       }
     });
   });
 
   if (cartButton) {
-    cartButton.addEventListener("click", () => {
-      setActiveView("checkout");
-      loadCartView();
-    });
+    cartButton.addEventListener("click", () => setActiveView("checkout"));
   }
 
   if (checkoutButton) {
@@ -454,7 +480,9 @@ document.addEventListener("DOMContentLoaded", () => {
     yearEl.textContent = String(new Date().getFullYear());
   }
 
+  // =========================
   // Initial load
+  // =========================
   setActiveView("home");
   loadHomepage();
   loadProducts();
