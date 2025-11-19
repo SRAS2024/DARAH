@@ -416,6 +416,8 @@ document.addEventListener("DOMContentLoaded", () => {
         await res.json();
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
         setNoticeStatus("Avisos publicados na vitrine.", "ok");
+        // Recarrega estado a partir do backend para garantir sincronia total
+        await loadHomepageAdmin();
       } catch (err) {
         console.error(err);
         setHomepageStatus("Não foi possível salvar a homepage.", "error");
