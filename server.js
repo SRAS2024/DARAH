@@ -36,6 +36,7 @@ function resolveClientDir() {
   // last resort, still return first candidate to avoid crash
   return candidates[0];
 }
+
 const CLIENT_DIR = resolveClientDir();
 const INDEX_HTML = path.join(CLIENT_DIR, "index.html");
 const ADMIN_HTML = path.join(CLIENT_DIR, "admin.html");
@@ -73,9 +74,9 @@ const db = {
       "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
     heroImages: [],
     notices: [],
-    theme: "default" // "default" ou "natal"
+    theme: "default"
   },
-  products: []
+  products: [] // no prefilled products
 };
 
 function brl(n) {
@@ -85,10 +86,12 @@ function brl(n) {
     return "R$ " + Number(n || 0).toFixed(2).replace(".", ",");
   }
 }
+
 function ensureSessionCart(req) {
   if (!req.session.cart) req.session.cart = { items: [] };
   return req.session.cart;
 }
+
 function groupPublicProducts() {
   const out = { rings: [], necklaces: [], bracelets: [], earrings: [] };
   db.products.forEach((p) => {
@@ -98,12 +101,13 @@ function groupPublicProducts() {
   });
   return out;
 }
+
 function summarizeCart(cart) {
   const items = cart.items
     .map((it) => {
       const product = db.products.find((p) => p.id === it.productId);
       if (!product) return null;
-      const quantity = Math.max(0, Math.min(it.quantity || 0, product.stock || 0));
+      const quantity = Math.max(0, Number(it.quantity || 0));
       const lineTotal = quantity * Number(product.price || 0);
       return {
         id: product.id,
@@ -121,31 +125,8 @@ function summarizeCart(cart) {
   const total = subtotal + taxes;
   return { items, subtotal, taxes, total };
 }
-const newId = () => crypto.randomBytes(8).toString("hex");
 
-// seed a couple of items
-if (db.products.length === 0) {
-  db.products.push(
-    {
-      id: newId(),
-      category: "rings",
-      name: "Anel dourado com zircônia",
-      description: "Brilho delicado para o dia a dia.",
-      price: 149.9,
-      stock: 8,
-      imageUrl: ""
-    },
-    {
-      id: newId(),
-      category: "necklaces",
-      name: "Colar de pérolas",
-      description: "Elegância clássica.",
-      price: 229.9,
-      stock: 5,
-      imageUrl: ""
-    }
-  );
-}
+const newId = () => crypto.randomBytes(8).toString("hex");
 
 /* ------------------------------------------------------------------ */
 /* API                                                                 */
@@ -159,38 +140,35 @@ app.get("/api/homepage", (_req, res) => {
     aboutText: db.homepage.aboutText || "",
     heroImages: Array.isArray(db.homepage.heroImages) ? db.homepage.heroImages : [],
     notices: Array.isArray(db.homepage.notices) ? db.homepage.notices : [],
-    theme: db.homepage.theme === "natal" ? "natal" : "default"
+    theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
   });
 });
 
 app.put("/api/homepage", (req, res) => {
   const { aboutText, heroImages, notices, theme } = req.body || {};
-
   if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
-
   if (Array.isArray(heroImages)) {
     db.homepage.heroImages = heroImages
       .filter((s) => typeof s === "string" && s.trim().length)
       .slice(0, 20);
   }
-
   if (Array.isArray(notices)) {
     db.homepage.notices = notices
       .map((n) => String(n || "").trim())
       .filter((n) => n.length)
       .slice(0, 10);
   }
-
-  if (theme === "default" || theme === "natal") {
-    db.homepage.theme = theme;
+  if (typeof theme === "string") {
+    db.homepage.theme = theme === "natal" ? "natal" : "default";
   }
-
   res.json({ ok: true });
 });
 
 // Products
 app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
+
 app.get("/api/admin/products", (_req, res) => res.json(db.products));
+
 app.post("/api/products", (req, res) => {
   const { category, name, description, price, stock, imageUrl } = req.body || {};
   if (!name || typeof price !== "number" || typeof stock !== "number") {
@@ -201,6 +179,7 @@ app.post("/api/products", (req, res) => {
   }
   const product = {
     id: newId(),
+    createdAt: new Date().toISOString(),
     category,
     name: String(name),
     description: String(description || ""),
@@ -212,6 +191,7 @@ app.post("/api/products", (req, res) => {
   db.products.push(product);
   res.json({ ok: true, id: product.id });
 });
+
 app.put("/api/products/:id", (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
@@ -224,37 +204,33 @@ app.put("/api/products/:id", (req, res) => {
   });
   res.json({ ok: true });
 });
+
 app.delete("/api/products/:id", (req, res) => {
-  const product = db.products.find((p) => p.id === req.params.id);
-  if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-  product.active = false;
+  const idx = db.products.findIndex((p) => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Produto não encontrado." });
+  db.products.splice(idx, 1); // remove completely
   res.json({ ok: true });
 });
 
 // Cart
 app.get("/api/cart", (req, res) => res.json(summarizeCart(ensureSessionCart(req))));
+
 app.post("/api/cart/add", (req, res) => {
   const { productId } = req.body || {};
   const product = db.products.find((p) => p.id === productId && p.active !== false);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-  if (!product.stock || product.stock <= 0) {
-    return res.status(400).json({ error: "Produto sem estoque." });
-  }
+
   const cart = ensureSessionCart(req);
   const existing = cart.items.find((it) => it.productId === productId);
   if (existing) {
     const next = existing.quantity + 1;
-    if (next > product.stock) {
-      return res
-        .status(400)
-        .json({ error: "Quantidade além do estoque disponível." });
-    }
     existing.quantity = next;
   } else {
     cart.items.push({ productId, quantity: 1 });
   }
   res.json(summarizeCart(cart));
 });
+
 app.post("/api/cart/update", (req, res) => {
   const { productId, quantity } = req.body || {};
   const product = db.products.find((p) => p.id === productId);
@@ -265,15 +241,9 @@ app.post("/api/cart/update", (req, res) => {
   if (!item) return res.status(404).json({ error: "Item não está no carrinho." });
 
   const q = Number(quantity);
-  if (Number.isNaN(q) || q < 0) {
-    return res.status(400).json({ error: "Quantidade inválida." });
-  }
+  if (Number.isNaN(q) || q < 0) return res.status(400).json({ error: "Quantidade inválida." });
   if (q === 0) {
     cart.items = cart.items.filter((it) => it.productId !== productId);
-  } else if (q > product.stock) {
-    return res
-      .status(400)
-      .json({ error: "Quantidade além do estoque disponível." });
   } else {
     item.quantity = q;
   }
@@ -288,20 +258,15 @@ app.post("/api/checkout-link", (req, res) => {
   const lines = [];
   lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
   lines.push("");
-
   summary.items.forEach((it, i) => {
     lines.push(
       `${i + 1}. ${it.name} — ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
     );
-
-    // Se a imagem for um link http/https normal, adiciona no texto
-    if (it.imageUrl && /^https?:\/\//i.test(it.imageUrl)) {
-      lines.push(`Imagem: ${it.imageUrl}`);
+    if (it.imageUrl) {
+      lines.push(`Foto do produto: ${it.imageUrl}`);
     }
-
     lines.push("");
   });
-
   lines.push(`Total: ${brl(summary.total)}`);
 
   const phone = "5565999883400"; // +55 65 99988-3400
