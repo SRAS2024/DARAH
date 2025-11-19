@@ -79,6 +79,13 @@ const db = {
   products: [] // sem produtos pré preenchidos
 };
 
+// Simple dedup guard for very fast double submits of the same product
+let lastProductCreate = {
+  fingerprint: "",
+  at: 0,
+  id: null
+};
+
 function brl(n) {
   try {
     return Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -182,18 +189,46 @@ app.post("/api/products", (req, res) => {
   if (!["rings", "necklaces", "bracelets", "earrings"].includes(category)) {
     return res.status(400).json({ error: "Categoria inválida." });
   }
-  const product = {
-    id: newId(),
-    createdAt: new Date().toISOString(),
+
+  const normalizedPayload = {
     category,
     name: String(name),
     description: String(description || ""),
     price: Number(price),
     stock: Math.max(0, Number(stock)),
-    active: true,
     imageUrl: String(imageUrl || "")
   };
+
+  // Guard against very fast duplicate submits of the exact same product data
+  const fingerprint = JSON.stringify(normalizedPayload);
+  const now = Date.now();
+  if (
+    lastProductCreate.fingerprint === fingerprint &&
+    now - lastProductCreate.at < 2000 &&
+    lastProductCreate.id
+  ) {
+    return res.json({ ok: true, id: lastProductCreate.id, deduplicated: true });
+  }
+
+  const product = {
+    id: newId(),
+    createdAt: new Date().toISOString(),
+    category: normalizedPayload.category,
+    name: normalizedPayload.name,
+    description: normalizedPayload.description,
+    price: normalizedPayload.price,
+    stock: normalizedPayload.stock,
+    active: true,
+    imageUrl: normalizedPayload.imageUrl
+  };
+
   db.products.push(product);
+  lastProductCreate = {
+    fingerprint,
+    at: now,
+    id: product.id
+  };
+
   res.json({ ok: true, id: product.id });
 });
 
@@ -275,16 +310,15 @@ app.post("/api/checkout-link", (req, res) => {
   const lines = [];
   lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
   lines.push("");
+
   summary.items.forEach((it, i) => {
     lines.push(
-      `${i + 1}. ${it.name} — ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
+      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
     );
-    if (it.imageUrl) {
-      lines.push(`Foto do produto: ${it.imageUrl}`);
-    }
-    lines.push("");
   });
-  lines.push(`Total: ${brl(summary.total)}`);
+
+  lines.push("");
+  lines.push(`Total geral: ${brl(summary.total)}`);
 
   const phone = "5565999883400"; // +55 65 99988-3400
   const text = encodeURIComponent(lines.join("\n"));
