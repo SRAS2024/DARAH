@@ -47,10 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // When viewing checkout, highlight nothing in the main nav list
         btn.classList.remove("active");
       } else {
-        btn.classList.toggle(
-          "active",
-          btn.dataset.view === viewName
-        );
+        btn.classList.toggle("active", btn.dataset.view === viewName);
       }
     });
   }
@@ -101,12 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
             heroImagesEl.appendChild(img);
           });
         } else {
-          // Simple placeholders if no images are set yet
+          // Placeholders in the new gray palette if no images are set yet
           for (let i = 0; i < 4; i += 1) {
             const placeholder = document.createElement("div");
             placeholder.style.borderRadius = "14px";
             placeholder.style.background =
-              i % 2 === 0 ? "#d3e0c4" : "#e6dfd2";
+              i % 2 === 0 ? "#e0e0e0" : "#f0f0f0";
             heroImagesEl.appendChild(placeholder);
           }
         }
@@ -147,31 +144,41 @@ document.addEventListener("DOMContentLoaded", () => {
       const content = document.createElement("div");
       content.className = "product-content";
 
+      // Header line mirrored from admin layout (name on top)
+      const headerLine = document.createElement("div");
+      headerLine.className = "admin-product-header-line";
+
       const nameEl = document.createElement("h3");
-      nameEl.className = "product-name";
+      nameEl.className = "product-name admin-product-name";
       nameEl.textContent = product.name || "Produto";
+
+      headerLine.appendChild(nameEl);
 
       const descEl = document.createElement("p");
       descEl.className = "product-description";
-      descEl.textContent =
-        product.description || "Joia exclusiva DARAH.";
+      descEl.textContent = product.description || "Joia exclusiva DARAH.";
 
-      const meta = document.createElement("div");
-      meta.className = "product-meta";
+      // Meta line mirrored from admin layout (price + stock)
+      const metaLine = document.createElement("div");
+      metaLine.className = "admin-product-meta-line";
 
       const priceEl = document.createElement("span");
-      priceEl.className = "product-price";
+      priceEl.className = "product-price admin-product-price";
       priceEl.textContent = formatBRL(product.price);
 
       const stockEl = document.createElement("span");
-      stockEl.className = "product-stock";
+      stockEl.className = "product-stock admin-product-stock";
       stockEl.textContent =
         typeof product.stock === "number"
-          ? `Qtd. em estoque: ${product.stock}`
+          ? `Estoque: ${product.stock}`
           : "";
 
-      meta.appendChild(priceEl);
-      meta.appendChild(stockEl);
+      metaLine.appendChild(priceEl);
+      metaLine.appendChild(stockEl);
+
+      // Actions row mirrored from admin layout, but with Add to cart button
+      const actionsRow = document.createElement("div");
+      actionsRow.className = "admin-product-actions-row";
 
       const button = document.createElement("button");
       button.className = "primary-button";
@@ -189,10 +196,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
-      content.appendChild(nameEl);
+      actionsRow.appendChild(button);
+
+      content.appendChild(headerLine);
       content.appendChild(descEl);
-      content.appendChild(meta);
-      content.appendChild(button);
+      content.appendChild(metaLine);
+      content.appendChild(actionsRow);
 
       card.appendChild(imageWrapper);
       card.appendChild(content);
@@ -252,7 +261,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     itemsContainer.innerHTML = "";
 
-    if (!cartData || !Array.isArray(cartData.items) || cartData.items.length === 0) {
+    if (
+      !cartData ||
+      !Array.isArray(cartData.items) ||
+      cartData.items.length === 0
+    ) {
       const empty = document.createElement("div");
       empty.className = "checkout-empty";
       empty.textContent = "Seu carrinho está vazio no momento.";
