@@ -288,12 +288,20 @@ app.post("/api/checkout-link", (req, res) => {
   const lines = [];
   lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
   lines.push("");
+
   summary.items.forEach((it, i) => {
     lines.push(
       `${i + 1}. ${it.name} — ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
     );
+
+    // Se a imagem for um link http/https normal, adiciona no texto
+    if (it.imageUrl && /^https?:\/\//i.test(it.imageUrl)) {
+      lines.push(`Imagem: ${it.imageUrl}`);
+    }
+
+    lines.push("");
   });
-  lines.push("");
+
   lines.push(`Total: ${brl(summary.total)}`);
 
   const phone = "5565999883400"; // +55 65 99988-3400
