@@ -12,6 +12,14 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
+// Database persistence helpers
+const {
+  initDatabase,
+  persistHomepage,
+  persistProductUpsert,
+  persistProductDelete
+} = require("./db");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -66,7 +74,7 @@ app.use(
 app.use(express.static(CLIENT_DIR, { fallthrough: true }));
 
 /* ------------------------------------------------------------------ */
-/* In memory data                                                      */
+/* In memory data (hydrated from DB at startup if DATABASE_URL set)    */
 /* ------------------------------------------------------------------ */
 const db = {
   homepage: {
@@ -156,7 +164,7 @@ app.get("/api/homepage", (_req, res) => {
   });
 });
 
-app.put("/api/homepage", (req, res) => {
+app.put("/api/homepage", async (req, res) => {
   const { aboutText, heroImages, notices, theme } = req.body || {};
   if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
   if (Array.isArray(heroImages)) {
@@ -173,7 +181,15 @@ app.put("/api/homepage", (req, res) => {
   if (typeof theme === "string") {
     db.homepage.theme = theme === "natal" ? "natal" : "default";
   }
-  res.json({ ok: true });
+
+  try {
+    await persistHomepage(db.homepage);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[homepage] Error persisting homepage to DB:", err);
+    // In memory state is already updated, but DB failed
+    res.status(500).json({ error: "Erro ao salvar homepage." });
+  }
 });
 
 // Products
@@ -181,7 +197,7 @@ app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
 
 app.get("/api/admin/products", (_req, res) => res.json(db.products));
 
-app.post("/api/products", (req, res) => {
+app.post("/api/products", async (req, res) => {
   const { category, name, description, price, stock, imageUrl } = req.body || {};
   if (!name || typeof price !== "number" || typeof stock !== "number") {
     return res.status(400).json({ error: "Preencha pelo menos nome, preço e estoque." });
@@ -229,10 +245,16 @@ app.post("/api/products", (req, res) => {
     id: product.id
   };
 
-  res.json({ ok: true, id: product.id });
+  try {
+    await persistProductUpsert(product);
+    res.json({ ok: true, id: product.id });
+  } catch (err) {
+    console.error("[products] Error persisting new product to DB:", err);
+    res.status(500).json({ error: "Erro ao salvar produto." });
+  }
 });
 
-app.put("/api/products/:id", (req, res) => {
+app.put("/api/products/:id", async (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
   const allowed = ["category", "name", "description", "price", "stock", "imageUrl", "active"];
@@ -242,14 +264,30 @@ app.put("/api/products/:id", (req, res) => {
     else if (k === "price") product[k] = Number(req.body[k]);
     else product[k] = req.body[k];
   });
-  res.json({ ok: true });
+
+  try {
+    await persistProductUpsert(product);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[products] Error updating product in DB:", err);
+    res.status(500).json({ error: "Erro ao atualizar produto." });
+  }
 });
 
-app.delete("/api/products/:id", (req, res) => {
+app.delete("/api/products/:id", async (req, res) => {
   const idx = db.products.findIndex((p) => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Produto não encontrado." });
+
+  const productId = db.products[idx].id;
   db.products.splice(idx, 1);
-  res.json({ ok: true });
+
+  try {
+    await persistProductDelete(productId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[products] Error deleting product from DB:", err);
+    res.status(500).json({ error: "Erro ao excluir produto." });
+  }
 });
 
 // Cart
@@ -345,6 +383,22 @@ app.get("*", (_req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-app.listen(PORT, () => {
-  console.log(`DARAH API rodando na porta ${PORT}`);
-});
+/* Startup: hydrate from DB then listen                                */
+/* ------------------------------------------------------------------ */
+async function start() {
+  try {
+    await initDatabase(db);
+    console.log("[DARAH] Database initialized and in memory cache hydrated.");
+  } catch (err) {
+    console.error(
+      "[DARAH] Failed to initialize database. Continuing with in memory store only.",
+      err
+    );
+  }
+
+  app.listen(PORT, () => {
+    console.log(`DARAH API rodando na porta ${PORT}`);
+  });
+}
+
+start();
