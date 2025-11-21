@@ -28,6 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const welcomeMessageEl = document.getElementById("adminWelcomeMessage");
   const panelSection = document.getElementById("adminPanelSection");
 
+  // Header user info and logout
+  const logoutButton = document.getElementById("adminLogoutButton");
+  const userNameLabel = document.getElementById("adminUserNameLabel");
+
   // Theme
   const themeSelect = document.getElementById("adminThemeSelect");
 
@@ -223,7 +227,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!heroGalleryEl) return;
     heroGalleryEl.innerHTML = "";
     if (!homepageState.heroImages.length) {
-      // Placeholder
       const ph = document.createElement("div");
       ph.style.borderRadius = "14px";
       ph.style.background = "#dcdcdc";
@@ -417,7 +420,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await res.json();
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
         setNoticeStatus("Avisos publicados na vitrine.", "ok");
-        // Recarrega estado a partir do backend para garantir sincronia total
         await loadHomepageAdmin();
       } catch (err) {
         console.error(err);
@@ -465,7 +467,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const items = allProducts.filter((p) => p.category === categoryKey);
 
-    // Sort newest first by createdAt then id if available
     items.sort((a, b) => {
       if (a.createdAt && b.createdAt) {
         const ad = new Date(a.createdAt).getTime();
@@ -482,12 +483,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const addCardFragment = createAddProductCardFragment(categoryKey);
     if (hasProducts) {
-      // First product
       const first = items[0];
       const firstCard = createProductCardFragment(first);
       if (firstCard) container.appendChild(firstCard);
       if (addCardFragment) container.appendChild(addCardFragment);
-      // Remaining products
       for (let i = 1; i < items.length; i += 1) {
         const card = createProductCardFragment(items[i]);
         if (card) container.appendChild(card);
@@ -568,17 +567,14 @@ document.addEventListener("DOMContentLoaded", () => {
     currentProductImageDataUrl =
       productOrNull && productOrNull.imageUrl ? productOrNull.imageUrl : "";
 
-    // Reset form and status
     hiddenForm.el.reset();
     setFormStatus("", "");
 
-    // Category
     if (hiddenForm.category) {
       hiddenForm.category.value =
         productOrNull && productOrNull.category ? productOrNull.category : categoryKey;
     }
 
-    // Name and description
     if (hiddenForm.name) {
       hiddenForm.name.value = productOrNull && productOrNull.name ? productOrNull.name : "";
     }
@@ -587,7 +583,6 @@ document.addEventListener("DOMContentLoaded", () => {
         productOrNull && productOrNull.description ? productOrNull.description : "";
     }
 
-    // Price
     if (hiddenForm.price) {
       const priceValue =
         productOrNull && typeof productOrNull.price === "number"
@@ -596,7 +591,6 @@ document.addEventListener("DOMContentLoaded", () => {
       hiddenForm.price.value = priceValue;
     }
 
-    // Stock
     if (hiddenForm.stock) {
       const stockValue =
         productOrNull && typeof productOrNull.stock === "number"
@@ -605,7 +599,6 @@ document.addEventListener("DOMContentLoaded", () => {
       hiddenForm.stock.value = stockValue;
     }
 
-    // Image
     if (hiddenForm.imageUrl) {
       const url = currentProductImageDataUrl || "";
       hiddenForm.imageUrl.value = url;
@@ -622,7 +615,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Delete button
     if (productDeleteButton) {
       if (productOrNull && productOrNull.id) {
         productDeleteButton.style.display = "inline-flex";
@@ -631,7 +623,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Modal title
     if (productModalTitle) {
       productModalTitle.textContent = productOrNull ? "Editar produto" : "Novo produto";
     }
@@ -680,7 +671,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const url = await fileToDataUrl(file);
         currentProductImageDataUrl = url;
         if (hiddenForm.imageUrl) {
-          // keep for debugging if you want, but payload uses currentProductImageDataUrl
           hiddenForm.imageUrl.value = url;
         }
         if (productImagePreview && productImagePlaceholder) {
@@ -707,7 +697,6 @@ document.addEventListener("DOMContentLoaded", () => {
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price: hiddenForm.price ? parseFloat(hiddenForm.price.value) : NaN,
         stock: hiddenForm.stock ? parseInt(hiddenForm.stock.value, 10) : NaN,
-        // use JS state, not the hidden input, to avoid any truncation
         imageUrl: currentProductImageDataUrl || ""
       };
 
@@ -724,7 +713,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
-        // Errors already handled inside create/update
       }
     });
   }
@@ -737,7 +725,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await deleteProduct(currentProductEditing.id);
         closeProductModal();
       } catch {
-        // Error handled in deleteProduct
       }
     });
   }
@@ -809,22 +796,54 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // Auth flow
   // =========================
+  function storeAdminUser(username) {
+    try {
+      sessionStorage.setItem("darahAdminUser", JSON.stringify({ username }));
+    } catch {
+    }
+  }
+
+  function clearAdminUser() {
+    try {
+      sessionStorage.removeItem("darahAdminUser");
+    } catch {
+    }
+  }
+
+  function updateHeaderUser(username) {
+    if (userNameLabel) {
+      userNameLabel.textContent = username || "";
+    }
+  }
+
+  function showLoginView() {
+    if (panelSection) panelSection.style.display = "none";
+    if (loadingSection) loadingSection.style.display = "none";
+    if (loginSection) loginSection.style.display = "block";
+    if (usernameInput) usernameInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    setLoginError("");
+    updateHeaderUser("");
+  }
+
+  function showPanelView() {
+    if (loginSection) loginSection.style.display = "none";
+    if (loadingSection) loadingSection.style.display = "none";
+    if (panelSection) panelSection.style.display = "block";
+  }
+
   function startAdminSession(username) {
     const info = VALID_USERS[username];
     if (!info) return;
 
-    try {
-      sessionStorage.setItem("darahAdminUser", JSON.stringify({ username }));
-    } catch {
-      /* ignore */
-    }
+    storeAdminUser(username);
+    updateHeaderUser(username);
 
     if (loginSection) loginSection.style.display = "none";
 
     if (loadingSection) {
       if (welcomeMessageEl) welcomeMessageEl.textContent = info.welcome;
 
-      // Restart the loading circle animation by cloning the fill element
       const fill = loadingSection.querySelector(".loading-circle-fill");
       if (fill && fill.parentElement) {
         const clone = fill.cloneNode(true);
@@ -884,6 +903,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Logout handler
+  if (logoutButton) {
+    logoutButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearAdminUser();
+      showLoginView();
+    });
+  }
+
   // Restore prior session
   try {
     const stored = sessionStorage.getItem("darahAdminUser");
@@ -895,11 +923,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (panelSection) panelSection.style.display = "block";
         const info = VALID_USERS[parsed.username];
         if (welcomeMessageEl && info) welcomeMessageEl.textContent = info.welcome;
+        updateHeaderUser(parsed.username);
         initializeAdminData();
       }
     }
   } catch {
-    // ignore
   }
 
   // Small utility: debounce (kept in case needed later)
