@@ -113,6 +113,8 @@
         display: flex;
         align-items: center;
         gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
       .admin-badge-top {
         display: inline-flex;
@@ -150,6 +152,25 @@
       }
       .admin-theme-select:focus {
         outline: none;
+      }
+
+      .admin-user-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .admin-user-label {
+        max-width: 140px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .admin-logout-button {
+        font-size: 11px;
+        padding: 5px 10px;
       }
 
       /* Loading welcome */
@@ -468,6 +489,9 @@
         .admin-badge-top {
           display: none;
         }
+        .admin-user-label {
+          max-width: 100px;
+        }
       }
     </style>
   </head>
@@ -494,6 +518,16 @@
             </select>
           </div>
           <span class="admin-badge-top">Painel administrativo privado</span>
+          <div class="admin-user-box">
+            <span id="adminUserNameLabel" class="admin-user-label"></span>
+            <button
+              id="adminLogoutButton"
+              type="button"
+              class="admin-button-secondary admin-logout-button"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </nav>
     </header>
@@ -555,7 +589,7 @@
         <!-- VISÃO INÍCIO -->
         <section id="view-home" class="view active-view">
           <div class="hero">
-            <div class="hero-images" id="adminHeroGallery"><!-- imagens aqui --></div>
+            <div class="hero-images" id="adminHeroGallery"></div>
             <div class="hero-about">
               <h2 class="hero-title">Joias DARAH</h2>
 
@@ -594,7 +628,6 @@
                   Salvar página inicial
                 </button>
                 <p id="adminHomepageStatus" class="admin-status"></p>
-                <!-- textarea escondida para manter o formato da API -->
                 <textarea
                   id="adminHeroImages"
                   class="admin-textarea"
@@ -649,7 +682,7 @@
           <div id="grid-earrings" class="admin-product-grid"></div>
         </section>
 
-        <!-- Modal de produto, usando o mesmo formulário para manter a API -->
+        <!-- Modal de produto -->
         <div id="adminProductModalBackdrop" class="admin-modal-backdrop">
           <div class="admin-modal">
             <div class="admin-modal-header">
@@ -721,7 +754,6 @@
                     </p>
                   </div>
                 </div>
-                <!-- campos técnicos para a API -->
                 <input
                   id="productImageFile"
                   type="file"
