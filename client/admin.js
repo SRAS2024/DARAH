@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
     home: document.getElementById("view-home"),
+    specials: document.getElementById("view-specials"),
+    sets: document.getElementById("view-sets"),
     rings: document.getElementById("view-rings"),
     necklaces: document.getElementById("view-necklaces"),
     bracelets: document.getElementById("view-bracelets"),
@@ -76,6 +78,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Category grids (mirror storefront)
   const grids = {
+    specials: document.getElementById("grid-specials"),
+    sets: document.getElementById("grid-sets"),
     rings: document.getElementById("grid-rings"),
     necklaces: document.getElementById("grid-necklaces"),
     bracelets: document.getElementById("grid-bracelets"),
@@ -141,6 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function categoryLabel(key) {
     return (
       {
+        specials: "Ofertas especiais",
+        sets: "Conjuntos",
         rings: "Anéis",
         necklaces: "Colares",
         bracelets: "Pulseiras",
