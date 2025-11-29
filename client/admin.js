@@ -98,11 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Allowed users and welcome messages
   const VALID_USERS = {
     "Danielle Almeida": {
-      password: "Eu amo meu genro",
+      password: "Dani123@",
       welcome: "Bem-vinda, Danielle!"
     },
     "Maria Eduarda": {
-      password: "Estou apaixonada por Ryan Simonds",
+      password: "Maria123@",
       welcome: "Bem-vinda, Maria Eduarda!"
     }
   };
