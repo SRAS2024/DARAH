@@ -8,6 +8,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const MAX_PRODUCT_IMAGES = 25;
+  const MAX_HOMEPAGE_IMAGES = 12;
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
@@ -191,6 +192,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function normalizeList(list, max) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, max);
+  }
+
   // View switching inside admin
   function switchView(id) {
     Object.values(views).forEach((v) => v && v.classList.remove("active-view"));
@@ -228,12 +237,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const hp = await res.json();
 
       homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
-      homepageState.heroImages = Array.isArray(hp.heroImages) ? hp.heroImages.slice(0, 20) : [];
-      homepageState.notices = Array.isArray(hp.notices) ? hp.notices.slice(0, 10) : [];
+      homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
+      homepageState.notices = normalizeList(hp.notices || [], 10);
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
 
       if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
-      if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
+      if (heroImagesTextarea) {
+        heroImagesTextarea.value = homepageState.heroImages.join("\n");
+      }
       applyThemeVariant(homepageState.theme);
       renderHeroGallery();
       renderNotices();
@@ -243,6 +254,20 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(err);
       setHomepageStatus("Não foi possível carregar a homepage.", "error");
     }
+  }
+
+  function syncHeroImagesFromTextarea() {
+    if (!heroImagesTextarea) return;
+    const raw = heroImagesTextarea.value || "";
+    const fromTextarea = raw
+      .split(/\r?\n/)
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, MAX_HOMEPAGE_IMAGES);
+
+    homepageState.heroImages = fromTextarea;
+    heroImagesTextarea.value = homepageState.heroImages.join("\n");
+    renderHeroGallery();
   }
 
   function renderHeroGallery() {
@@ -262,6 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const img = document.createElement("img");
         img.src = url;
         img.alt = "Imagem da homepage";
+        img.loading = "lazy";
 
         const del = document.createElement("button");
         del.type = "button";
@@ -279,7 +305,13 @@ document.addEventListener("DOMContentLoaded", () => {
         del.style.color = "#fff";
         del.addEventListener("click", () => {
           homepageState.heroImages.splice(idx, 1);
-          if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
+          homepageState.heroImages = normalizeList(
+            homepageState.heroImages,
+            MAX_HOMEPAGE_IMAGES
+          );
+          if (heroImagesTextarea) {
+            heroImagesTextarea.value = homepageState.heroImages.join("\n");
+          }
           renderHeroGallery();
         });
 
@@ -288,6 +320,12 @@ document.addEventListener("DOMContentLoaded", () => {
         heroGalleryEl.appendChild(wrap);
       });
     }
+  }
+
+  if (heroImagesTextarea) {
+    heroImagesTextarea.addEventListener("blur", () => {
+      syncHeroImagesFromTextarea();
+    });
   }
 
   function renderNotices() {
@@ -395,6 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const text = window.prompt("Novo aviso");
       if (!text || !text.trim()) return;
       homepageState.notices.push(text.trim());
+      homepageState.notices = normalizeList(homepageState.notices, 10);
       renderNotices();
       setNoticeStatus("Aviso adicionado. Clique em salvar para publicar no site.", "ok");
     });
@@ -411,8 +450,13 @@ document.addEventListener("DOMContentLoaded", () => {
           const url = await fileToDataUrl(f);
           homepageState.heroImages.push(url);
         }
-        homepageState.heroImages = homepageState.heroImages.slice(0, 20);
-        if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
+        homepageState.heroImages = normalizeList(
+          homepageState.heroImages,
+          MAX_HOMEPAGE_IMAGES
+        );
+        if (heroImagesTextarea) {
+          heroImagesTextarea.value = homepageState.heroImages.join("\n");
+        }
         renderHeroGallery();
         setHomepageStatus("Imagens adicionadas. Clique em salvar.", "ok");
       } catch (err) {
@@ -429,11 +473,23 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       try {
         setHomepageStatus("Salvando...", "");
+
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
-        const heroImages = homepageState.heroImages.slice(0, 20);
-        const notices = homepageState.notices
-          .filter((n) => n && n.trim().length)
-          .slice(0, 10);
+
+        // Always sync hero images from textarea at save time
+        if (heroImagesTextarea) {
+          syncHeroImagesFromTextarea();
+        }
+        const heroImages = normalizeList(
+          homepageState.heroImages,
+          MAX_HOMEPAGE_IMAGES
+        );
+
+        const notices = normalizeList(
+          homepageState.notices.filter((n) => n && n.trim().length),
+          10
+        );
+
         const theme = homepageState.theme || "default";
 
         const res = await fetch("/api/homepage", {
@@ -443,6 +499,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (!res.ok) throw new Error("Falha ao salvar a homepage.");
         await res.json();
+        homepageState.heroImages = heroImages;
+        homepageState.notices = notices;
+        if (heroImagesTextarea) {
+          heroImagesTextarea.value = heroImages.join("\n");
+        }
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
         setNoticeStatus("Avisos publicados na vitrine.", "ok");
         await loadHomepageAdmin();
@@ -518,20 +579,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const hasProducts = items.length > 0;
+    const fragment = document.createDocumentFragment();
 
     const addCardFragment = createAddProductCardFragment(categoryKey);
     if (hasProducts) {
       const first = items[0];
       const firstCard = createProductCardFragment(first);
-      if (firstCard) container.appendChild(firstCard);
-      if (addCardFragment) container.appendChild(addCardFragment);
+      if (firstCard) fragment.appendChild(firstCard);
+      if (addCardFragment) fragment.appendChild(addCardFragment);
       for (let i = 1; i < items.length; i += 1) {
         const card = createProductCardFragment(items[i]);
-        if (card) container.appendChild(card);
+        if (card) fragment.appendChild(card);
       }
     } else if (addCardFragment) {
-      container.appendChild(addCardFragment);
+      fragment.appendChild(addCardFragment);
     }
+
+    container.appendChild(fragment);
   }
 
   function createAddProductCardFragment(categoryKey) {
@@ -593,6 +657,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (imgEl) {
           imgEl.src = images[0];
           imgEl.alt = product.name || "Imagem do produto";
+          imgEl.loading = "lazy";
           imgEl.style.display = "block";
         }
       } else {
@@ -609,6 +674,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const img = document.createElement("img");
           img.src = src;
           img.alt = product.name || "Imagem do produto";
+          img.loading = "lazy";
           track.appendChild(img);
         });
 
@@ -704,6 +770,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const cover = currentProductImages[0];
     productImagePreview.src = cover;
+    productImagePreview.loading = "lazy";
     productImagePreview.style.display = "block";
     productImagePlaceholder.style.display = "none";
     if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = cover;
@@ -717,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = document.createElement("img");
       img.src = url;
       img.alt = "Imagem " + (idx + 1);
+      img.loading = "lazy";
       btn.appendChild(img);
 
       // Small x button to remove this image
@@ -738,7 +806,7 @@ document.addEventListener("DOMContentLoaded", () => {
       removeBtn.addEventListener("click", (ev) => {
         ev.stopPropagation();
         currentProductImages.splice(idx, 1);
-        currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
+        currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
         renderProductImagesUI();
       });
 
@@ -885,10 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentProductImages = currentProductImages.concat(newImages);
 
         // Deduplicate and cap at MAX_PRODUCT_IMAGES to avoid lag
-        currentProductImages = currentProductImages
-          .map((u) => String(u || "").trim())
-          .filter((u, index, arr) => u && arr.indexOf(u) === index)
-          .slice(0, MAX_PRODUCT_IMAGES);
+        currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
 
         renderProductImagesUI();
         setFormStatus("Imagens adicionadas. Salve para aplicar.", "ok");
@@ -920,7 +985,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = {
         category: hiddenForm.category ? hiddenForm.category.value : "",
-        name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
+        name: hiddenForm.name ? hiddenForm.name.trim() : "",
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price,
         stock,
