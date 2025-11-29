@@ -985,7 +985,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = {
         category: hiddenForm.category ? hiddenForm.category.value : "",
-        name: hiddenForm.name ? hiddenForm.name.trim() : "",
+        // FIXED: use .value.trim() instead of calling trim on the element itself
+        name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price,
         stock,
@@ -1004,6 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       try {
+        setFormStatus("Salvando produto...", "");
         if (currentProductEditing && currentProductEditing.id) {
           await updateProduct(currentProductEditing.id, payload);
         } else {
