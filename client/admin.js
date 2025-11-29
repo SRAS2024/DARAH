@@ -191,7 +191,9 @@ document.addEventListener("DOMContentLoaded", () => {
   navLinks.forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.view;
-      if (id) switchView(id);
+      if (id && views[id]) {
+        switchView(id);
+      }
     });
   });
 
@@ -442,11 +444,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   async function loadProducts() {
     try {
-      const res = await fetch("/api/admin/products");
+      let res = await fetch("/api/admin/products");
+      if (!res.ok) {
+        if (res.status === 404) {
+          // Fallback if admin route does not exist
+          res = await fetch("/api/products");
+        }
+      }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
       allProducts = Array.isArray(products) ? products : [];
       renderAllCategoryGrids();
+      setFormStatus("", "");
     } catch (err) {
       console.error(err);
       setFormStatus("Não foi possível carregar os produtos.", "error");
@@ -513,6 +522,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const button = fragment.querySelector(".admin-add-product-button");
     if (button) {
       button.addEventListener("click", () => openProductModal(categoryKey, null));
+      const labelEl = fragment.querySelector(".admin-add-product-label");
+      if (labelEl) {
+        labelEl.textContent = "Adicionar em " + categoryLabel(categoryKey);
+      }
     }
     return fragment;
   }
