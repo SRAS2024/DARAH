@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Views mirror
   const views = {
     home: document.getElementById("view-home"),
+    specials: document.getElementById("view-specials"),
+    sets: document.getElementById("view-sets"),
     rings: document.getElementById("view-rings"),
     necklaces: document.getElementById("view-necklaces"),
     bracelets: document.getElementById("view-bracelets"),
@@ -253,6 +255,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const grouped = await res.json();
 
+      // New categories
+      renderProductList("specialsList", grouped.specials || []);
+      renderProductList("setsList", grouped.sets || []);
+
+      // Existing categories
       renderProductList("ringsList", grouped.rings || []);
       renderProductList("necklacesList", grouped.necklaces || []);
       renderProductList("braceletsList", grouped.bracelets || []);
