@@ -108,7 +108,15 @@ function ensureSessionCart(req) {
 }
 
 function groupPublicProducts() {
-  const out = { rings: [], necklaces: [], bracelets: [], earrings: [] };
+  const out = {
+    specials: [],
+    sets: [],
+    rings: [],
+    necklaces: [],
+    bracelets: [],
+    earrings: []
+  };
+
   db.products.forEach((p) => {
     if (p.active !== false && typeof p.stock === "number" && p.stock > 0) {
       if (out[p.category]) out[p.category].push(p);
@@ -199,10 +207,21 @@ app.get("/api/admin/products", (_req, res) => res.json(db.products));
 
 app.post("/api/products", async (req, res) => {
   const { category, name, description, price, stock, imageUrl } = req.body || {};
+
   if (!name || typeof price !== "number" || typeof stock !== "number") {
     return res.status(400).json({ error: "Preencha pelo menos nome, preço e estoque." });
   }
-  if (!["rings", "necklaces", "bracelets", "earrings"].includes(category)) {
+
+  const allowedCategories = [
+    "specials",
+    "sets",
+    "rings",
+    "necklaces",
+    "bracelets",
+    "earrings"
+  ];
+
+  if (!allowedCategories.includes(category)) {
     return res.status(400).json({ error: "Categoria inválida." });
   }
 
