@@ -278,15 +278,24 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function normalizeImageList(product) {
-    const urls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
-    const mainUrl = product.imageUrl || "";
-    if (urls.length) {
-      return urls.filter((u) => typeof u === "string" && u.trim().length);
+    const primary = typeof product.imageUrl === "string" ? product.imageUrl : "";
+
+    const fromImageUrls = Array.isArray(product.imageUrls)
+      ? product.imageUrls
+      : [];
+    const fromImages = Array.isArray(product.images) ? product.images : [];
+
+    const merged = [...fromImageUrls, ...fromImages];
+
+    const cleaned = merged
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+
+    if (primary && !cleaned.includes(primary)) {
+      cleaned.unshift(primary);
     }
-    if (mainUrl) {
-      return [mainUrl];
-    }
-    return [];
+
+    return cleaned.slice(0, 25);
   }
 
   function createProductCard(product, categoryKey) {
