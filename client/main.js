@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Homepage elements
   const aboutTextEl = document.getElementById("aboutText");
   const heroImagesEl = document.getElementById("heroImages");
+  const heroEl =
+    document.querySelector("#view-home .hero") || document.querySelector(".hero");
   const siteNoticesEl = document.getElementById("siteNotices");
   const siteNoticesListEl = document.getElementById("siteNoticesList");
 
@@ -113,25 +115,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!heroImagesEl) return;
     heroImagesEl.innerHTML = "";
 
-    const imgs = Array.isArray(srcs) ? srcs : [];
+    const imgs = Array.isArray(srcs)
+      ? srcs
+          .map((s) => String(s || "").trim())
+          .filter((s) => s.length)
+      : [];
 
-    if (imgs.length) {
-      imgs.forEach((src) => {
-        const img = document.createElement("img");
-        img.src = src;
-        img.alt = "Joia DARAH";
-        heroImagesEl.appendChild(img);
-      });
+    if (!imgs.length) {
+      // No images: hide collage and let hero become single column
+      heroImagesEl.style.display = "none";
+      if (heroEl) heroEl.classList.add("hero-no-images");
       return;
     }
 
-    // Placeholders in gray palette
-    for (let i = 0; i < 4; i += 1) {
-      const ph = document.createElement("div");
-      ph.style.borderRadius = "14px";
-      ph.style.background = i % 2 === 0 ? "#dcdcdc" : "#eaeaea";
-      heroImagesEl.appendChild(ph);
-    }
+    // There are images: show collage and ensure hero uses two columns
+    heroImagesEl.style.display = "grid";
+    if (heroEl) heroEl.classList.remove("hero-no-images");
+
+    imgs.slice(0, 12).forEach((src) => {
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "Joia DARAH";
+      heroImagesEl.appendChild(img);
+    });
   }
 
   async function loadHomepage() {
