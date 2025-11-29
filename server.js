@@ -60,7 +60,8 @@ if (!fs.existsSync(ADMIN_HTML)) {
 /* ------------------------------------------------------------------ */
 /* Middleware                                                          */
 /* ------------------------------------------------------------------ */
-app.use(express.json({ limit: "15mb" }));
+// Increase limit so multiple mobile photos do not break the request
+app.use(express.json({ limit: "50mb" }));
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "darah-dev-secret",
@@ -214,6 +215,7 @@ app.post("/api/products", async (req, res) => {
     stock,
     imageUrl,
     imageUrls,
+    images,
     originalPrice,
     discountLabel
   } = req.body || {};
@@ -235,11 +237,16 @@ app.post("/api/products", async (req, res) => {
     return res.status(400).json({ error: "Categoria inválida." });
   }
 
-  const normalizedImages = Array.isArray(imageUrls)
+  // Accept either `imageUrls` or `images` from the client
+  const rawImages = Array.isArray(imageUrls)
     ? imageUrls
-        .filter((s) => typeof s === "string" && s.trim().length)
-        .slice(0, 12)
+    : Array.isArray(images)
+    ? images
     : [];
+
+  const normalizedImages = rawImages
+    .filter((s) => typeof s === "string" && s.trim().length)
+    .slice(0, 25);
 
   const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
@@ -311,6 +318,11 @@ app.put("/api/products/:id", async (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
 
+  // Normalize `images` to `imageUrls` so the existing logic works
+  if (Array.isArray(req.body?.images) && !req.body.imageUrls) {
+    req.body.imageUrls = req.body.images;
+  }
+
   const allowed = [
     "category",
     "name",
@@ -341,7 +353,7 @@ app.put("/api/products/:id", async (req, res) => {
       const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
       const cleaned = srcs
         .filter((s) => typeof s === "string" && s.trim().length)
-        .slice(0, 12);
+        .slice(0, 25);
       product.imageUrls = cleaned;
       if (!product.imageUrl && cleaned.length) {
         product.imageUrl = cleaned[0];
