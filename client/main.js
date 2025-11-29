@@ -6,6 +6,9 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  const MAX_HOMEPAGE_IMAGES = 12;
+  const MAX_PRODUCT_IMAGES = 25;
+
   // Navegação principal
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
 
@@ -128,6 +131,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function normalizeList(list, max) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, max);
+  }
+
   // ===================================
   // Homepage
   // ===================================
@@ -139,10 +150,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const aboutText =
         typeof data.aboutText === "string" ? data.aboutText : "";
-      const heroImages = Array.isArray(data.heroImages)
-        ? data.heroImages.slice(0)
-        : [];
-      const notices = Array.isArray(data.notices) ? data.notices.slice(0) : [];
+
+      const heroImages = normalizeList(
+        Array.isArray(data.heroImages) ? data.heroImages : [],
+        MAX_HOMEPAGE_IMAGES
+      );
+
+      const notices = normalizeList(
+        Array.isArray(data.notices) ? data.notices : [],
+        10
+      );
+
       const theme =
         typeof data.theme === "string" && data.theme.length
           ? data.theme
@@ -186,13 +204,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const fragment = document.createDocumentFragment();
+
     urls.forEach((src) => {
       if (!src || typeof src !== "string") return;
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Imagem da coleção DARAH";
-      heroImagesEl.appendChild(img);
+      img.loading = "lazy";
+      fragment.appendChild(img);
     });
+
+    heroImagesEl.appendChild(fragment);
   }
 
   function renderNotices(notices) {
@@ -271,10 +294,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const fragment = document.createDocumentFragment();
+
     items.forEach((product) => {
       const card = createProductCard(product, categoryKey);
-      if (card) container.appendChild(card);
+      if (card) fragment.appendChild(card);
     });
+
+    container.appendChild(fragment);
   }
 
   function normalizeImageList(product) {
@@ -295,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cleaned.unshift(primary);
     }
 
-    return cleaned.slice(0, 25);
+    return cleaned.slice(0, MAX_PRODUCT_IMAGES);
   }
 
   function createProductCard(product, categoryKey) {
@@ -312,11 +339,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!images.length) {
       const img = document.createElement("img");
       img.alt = product.name || "Produto DARAH";
+      img.loading = "lazy";
       imageWrapper.appendChild(img);
     } else if (images.length === 1) {
       const img = document.createElement("img");
       img.src = images[0];
       img.alt = product.name || "Produto DARAH";
+      img.loading = "lazy";
       imageWrapper.appendChild(img);
     } else {
       const viewport = document.createElement("div");
@@ -329,6 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const img = document.createElement("img");
         img.src = src;
         img.alt = product.name || "Produto DARAH";
+        img.loading = "lazy";
         track.appendChild(img);
       });
 
@@ -582,6 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const img = document.createElement("img");
         img.src = item.imageUrl;
         img.alt = item.name || "Produto no carrinho";
+        img.loading = "lazy";
         imageBox.appendChild(img);
       }
 
