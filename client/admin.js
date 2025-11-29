@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const productImagePreview = document.getElementById("productImagePreview");
   const productImagePlaceholder = document.getElementById("productImagePlaceholder");
   const productImageFileButton = document.getElementById("productImageFileButton");
+  const productImageThumbs = document.getElementById("productImageThumbs");
 
   // Product form (in modal)
   const hiddenForm = {
@@ -70,6 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
     name: document.getElementById("productName"),
     description: document.getElementById("productDescription"),
     price: document.getElementById("productPrice"),
+    originalPrice: document.getElementById("productOriginalPrice"),
+    discountLabel: document.getElementById("productDiscountLabel"),
     stock: document.getElementById("productStock"),
     imageUrl: document.getElementById("productImageUrl"),
     imageFile: document.getElementById("productImageFile"),
@@ -90,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let allProducts = [];
   let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
   let currentProductEditing = null; // { id, category, ... } or null
-  let currentProductImageDataUrl = ""; // keeps the full image data URL outside of any input limits
+  let currentProductImages = []; // array of data URLs, first is the cover
 
   // Allowed users and welcome messages
   const VALID_USERS = {
@@ -525,9 +528,13 @@ document.addEventListener("DOMContentLoaded", () => {
     article.dataset.productId = product.id || "";
 
     const imgEl = fragment.querySelector(".admin-product-image");
+    const coverImage =
+      Array.isArray(product.images) && product.images.length
+        ? product.images[0]
+        : product.imageUrl || "";
     if (imgEl) {
-      if (product.imageUrl) {
-        imgEl.src = product.imageUrl;
+      if (coverImage) {
+        imgEl.src = coverImage;
         imgEl.alt = product.name || "Imagem do produto";
       } else {
         imgEl.style.display = "none";
@@ -566,12 +573,65 @@ document.addEventListener("DOMContentLoaded", () => {
     return fragment;
   }
 
+  function renderProductImagesUI() {
+    if (!productImagePreview || !productImagePlaceholder || !productImageThumbs) return;
+
+    productImageThumbs.innerHTML = "";
+
+    if (!Array.isArray(currentProductImages) || !currentProductImages.length) {
+      productImagePreview.src = "";
+      productImagePreview.style.display = "none";
+      productImagePlaceholder.style.display = "flex";
+      if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = "";
+      return;
+    }
+
+    const cover = currentProductImages[0];
+    productImagePreview.src = cover;
+    productImagePreview.style.display = "block";
+    productImagePlaceholder.style.display = "none";
+    if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = cover;
+
+    currentProductImages.forEach((url, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "admin-image-thumb" + (idx === 0 ? " active" : "");
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Imagem " + (idx + 1);
+      btn.appendChild(img);
+
+      btn.addEventListener("click", () => {
+        if (idx === 0) return;
+        const copy = currentProductImages.slice();
+        const tmp = copy[0];
+        copy[0] = copy[idx];
+        copy[idx] = tmp;
+        currentProductImages = copy;
+        renderProductImagesUI();
+      });
+
+      productImageThumbs.appendChild(btn);
+    });
+  }
+
   function openProductModal(categoryKey, productOrNull) {
     if (!hiddenForm.el || !productModalBackdrop) return;
 
     currentProductEditing = productOrNull || null;
-    currentProductImageDataUrl =
-      productOrNull && productOrNull.imageUrl ? productOrNull.imageUrl : "";
+
+    // Build images array from existing product or start empty
+    if (productOrNull) {
+      if (Array.isArray(productOrNull.images) && productOrNull.images.length) {
+        currentProductImages = productOrNull.images.slice(0, 10);
+      } else if (productOrNull.imageUrl) {
+        currentProductImages = [productOrNull.imageUrl];
+      } else {
+        currentProductImages = [];
+      }
+    } else {
+      currentProductImages = [];
+    }
 
     hiddenForm.el.reset();
     setFormStatus("", "");
@@ -597,6 +657,21 @@ document.addEventListener("DOMContentLoaded", () => {
       hiddenForm.price.value = priceValue;
     }
 
+    if (hiddenForm.originalPrice) {
+      const originalPriceValue =
+        productOrNull && typeof productOrNull.originalPrice === "number"
+          ? String(productOrNull.originalPrice)
+          : "";
+      hiddenForm.originalPrice.value = originalPriceValue;
+    }
+
+    if (hiddenForm.discountLabel) {
+      hiddenForm.discountLabel.value =
+        productOrNull && typeof productOrNull.discountLabel === "string"
+          ? productOrNull.discountLabel
+          : "";
+    }
+
     if (hiddenForm.stock) {
       const stockValue =
         productOrNull && typeof productOrNull.stock === "number"
@@ -605,21 +680,8 @@ document.addEventListener("DOMContentLoaded", () => {
       hiddenForm.stock.value = stockValue;
     }
 
-    if (hiddenForm.imageUrl) {
-      const url = currentProductImageDataUrl || "";
-      hiddenForm.imageUrl.value = url;
-      if (productImagePreview && productImagePlaceholder) {
-        if (url) {
-          productImagePreview.src = url;
-          productImagePreview.style.display = "block";
-          productImagePlaceholder.style.display = "none";
-        } else {
-          productImagePreview.src = "";
-          productImagePreview.style.display = "none";
-          productImagePlaceholder.style.display = "flex";
-        }
-      }
-    }
+    // Sync cover and thumbnails
+    renderProductImagesUI();
 
     if (productDeleteButton) {
       if (productOrNull && productOrNull.id) {
@@ -641,15 +703,19 @@ document.addEventListener("DOMContentLoaded", () => {
       productModalBackdrop.style.display = "none";
     }
     currentProductEditing = null;
-    currentProductImageDataUrl = "";
+    currentProductImages = [];
     setFormStatus("", "");
     if (hiddenForm.el) {
       hiddenForm.el.reset();
     }
-    if (productImagePreview && productImagePlaceholder) {
+    if (productImagePreview && productImagePlaceholder && productImageThumbs) {
       productImagePreview.src = "";
       productImagePreview.style.display = "none";
       productImagePlaceholder.style.display = "flex";
+      productImageThumbs.innerHTML = "";
+    }
+    if (hiddenForm.imageUrl) {
+      hiddenForm.imageUrl.value = "";
     }
   }
 
@@ -670,21 +736,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     hiddenForm.imageFile.addEventListener("change", async () => {
-      const file = hiddenForm.imageFile.files && hiddenForm.imageFile.files[0];
-      if (!file) return;
+      const files = Array.from(hiddenForm.imageFile.files || []);
+      if (!files.length) return;
       try {
         setFormStatus("Carregando imagem selecionada...", "");
-        const url = await fileToDataUrl(file);
-        currentProductImageDataUrl = url;
-        if (hiddenForm.imageUrl) {
-          hiddenForm.imageUrl.value = url;
+        const newImages = [];
+        for (const file of files) {
+          const url = await fileToDataUrl(file);
+          newImages.push(url);
         }
-        if (productImagePreview && productImagePlaceholder) {
-          productImagePreview.src = url;
-          productImagePreview.style.display = "block";
-          productImagePlaceholder.style.display = "none";
+        if (!Array.isArray(currentProductImages)) {
+          currentProductImages = [];
         }
-        setFormStatus("Imagem adicionada. Salve para aplicar.", "ok");
+        currentProductImages = currentProductImages.concat(newImages).slice(0, 10);
+        renderProductImagesUI();
+        setFormStatus("Imagens adicionadas. Salve para aplicar.", "ok");
       } catch (err) {
         console.error(err);
         setFormStatus("Não foi possível processar a imagem selecionada.", "error");
@@ -697,13 +763,33 @@ document.addEventListener("DOMContentLoaded", () => {
   if (hiddenForm.el) {
     hiddenForm.el.addEventListener("submit", async (event) => {
       event.preventDefault();
+
+      const priceRaw = hiddenForm.price ? hiddenForm.price.value : "";
+      const stockRaw = hiddenForm.stock ? hiddenForm.stock.value : "";
+      const originalPriceRaw = hiddenForm.originalPrice ? hiddenForm.originalPrice.value : "";
+      const discountLabelRaw = hiddenForm.discountLabel
+        ? hiddenForm.discountLabel.value.trim()
+        : "";
+
+      const price = priceRaw ? parseFloat(priceRaw) : NaN;
+      const stock = stockRaw ? parseInt(stockRaw, 10) : NaN;
+      const originalPriceParsed = originalPriceRaw ? parseFloat(originalPriceRaw) : NaN;
+      const originalPrice = Number.isNaN(originalPriceParsed) ? null : originalPriceParsed;
+      const discountLabel = discountLabelRaw.length ? discountLabelRaw : null;
+
       const payload = {
         category: hiddenForm.category ? hiddenForm.category.value : "",
         name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
-        price: hiddenForm.price ? parseFloat(hiddenForm.price.value) : NaN,
-        stock: hiddenForm.stock ? parseInt(hiddenForm.stock.value, 10) : NaN,
-        imageUrl: currentProductImageDataUrl || ""
+        price,
+        stock,
+        imageUrl:
+          Array.isArray(currentProductImages) && currentProductImages.length
+            ? currentProductImages[0]
+            : "",
+        images: Array.isArray(currentProductImages) ? currentProductImages.slice(0) : [],
+        originalPrice,
+        discountLabel
       };
 
       if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock)) {
@@ -719,6 +805,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
+        // errors already handled in create/update helpers
       }
     });
   }
