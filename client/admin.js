@@ -2,8 +2,8 @@
 
 /**
  * DARAH · Admin
- * Mirrors the storefront layout with per-tab editing.
- * All UI copy in pt-BR. Two allowed logins with a welcome loader.
+ * Mirrors the storefront layout with per tab editing.
+ * All UI copy in pt BR. Two allowed logins with a welcome loader.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -89,24 +89,22 @@ document.addEventListener("DOMContentLoaded", () => {
     earrings: document.getElementById("grid-earrings")
   };
 
-  // Constants
-  const MAX_PRODUCT_IMAGES = 25;
-
   // State
   let allProducts = [];
   let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
   let currentProductEditing = null; // { id, category, ... } or null
   let currentProductImages = []; // array of data URLs, first is the cover
+  const MAX_PRODUCT_IMAGES = 25;
 
   // Allowed users and welcome messages
   const VALID_USERS = {
     "Danielle Almeida": {
       password: "Dani123@",
-      welcome: "Bem-vinda, Danielle!"
+      welcome: "Bem vinda, Danielle!"
     },
     "Maria Eduarda": {
       password: "Maria123@",
-      welcome: "Bem-vinda, Maria Eduarda!"
+      welcome: "Bem vinda, Maria Eduarda!"
     }
   };
 
@@ -449,24 +447,11 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       let res = await fetch("/api/admin/products");
       if (!res.ok && res.status === 404) {
-        // Fallback if admin route does not exist, use public grouped payload
         res = await fetch("/api/products");
       }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
-
-      if (Array.isArray(products)) {
-        allProducts = products;
-      } else if (products && typeof products === "object") {
-        const merged = [];
-        ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
-          if (Array.isArray(products[key])) merged.push(...products[key]);
-        });
-        allProducts = merged;
-      } else {
-        allProducts = [];
-      }
-
+      allProducts = Array.isArray(products) ? products : [];
       renderAllCategoryGrids();
       setFormStatus("", "");
     } catch (err) {
@@ -554,15 +539,12 @@ document.addEventListener("DOMContentLoaded", () => {
     article.dataset.productId = product.id || "";
 
     const imgEl = fragment.querySelector(".admin-product-image");
-
-    const imagesArray =
-      Array.isArray(product.images) && product.images.length
-        ? product.images
-        : Array.isArray(product.imageUrls) && product.imageUrls.length
-        ? product.imageUrls
-        : [];
-
-    const coverImage = imagesArray[0] || product.imageUrl || "";
+    const imagesFromApi = Array.isArray(product.imageUrls)
+      ? product.imageUrls
+      : Array.isArray(product.images)
+      ? product.images
+      : [];
+    const coverImage = imagesFromApi[0] || product.imageUrl || "";
 
     if (imgEl) {
       if (coverImage) {
@@ -599,7 +581,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const editBtn = fragment.querySelector(".admin-edit-product-button");
     if (editBtn) {
-      editBtn.addEventListener("click", () => openProductModal(product.category, product));
+      editBtn.addEventListener("click", () =>
+        openProductModal(product.category, {
+          ...product,
+          imageUrls: imagesFromApi
+        })
+      );
     }
 
     return fragment;
@@ -628,11 +615,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "admin-image-thumb" + (idx === 0 ? " active" : "");
+      btn.style.position = "relative";
+
       const img = document.createElement("img");
       img.src = url;
       img.alt = "Imagem " + (idx + 1);
       btn.appendChild(img);
 
+      // Make clicked thumbnail the new cover (index 0)
       btn.addEventListener("click", () => {
         if (idx === 0) return;
         const copy = currentProductImages.slice();
@@ -643,6 +633,33 @@ document.addEventListener("DOMContentLoaded", () => {
         renderProductImagesUI();
       });
 
+      // Small x button to remove this image
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "×";
+      removeBtn.title = "Remover esta imagem";
+      removeBtn.style.position = "absolute";
+      removeBtn.style.top = "0";
+      removeBtn.style.right = "0";
+      removeBtn.style.border = "none";
+      removeBtn.style.borderRadius = "999px";
+      removeBtn.style.width = "16px";
+      removeBtn.style.height = "16px";
+      removeBtn.style.fontSize = "11px";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.style.background = "rgba(0,0,0,0.6)";
+      removeBtn.style.color = "#fff";
+      removeBtn.style.display = "flex";
+      removeBtn.style.alignItems = "center";
+      removeBtn.style.justifyContent = "center";
+      removeBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        currentProductImages.splice(idx, 1);
+        currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
+        renderProductImagesUI();
+      });
+
+      btn.appendChild(removeBtn);
       productImageThumbs.appendChild(btn);
     });
   }
@@ -654,15 +671,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Build images array from existing product or start empty
     if (productOrNull) {
-      const imagesArray =
-        Array.isArray(productOrNull.images) && productOrNull.images.length
-          ? productOrNull.images
-          : Array.isArray(productOrNull.imageUrls) && productOrNull.imageUrls.length
-          ? productOrNull.imageUrls
-          : [];
+      const fromImageUrls = Array.isArray(productOrNull.imageUrls)
+        ? productOrNull.imageUrls
+        : null;
+      const fromImages = Array.isArray(productOrNull.images) ? productOrNull.images : null;
 
-      if (imagesArray.length) {
-        currentProductImages = imagesArray.slice(0, MAX_PRODUCT_IMAGES);
+      if (fromImageUrls && fromImageUrls.length) {
+        currentProductImages = fromImageUrls.slice(0, MAX_PRODUCT_IMAGES);
+      } else if (fromImages && fromImages.length) {
+        currentProductImages = fromImages.slice(0, MAX_PRODUCT_IMAGES);
       } else if (productOrNull.imageUrl) {
         currentProductImages = [productOrNull.imageUrl];
       } else {
@@ -828,7 +845,7 @@ document.addEventListener("DOMContentLoaded", () => {
           Array.isArray(currentProductImages) && currentProductImages.length
             ? currentProductImages[0]
             : "",
-        images: Array.isArray(currentProductImages)
+        imageUrls: Array.isArray(currentProductImages)
           ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
           : [],
         originalPrice,
@@ -848,7 +865,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
-        // errors already handled in create/update helpers
+        // errors already handled in create or update helpers
       }
     });
   }
