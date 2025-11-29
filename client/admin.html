@@ -473,6 +473,32 @@
         color: var(--text-muted);
       }
 
+      /* Thumbnail gallery for multiple product images */
+      .admin-image-thumbs {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .admin-image-thumb {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.04);
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .admin-image-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .admin-image-thumb.active {
+        border-color: var(--accent-soft);
+        box-shadow: 0 0 0 1px var(--accent-soft);
+      }
+
       @media (max-width: 640px) {
         .admin-login {
           margin-top: 28px;
@@ -745,7 +771,7 @@
               </div>
 
               <div class="admin-field">
-                <label class="admin-label">Imagem do produto</label>
+                <label class="admin-label">Imagens do produto</label>
                 <div class="admin-image-upload-row">
                   <div class="admin-image-preview">
                     <div id="productImagePlaceholder" class="admin-image-placeholder">
@@ -763,10 +789,11 @@
                       id="productImageFileButton"
                       class="admin-button-secondary"
                     >
-                      Escolher foto
+                      Escolher foto(s)
                     </button>
                     <p class="admin-status" style="margin-top:4px">
                       Use câmera, biblioteca de fotos ou arquivos do dispositivo.
+                      Você pode adicionar várias imagens, a primeira será a capa.
                     </p>
                   </div>
                 </div>
@@ -774,6 +801,7 @@
                   id="productImageFile"
                   type="file"
                   accept="image/*"
+                  multiple
                   style="display:none"
                 />
                 <input
@@ -781,11 +809,15 @@
                   type="text"
                   style="display:none"
                 />
+                <div id="productImageThumbs" class="admin-image-thumbs"></div>
+                <p class="admin-status" style="margin-top:4px">
+                  Toque em uma miniatura para defini-la como capa do produto.
+                </p>
               </div>
 
               <div class="admin-field">
                 <label for="productPrice" class="admin-label">
-                  Preço
+                  Preço atual
                 </label>
                 <div class="admin-price-wrapper">
                   <span class="admin-price-prefix">R$</span>
@@ -799,6 +831,38 @@
                     inputmode="decimal"
                   />
                 </div>
+              </div>
+
+              <div class="admin-field">
+                <label for="productOriginalPrice" class="admin-label">
+                  Preço original (opcional, apenas para ofertas especiais)
+                </label>
+                <div class="admin-price-wrapper">
+                  <span class="admin-price-prefix">R$</span>
+                  <input
+                    id="productOriginalPrice"
+                    class="admin-price-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputmode="decimal"
+                  />
+                </div>
+                <p class="admin-status" style="margin-top:4px">
+                  Se preenchido, aparecerá como valor riscado na aba "Ofertas especiais".
+                </p>
+              </div>
+
+              <div class="admin-field">
+                <label for="productDiscountLabel" class="admin-label">
+                  Rótulo de desconto (opcional)
+                </label>
+                <input
+                  id="productDiscountLabel"
+                  class="admin-input"
+                  type="text"
+                  placeholder="Ex.: 20% off, Frete grátis, Leve 2 e pague 1"
+                />
               </div>
 
               <div class="admin-field">
