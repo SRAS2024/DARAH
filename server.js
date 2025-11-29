@@ -206,7 +206,17 @@ app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
 app.get("/api/admin/products", (_req, res) => res.json(db.products));
 
 app.post("/api/products", async (req, res) => {
-  const { category, name, description, price, stock, imageUrl } = req.body || {};
+  const {
+    category,
+    name,
+    description,
+    price,
+    stock,
+    imageUrl,
+    imageUrls,
+    originalPrice,
+    discountLabel
+  } = req.body || {};
 
   if (!name || typeof price !== "number" || typeof stock !== "number") {
     return res.status(400).json({ error: "Preencha pelo menos nome, preço e estoque." });
@@ -225,13 +235,34 @@ app.post("/api/products", async (req, res) => {
     return res.status(400).json({ error: "Categoria inválida." });
   }
 
+  const normalizedImages = Array.isArray(imageUrls)
+    ? imageUrls
+        .filter((s) => typeof s === "string" && s.trim().length)
+        .slice(0, 12)
+    : [];
+
+  const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
+
+  const normalizedOriginalPrice =
+    typeof originalPrice === "number" && !Number.isNaN(originalPrice)
+      ? Number(originalPrice)
+      : null;
+
+  const normalizedDiscountLabel =
+    typeof discountLabel === "string" && discountLabel.trim().length
+      ? discountLabel.trim()
+      : "";
+
   const normalizedPayload = {
     category,
     name: String(name),
     description: String(description || ""),
     price: Number(price),
     stock: Math.max(0, Number(stock)),
-    imageUrl: String(imageUrl || "")
+    imageUrl: primaryImageUrl,
+    imageUrls: normalizedImages,
+    originalPrice: normalizedOriginalPrice,
+    discountLabel: normalizedDiscountLabel
   };
 
   // Guard against very fast duplicate submits of the exact same product data
@@ -254,7 +285,10 @@ app.post("/api/products", async (req, res) => {
     price: normalizedPayload.price,
     stock: normalizedPayload.stock,
     active: true,
-    imageUrl: normalizedPayload.imageUrl
+    imageUrl: normalizedPayload.imageUrl,
+    imageUrls: normalizedPayload.imageUrls,
+    originalPrice: normalizedPayload.originalPrice,
+    discountLabel: normalizedPayload.discountLabel
   };
 
   db.products.push(product);
@@ -276,12 +310,67 @@ app.post("/api/products", async (req, res) => {
 app.put("/api/products/:id", async (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-  const allowed = ["category", "name", "description", "price", "stock", "imageUrl", "active"];
+
+  const allowed = [
+    "category",
+    "name",
+    "description",
+    "price",
+    "stock",
+    "imageUrl",
+    "imageUrls",
+    "active",
+    "originalPrice",
+    "discountLabel"
+  ];
+
   Object.keys(req.body || {}).forEach((k) => {
     if (!allowed.includes(k)) return;
-    if (k === "stock") product[k] = Math.max(0, Number(req.body[k]));
-    else if (k === "price") product[k] = Number(req.body[k]);
-    else product[k] = req.body[k];
+
+    if (k === "stock") {
+      product[k] = Math.max(0, Number(req.body[k]));
+      return;
+    }
+
+    if (k === "price") {
+      product[k] = Number(req.body[k]);
+      return;
+    }
+
+    if (k === "imageUrls") {
+      const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
+      const cleaned = srcs
+        .filter((s) => typeof s === "string" && s.trim().length)
+        .slice(0, 12);
+      product.imageUrls = cleaned;
+      if (!product.imageUrl && cleaned.length) {
+        product.imageUrl = cleaned[0];
+      }
+      return;
+    }
+
+    if (k === "originalPrice") {
+      const v = req.body[k];
+      if (typeof v === "number" && !Number.isNaN(v)) {
+        product.originalPrice = Number(v);
+      } else if (v == null || v === "") {
+        product.originalPrice = null;
+      }
+      return;
+    }
+
+    if (k === "discountLabel") {
+      const text = String(req.body[k] || "").trim();
+      product.discountLabel = text;
+      return;
+    }
+
+    if (k === "imageUrl") {
+      product.imageUrl = String(req.body[k] || "");
+      return;
+    }
+
+    product[k] = req.body[k];
   });
 
   try {
