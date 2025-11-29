@@ -89,6 +89,9 @@ document.addEventListener("DOMContentLoaded", () => {
     earrings: document.getElementById("grid-earrings")
   };
 
+  // Constants
+  const MAX_PRODUCT_IMAGES = 25;
+
   // State
   let allProducts = [];
   let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
@@ -445,15 +448,25 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadProducts() {
     try {
       let res = await fetch("/api/admin/products");
-      if (!res.ok) {
-        if (res.status === 404) {
-          // Fallback if admin route does not exist
-          res = await fetch("/api/products");
-        }
+      if (!res.ok && res.status === 404) {
+        // Fallback if admin route does not exist, use public grouped payload
+        res = await fetch("/api/products");
       }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
-      allProducts = Array.isArray(products) ? products : [];
+
+      if (Array.isArray(products)) {
+        allProducts = products;
+      } else if (products && typeof products === "object") {
+        const merged = [];
+        ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
+          if (Array.isArray(products[key])) merged.push(...products[key]);
+        });
+        allProducts = merged;
+      } else {
+        allProducts = [];
+      }
+
       renderAllCategoryGrids();
       setFormStatus("", "");
     } catch (err) {
@@ -541,10 +554,16 @@ document.addEventListener("DOMContentLoaded", () => {
     article.dataset.productId = product.id || "";
 
     const imgEl = fragment.querySelector(".admin-product-image");
-    const coverImage =
+
+    const imagesArray =
       Array.isArray(product.images) && product.images.length
-        ? product.images[0]
-        : product.imageUrl || "";
+        ? product.images
+        : Array.isArray(product.imageUrls) && product.imageUrls.length
+        ? product.imageUrls
+        : [];
+
+    const coverImage = imagesArray[0] || product.imageUrl || "";
+
     if (imgEl) {
       if (coverImage) {
         imgEl.src = coverImage;
@@ -635,8 +654,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Build images array from existing product or start empty
     if (productOrNull) {
-      if (Array.isArray(productOrNull.images) && productOrNull.images.length) {
-        currentProductImages = productOrNull.images.slice(0, 10);
+      const imagesArray =
+        Array.isArray(productOrNull.images) && productOrNull.images.length
+          ? productOrNull.images
+          : Array.isArray(productOrNull.imageUrls) && productOrNull.imageUrls.length
+          ? productOrNull.imageUrls
+          : [];
+
+      if (imagesArray.length) {
+        currentProductImages = imagesArray.slice(0, MAX_PRODUCT_IMAGES);
       } else if (productOrNull.imageUrl) {
         currentProductImages = [productOrNull.imageUrl];
       } else {
@@ -761,7 +787,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(currentProductImages)) {
           currentProductImages = [];
         }
-        currentProductImages = currentProductImages.concat(newImages).slice(0, 10);
+        currentProductImages = currentProductImages
+          .concat(newImages)
+          .slice(0, MAX_PRODUCT_IMAGES);
         renderProductImagesUI();
         setFormStatus("Imagens adicionadas. Salve para aplicar.", "ok");
       } catch (err) {
@@ -800,7 +828,9 @@ document.addEventListener("DOMContentLoaded", () => {
           Array.isArray(currentProductImages) && currentProductImages.length
             ? currentProductImages[0]
             : "",
-        images: Array.isArray(currentProductImages) ? currentProductImages.slice(0) : [],
+        images: Array.isArray(currentProductImages)
+          ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
+          : [],
         originalPrice,
         discountLabel
       };
