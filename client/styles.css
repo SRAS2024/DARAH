@@ -305,13 +305,16 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.02);
 }
 
+/* Wrapper for product images with carousel */
 .product-image-wrapper {
   position: relative;
   width: 100%;
   padding-top: 80%;
   background: #ececec;
+  overflow: hidden;
 }
 
+/* Legacy single image support */
 .product-image-wrapper img {
   position: absolute;
   inset: 0;
@@ -319,6 +322,77 @@ body {
   height: 100%;
   object-fit: cover;
 }
+
+/* Carousel viewport and track */
+.product-image-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.product-image-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.35s ease;
+}
+
+.product-image-track img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  flex: 0 0 100%;
+}
+
+/* Carousel controls */
+
+.product-carousel-arrow {
+  position: absolute;
+  bottom: 10px;
+  border-radius: 999px;
+  border: none;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+.product-carousel-arrow-left {
+  left: 10px;
+}
+
+.product-carousel-arrow-right {
+  right: 10px;
+}
+
+.product-carousel-arrow:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.7);
+  transform: translateY(1px);
+}
+
+.product-carousel-arrow:disabled {
+  cursor: default;
+}
+
+.product-carousel-indicator {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+}
+
+/* Product body */
 
 .product-content {
   padding: 14px 14px 16px 14px;
@@ -345,9 +419,41 @@ body {
   margin-top: 4px;
 }
 
+/* Price block for offers and standard products */
+
+.product-price-block {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .product-price {
   font-weight: 600;
   font-size: 15px;
+}
+
+/* Old price on specials tab */
+.product-price-original {
+  font-size: 13px;
+  text-decoration: line-through;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* Current price highlight on specials */
+.product-price-current {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* Optional discount label pill */
+.product-discount-label {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-main);
+  font-weight: 500;
 }
 
 .product-stock {
@@ -785,7 +891,8 @@ body {
   }
 
   .product-price,
-  .admin-product-price {
+  .admin-product-price,
+  .product-price-current {
     font-size: 14px;
   }
 
@@ -804,5 +911,17 @@ body {
   .brand-name {
     font-size: 26px;
     letter-spacing: 0.24em;
+  }
+
+  .product-carousel-arrow {
+    bottom: 8px;
+    padding: 3px 7px;
+    font-size: 12px;
+  }
+
+  .product-carousel-indicator {
+    bottom: 8px;
+    font-size: 11px;
+    padding: 2px 8px;
   }
 }
