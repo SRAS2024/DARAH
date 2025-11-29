@@ -2,11 +2,13 @@
 
 /**
  * DARAH · Admin
- * Mirrors the storefront layout with per tab editing.
+ * Mirrors the storefront layout with per tab editing and multi image products.
  * All UI copy in pt BR. Two allowed logins with a welcome loader.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  const MAX_PRODUCT_IMAGES = 25;
+
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
@@ -40,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Homepage admin controls
   const aboutTextEl = document.getElementById("adminAboutText");
   const heroGalleryEl = document.getElementById("adminHeroGallery");
-  const heroImagesTextarea = document.getElementById("adminHeroImages"); // hidden, API compatibility
+  const heroImagesTextarea = document.getElementById("adminHeroImages");
   const heroImagesFileInput = document.getElementById("adminHeroImagesFile");
   const heroImagesFileButton = document.getElementById("adminHeroImagesFileButton");
   const saveHomepageBtn = document.getElementById("saveHomepageBtn");
@@ -92,9 +94,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // State
   let allProducts = [];
   let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
-  let currentProductEditing = null; // { id, category, ... } or null
-  let currentProductImages = []; // array of data URLs, first is the cover
-  const MAX_PRODUCT_IMAGES = 25;
+  let currentProductEditing = null;
+  let currentProductImages = []; // data URLs, first is cover
 
   // Allowed users and welcome messages
   const VALID_USERS = {
@@ -137,12 +138,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "error") noticeStatusEl.classList.add("error");
   }
 
+  function setFormStatus(message, type) {
+    const el = hiddenForm.status;
+    if (!el) return;
+    el.textContent = message || "";
+    el.classList.remove("ok", "error");
+    if (type === "ok") el.classList.add("ok");
+    if (type === "error") el.classList.add("error");
+  }
+
   function formatBRL(value) {
     if (value == null || Number.isNaN(Number(value))) return "R$ 0,00";
     try {
       return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     } catch {
-      return "R$ " + Number(value).toFixed(2).replace(".", ",");
+      return "R$ " + Number(value || 0).toFixed(2).replace(".", ",");
     }
   }
 
@@ -218,8 +228,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const hp = await res.json();
 
       homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
-      homepageState.heroImages = Array.isArray(hp.heroImages) ? hp.heroImages.slice(0) : [];
-      homepageState.notices = Array.isArray(hp.notices) ? hp.notices.slice(0) : [];
+      homepageState.heroImages = Array.isArray(hp.heroImages) ? hp.heroImages.slice(0, 20) : [];
+      homepageState.notices = Array.isArray(hp.notices) ? hp.notices.slice(0, 10) : [];
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
 
       if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
@@ -401,6 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const url = await fileToDataUrl(f);
           homepageState.heroImages.push(url);
         }
+        homepageState.heroImages = homepageState.heroImages.slice(0, 20);
         if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
         renderHeroGallery();
         setHomepageStatus("Imagens adicionadas. Clique em salvar.", "ok");
@@ -419,8 +430,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         setHomepageStatus("Salvando...", "");
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
-        const heroImages = homepageState.heroImages.slice(0);
-        const notices = homepageState.notices.filter((n) => n && n.trim().length);
+        const heroImages = homepageState.heroImages.slice(0, 20);
+        const notices = homepageState.notices
+          .filter((n) => n && n.trim().length)
+          .slice(0, 10);
         const theme = homepageState.theme || "default";
 
         const res = await fetch("/api/homepage", {
@@ -446,27 +459,36 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadProducts() {
     try {
       let res = await fetch("/api/admin/products");
-      if (!res.ok && res.status === 404) {
-        res = await fetch("/api/products");
+      if (!res.ok) {
+        if (res.status === 404) {
+          // Fallback if admin route does not exist
+          res = await fetch("/api/products");
+        }
       }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
-      allProducts = Array.isArray(products) ? products : [];
+
+      // /api/products returns grouped by category, admin returns flat list
+      if (Array.isArray(products)) {
+        allProducts = products;
+      } else if (products && typeof products === "object") {
+        const flat = [];
+        ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
+          if (Array.isArray(products[key])) {
+            products[key].forEach((p) => flat.push(p));
+          }
+        });
+        allProducts = flat;
+      } else {
+        allProducts = [];
+      }
+
       renderAllCategoryGrids();
       setFormStatus("", "");
     } catch (err) {
       console.error(err);
       setFormStatus("Não foi possível carregar os produtos.", "error");
     }
-  }
-
-  function setFormStatus(message, type) {
-    const el = hiddenForm.status;
-    if (!el) return;
-    el.textContent = message || "";
-    el.classList.remove("ok", "error");
-    if (type === "ok") el.classList.add("ok");
-    if (type === "error") el.classList.add("error");
   }
 
   function renderAllCategoryGrids() {
@@ -528,6 +550,25 @@ document.addEventListener("DOMContentLoaded", () => {
     return fragment;
   }
 
+  function normalizeProductImages(product) {
+    const primary = typeof product.imageUrl === "string" ? product.imageUrl : "";
+
+    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    const fromImages = Array.isArray(product.images) ? product.images : [];
+
+    const merged = [...fromImageUrls, ...fromImages];
+
+    const cleaned = merged
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+
+    if (primary && !cleaned.includes(primary)) {
+      cleaned.unshift(primary);
+    }
+
+    return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+  }
+
   function createProductCardFragment(product) {
     if (!productCardTemplate || !("content" in productCardTemplate)) {
       return null;
@@ -538,20 +579,81 @@ document.addEventListener("DOMContentLoaded", () => {
 
     article.dataset.productId = product.id || "";
 
+    const wrapper = fragment.querySelector(".admin-product-image-wrapper");
     const imgEl = fragment.querySelector(".admin-product-image");
-    const imagesFromApi = Array.isArray(product.imageUrls)
-      ? product.imageUrls
-      : Array.isArray(product.images)
-      ? product.images
-      : [];
-    const coverImage = imagesFromApi[0] || product.imageUrl || "";
+    const images = normalizeProductImages(product);
 
-    if (imgEl) {
-      if (coverImage) {
-        imgEl.src = coverImage;
-        imgEl.alt = product.name || "Imagem do produto";
+    if (wrapper) {
+      if (!images.length) {
+        if (imgEl) {
+          imgEl.alt = product.name || "Imagem do produto";
+          imgEl.style.display = "none";
+        }
+      } else if (images.length === 1) {
+        if (imgEl) {
+          imgEl.src = images[0];
+          imgEl.alt = product.name || "Imagem do produto";
+          imgEl.style.display = "block";
+        }
       } else {
-        imgEl.style.display = "none";
+        // Multi image carousel in admin, same behavior as storefront
+        wrapper.innerHTML = "";
+
+        const viewport = document.createElement("div");
+        viewport.className = "product-image-viewport";
+
+        const track = document.createElement("div");
+        track.className = "product-image-track";
+
+        images.forEach((src) => {
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = product.name || "Imagem do produto";
+          track.appendChild(img);
+        });
+
+        viewport.appendChild(track);
+        wrapper.appendChild(viewport);
+
+        const leftBtn = document.createElement("button");
+        leftBtn.type = "button";
+        leftBtn.className = "product-carousel-arrow product-carousel-arrow-left";
+        leftBtn.textContent = "‹";
+
+        const rightBtn = document.createElement("button");
+        rightBtn.type = "button";
+        rightBtn.className = "product-carousel-arrow product-carousel-arrow-right";
+        rightBtn.textContent = "›";
+
+        const indicator = document.createElement("div");
+        indicator.className = "product-carousel-indicator";
+
+        let currentIndex = 0;
+
+        function updateCarousel() {
+          const index = Math.max(0, Math.min(images.length - 1, currentIndex));
+          currentIndex = index;
+          track.style.transform = "translateX(" + String(-index * 100) + "%)";
+          indicator.textContent = String(index + 1) + "/" + String(images.length);
+          leftBtn.disabled = index === 0;
+          rightBtn.disabled = index === images.length - 1;
+        }
+
+        leftBtn.addEventListener("click", () => {
+          currentIndex -= 1;
+          updateCarousel();
+        });
+
+        rightBtn.addEventListener("click", () => {
+          currentIndex += 1;
+          updateCarousel();
+        });
+
+        wrapper.appendChild(leftBtn);
+        wrapper.appendChild(rightBtn);
+        wrapper.appendChild(indicator);
+
+        updateCarousel();
       }
     }
 
@@ -581,12 +683,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const editBtn = fragment.querySelector(".admin-edit-product-button");
     if (editBtn) {
-      editBtn.addEventListener("click", () =>
-        openProductModal(product.category, {
-          ...product,
-          imageUrls: imagesFromApi
-        })
-      );
+      editBtn.addEventListener("click", () => openProductModal(product.category, product));
     }
 
     return fragment;
@@ -622,7 +719,29 @@ document.addEventListener("DOMContentLoaded", () => {
       img.alt = "Imagem " + (idx + 1);
       btn.appendChild(img);
 
-      // Make clicked thumbnail the new cover (index 0)
+      // Small x button to remove this image
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "×";
+      removeBtn.style.position = "absolute";
+      removeBtn.style.top = "0";
+      removeBtn.style.right = "0";
+      removeBtn.style.width = "16px";
+      removeBtn.style.height = "16px";
+      removeBtn.style.border = "none";
+      removeBtn.style.borderRadius = "999px";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.style.fontSize = "11px";
+      removeBtn.style.lineHeight = "1";
+      removeBtn.style.background = "rgba(0,0,0,0.65)";
+      removeBtn.style.color = "#fff";
+      removeBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        currentProductImages.splice(idx, 1);
+        currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
+        renderProductImagesUI();
+      });
+
       btn.addEventListener("click", () => {
         if (idx === 0) return;
         const copy = currentProductImages.slice();
@@ -630,32 +749,6 @@ document.addEventListener("DOMContentLoaded", () => {
         copy[0] = copy[idx];
         copy[idx] = tmp;
         currentProductImages = copy;
-        renderProductImagesUI();
-      });
-
-      // Small x button to remove this image
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.textContent = "×";
-      removeBtn.title = "Remover esta imagem";
-      removeBtn.style.position = "absolute";
-      removeBtn.style.top = "0";
-      removeBtn.style.right = "0";
-      removeBtn.style.border = "none";
-      removeBtn.style.borderRadius = "999px";
-      removeBtn.style.width = "16px";
-      removeBtn.style.height = "16px";
-      removeBtn.style.fontSize = "11px";
-      removeBtn.style.cursor = "pointer";
-      removeBtn.style.background = "rgba(0,0,0,0.6)";
-      removeBtn.style.color = "#fff";
-      removeBtn.style.display = "flex";
-      removeBtn.style.alignItems = "center";
-      removeBtn.style.justifyContent = "center";
-      removeBtn.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        currentProductImages.splice(idx, 1);
-        currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
         renderProductImagesUI();
       });
 
@@ -669,22 +762,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     currentProductEditing = productOrNull || null;
 
-    // Build images array from existing product or start empty
     if (productOrNull) {
-      const fromImageUrls = Array.isArray(productOrNull.imageUrls)
-        ? productOrNull.imageUrls
-        : null;
-      const fromImages = Array.isArray(productOrNull.images) ? productOrNull.images : null;
-
-      if (fromImageUrls && fromImageUrls.length) {
-        currentProductImages = fromImageUrls.slice(0, MAX_PRODUCT_IMAGES);
-      } else if (fromImages && fromImages.length) {
-        currentProductImages = fromImages.slice(0, MAX_PRODUCT_IMAGES);
-      } else if (productOrNull.imageUrl) {
-        currentProductImages = [productOrNull.imageUrl];
-      } else {
-        currentProductImages = [];
-      }
+      currentProductImages = normalizeProductImages(productOrNull);
     } else {
       currentProductImages = [];
     }
@@ -736,7 +815,6 @@ document.addEventListener("DOMContentLoaded", () => {
       hiddenForm.stock.value = stockValue;
     }
 
-    // Sync cover and thumbnails
     renderProductImagesUI();
 
     if (productDeleteButton) {
@@ -795,7 +873,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const files = Array.from(hiddenForm.imageFile.files || []);
       if (!files.length) return;
       try {
-        setFormStatus("Carregando imagem selecionada...", "");
+        setFormStatus("Carregando imagens selecionadas...", "");
         const newImages = [];
         for (const file of files) {
           const url = await fileToDataUrl(file);
@@ -804,9 +882,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(currentProductImages)) {
           currentProductImages = [];
         }
+        currentProductImages = currentProductImages.concat(newImages);
+
+        // Deduplicate and cap at MAX_PRODUCT_IMAGES to avoid lag
         currentProductImages = currentProductImages
-          .concat(newImages)
+          .map((u) => String(u || "").trim())
+          .filter((u, index, arr) => u && arr.indexOf(u) === index)
           .slice(0, MAX_PRODUCT_IMAGES);
+
         renderProductImagesUI();
         setFormStatus("Imagens adicionadas. Salve para aplicar.", "ok");
       } catch (err) {
@@ -845,9 +928,7 @@ document.addEventListener("DOMContentLoaded", () => {
           Array.isArray(currentProductImages) && currentProductImages.length
             ? currentProductImages[0]
             : "",
-        imageUrls: Array.isArray(currentProductImages)
-          ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
-          : [],
+        images: Array.isArray(currentProductImages) ? currentProductImages.slice(0) : [],
         originalPrice,
         discountLabel
       };
