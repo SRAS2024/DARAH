@@ -23,6 +23,10 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Limits
+const MAX_HOMEPAGE_IMAGES = 12;
+const MAX_PRODUCT_IMAGES = 25;
+
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
 /* ------------------------------------------------------------------ */
@@ -108,6 +112,14 @@ function ensureSessionCart(req) {
   return req.session.cart;
 }
 
+function normalizeImageArray(arr) {
+  if (!Array.isArray(arr)) return [];
+  const cleaned = arr
+    .map((s) => String(s || "").trim())
+    .filter((s, idx, a) => s && a.indexOf(s) === idx);
+  return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+}
+
 function groupPublicProducts() {
   const out = {
     specials: [],
@@ -120,7 +132,30 @@ function groupPublicProducts() {
 
   db.products.forEach((p) => {
     if (p.active !== false && typeof p.stock === "number" && p.stock > 0) {
-      if (out[p.category]) out[p.category].push(p);
+      if (!out[p.category]) return;
+
+      const imageUrls = normalizeImageArray(p.imageUrls || []);
+      const imageUrl = p.imageUrl || imageUrls[0] || "";
+
+      // Clone so we can safely normalize for the public API
+      const payload = {
+        id: p.id,
+        createdAt: p.createdAt,
+        category: p.category,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        stock: p.stock,
+        active: p.active !== false,
+        imageUrl,
+        imageUrls,
+        // alias used by some frontends
+        images: imageUrls.slice(),
+        originalPrice: p.originalPrice != null ? p.originalPrice : null,
+        discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
+      };
+
+      out[p.category].push(payload);
     }
   });
   return out;
@@ -165,10 +200,24 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Homepage
 app.get("/api/homepage", (_req, res) => {
+  const heroImages = Array.isArray(db.homepage.heroImages)
+    ? db.homepage.heroImages
+        .map((s) => String(s || "").trim())
+        .filter((s, idx, a) => s && a.indexOf(s) === idx)
+        .slice(0, MAX_HOMEPAGE_IMAGES)
+    : [];
+
+  const notices = Array.isArray(db.homepage.notices)
+    ? db.homepage.notices
+        .map((n) => String(n || "").trim())
+        .filter((n, idx, a) => n && a.indexOf(n) === idx)
+        .slice(0, 10)
+    : [];
+
   res.json({
     aboutText: db.homepage.aboutText || "",
-    heroImages: Array.isArray(db.homepage.heroImages) ? db.homepage.heroImages : [],
-    notices: Array.isArray(db.homepage.notices) ? db.homepage.notices : [],
+    heroImages,
+    notices,
     theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
   });
 });
@@ -176,17 +225,21 @@ app.get("/api/homepage", (_req, res) => {
 app.put("/api/homepage", async (req, res) => {
   const { aboutText, heroImages, notices, theme } = req.body || {};
   if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
+
   if (Array.isArray(heroImages)) {
     db.homepage.heroImages = heroImages
-      .filter((s) => typeof s === "string" && s.trim().length)
-      .slice(0, 20);
+      .map((s) => String(s || "").trim())
+      .filter((s, idx, a) => s && a.indexOf(s) === idx)
+      .slice(0, MAX_HOMEPAGE_IMAGES);
   }
+
   if (Array.isArray(notices)) {
     db.homepage.notices = notices
       .map((n) => String(n || "").trim())
-      .filter((n) => n.length)
+      .filter((n, idx, a) => n && a.indexOf(n) === idx)
       .slice(0, 10);
   }
+
   if (typeof theme === "string") {
     db.homepage.theme = theme === "natal" ? "natal" : "default";
   }
@@ -204,7 +257,20 @@ app.put("/api/homepage", async (req, res) => {
 // Products
 app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
 
-app.get("/api/admin/products", (_req, res) => res.json(db.products));
+app.get("/api/admin/products", (_req, res) => {
+  const adminProducts = db.products.map((p) => {
+    const imageUrls = normalizeImageArray(p.imageUrls || []);
+    const imageUrl = p.imageUrl || imageUrls[0] || "";
+    return {
+      ...p,
+      imageUrl,
+      imageUrls,
+      // alias used by admin and storefront code for multi image carousels
+      images: imageUrls.slice()
+    };
+  });
+  res.json(adminProducts);
+});
 
 app.post("/api/products", async (req, res) => {
   const {
@@ -244,9 +310,7 @@ app.post("/api/products", async (req, res) => {
     ? images
     : [];
 
-  const normalizedImages = rawImages
-    .filter((s) => typeof s === "string" && s.trim().length)
-    .slice(0, 25);
+  const normalizedImages = normalizeImageArray(rawImages);
 
   const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
@@ -351,9 +415,7 @@ app.put("/api/products/:id", async (req, res) => {
 
     if (k === "imageUrls") {
       const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
-      const cleaned = srcs
-        .filter((s) => typeof s === "string" && s.trim().length)
-        .slice(0, 25);
+      const cleaned = normalizeImageArray(srcs);
       product.imageUrls = cleaned;
       if (!product.imageUrl && cleaned.length) {
         product.imageUrl = cleaned[0];
