@@ -382,18 +382,24 @@
         inset: 0;
         background: rgba(0, 0, 0, 0.38);
         display: none;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        padding: 20px;
+        padding: 20px 12px;
         z-index: 40;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .admin-modal {
         width: 100%;
-        max-width: 420px;
+        max-width: 460px;
         background: var(--card-bg);
         border-radius: 18px;
         box-shadow: var(--shadow-soft);
         padding: 18px 18px 20px;
+        margin-top: 32px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .admin-modal-header {
         display: flex;
@@ -517,6 +523,14 @@
         }
         .admin-user-label {
           max-width: 100px;
+        }
+        .admin-modal-backdrop {
+          padding: 16px 10px;
+        }
+        .admin-modal {
+          margin-top: 24px;
+          max-height: calc(100vh - 32px);
+          border-radius: 14px;
         }
       }
     </style>
