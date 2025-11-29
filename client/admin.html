@@ -504,6 +504,8 @@
       <nav class="main-nav">
         <div class="nav-left">
           <button class="nav-link active" data-view="home">Início</button>
+          <button class="nav-link" data-view="specials">Ofertas especiais</button>
+          <button class="nav-link" data-view="sets">Conjuntos</button>
           <button class="nav-link" data-view="rings">Anéis</button>
           <button class="nav-link" data-view="necklaces">Colares</button>
           <button class="nav-link" data-view="bracelets">Pulseiras</button>
@@ -661,6 +663,18 @@
           </div>
         </section>
 
+        <!-- VISÃO OFERTAS ESPECIAIS -->
+        <section id="view-specials" class="view">
+          <h2 class="section-title">Ofertas especiais</h2>
+          <div id="grid-specials" class="admin-product-grid"></div>
+        </section>
+
+        <!-- VISÃO CONJUNTOS -->
+        <section id="view-sets" class="view">
+          <h2 class="section-title">Conjuntos</h2>
+          <div id="grid-sets" class="admin-product-grid"></div>
+        </section>
+
         <!-- VISÕES DE CATEGORIA -->
         <section id="view-rings" class="view">
           <h2 class="section-title">Anéis</h2>
@@ -707,6 +721,8 @@
                   class="admin-select"
                   required
                 >
+                  <option value="specials">Ofertas especiais</option>
+                  <option value="sets">Conjuntos</option>
                   <option value="rings">Anéis</option>
                   <option value="necklaces">Colares</option>
                   <option value="bracelets">Pulseiras</option>
