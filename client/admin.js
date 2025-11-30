@@ -8,13 +8,16 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  const MAX_PRODUCT_IMAGES = 25;
-  const MAX_HOMEPAGE_IMAGES = 12;
+  // Limits
+  const MAX_PRODUCT_IMAGES = 5;      // up to 5 imagens por produto
+  const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
+  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre (se existir)
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
     home: document.getElementById("view-home"),
+    about: document.getElementById("view-about"),
     specials: document.getElementById("view-specials"),
     sets: document.getElementById("view-sets"),
     rings: document.getElementById("view-rings"),
@@ -56,6 +59,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const noticeStatusEl = document.getElementById("adminNoticeStatus");
   const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
+  // Optional About collage controls (if present in HTML)
+  const aboutGalleryEl = document.getElementById("adminAboutGallery");
+  const aboutImagesTextarea = document.getElementById("adminAboutImages");
+  const aboutImagesFileInput = document.getElementById("adminAboutImagesFile");
+  const aboutImagesFileButton = document.getElementById("adminAboutImagesFileButton");
+  const aboutStatusEl = document.getElementById("adminAboutStatus");
+
   // Product modal and templates
   const productModalBackdrop = document.getElementById("adminProductModalBackdrop");
   const productModalTitle = document.getElementById("adminProductModalTitle");
@@ -95,7 +105,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // State
   let allProducts = [];
-  let homepageState = { aboutText: "", heroImages: [], notices: [], theme: "default" };
+  let homepageState = {
+    aboutText: "",
+    heroImages: [],
+    notices: [],
+    theme: "default",
+    aboutImages: []
+  };
   let currentProductEditing = null;
   let currentProductImages = []; // data URLs, first is cover
 
@@ -140,6 +156,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "error") noticeStatusEl.classList.add("error");
   }
 
+  function setAboutStatus(message, type) {
+    if (!aboutStatusEl) return;
+    aboutStatusEl.textContent = message || "";
+    aboutStatusEl.classList.remove("ok", "error");
+    if (type === "ok") aboutStatusEl.classList.add("ok");
+    if (type === "error") aboutStatusEl.classList.add("error");
+  }
+
   function setFormStatus(message, type) {
     const el = hiddenForm.status;
     if (!el) return;
@@ -182,23 +206,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Make theme variant generic so new options work without extra code
   function applyThemeVariant(variant) {
     const root = document.documentElement;
-    const value = variant === "natal" ? "natal" : "default";
+    const trimmed = typeof variant === "string" ? variant.trim() : "";
+    const value = trimmed || "default";
     if (root) {
       root.dataset.themeVariant = value;
     }
     if (themeSelect && themeSelect.value !== value) {
-      themeSelect.value = value;
+      // Only set if option exists, otherwise leave select as is
+      const hasOption = Array.from(themeSelect.options).some(
+        (opt) => opt.value === value
+      );
+      if (hasOption) {
+        themeSelect.value = value;
+      }
     }
   }
 
   function normalizeList(list, max) {
     if (!Array.isArray(list)) return [];
-    return list
+    const cleaned = list
       .map((u) => String(u || "").trim())
-      .filter((u, index, arr) => u && arr.indexOf(u) === index)
-      .slice(0, max);
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+    return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
   }
 
   // View switching inside admin
@@ -221,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Theme selector handler
   if (themeSelect) {
     themeSelect.addEventListener("change", () => {
-      const value = themeSelect.value === "natal" ? "natal" : "default";
+      const value = (themeSelect.value || "default").trim() || "default";
       homepageState.theme = value;
       applyThemeVariant(value);
       setHomepageStatus("Tema atualizado. Clique em salvar para aplicar no site.", "ok");
@@ -241,13 +273,19 @@ document.addEventListener("DOMContentLoaded", () => {
       homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
       homepageState.notices = normalizeList(hp.notices || [], 10);
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+      homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
 
       if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
       if (heroImagesTextarea) {
         heroImagesTextarea.value = homepageState.heroImages.join("\n");
       }
+      if (aboutImagesTextarea) {
+        aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+      }
+
       applyThemeVariant(homepageState.theme);
       renderHeroGallery();
+      renderAboutGallery();
       renderNotices();
 
       setHomepageStatus("Conteúdo carregado com sucesso.", "ok");
@@ -269,6 +307,20 @@ document.addEventListener("DOMContentLoaded", () => {
     homepageState.heroImages = fromTextarea;
     heroImagesTextarea.value = homepageState.heroImages.join("\n");
     renderHeroGallery();
+  }
+
+  function syncAboutImagesFromTextarea() {
+    if (!aboutImagesTextarea) return;
+    const raw = aboutImagesTextarea.value || "";
+    const fromTextarea = raw
+      .split(/\r?\n/)
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, MAX_ABOUT_IMAGES);
+
+    homepageState.aboutImages = fromTextarea;
+    aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+    renderAboutGallery();
   }
 
   function renderHeroGallery() {
@@ -323,9 +375,67 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function renderAboutGallery() {
+    if (!aboutGalleryEl) return;
+    aboutGalleryEl.innerHTML = "";
+    if (!homepageState.aboutImages.length) {
+      const ph = document.createElement("div");
+      ph.style.borderRadius = "14px";
+      ph.style.background = "#dcdcdc";
+      ph.style.height = "120px";
+      aboutGalleryEl.appendChild(ph);
+    } else {
+      homepageState.aboutImages.forEach((url, idx) => {
+        const wrap = document.createElement("div");
+        wrap.style.position = "relative";
+
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Imagem da página Sobre";
+        img.loading = "lazy";
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "×";
+        del.title = "Remover";
+        del.style.position = "absolute";
+        del.style.top = "6px";
+        del.style.right = "6px";
+        del.style.border = "none";
+        del.style.borderRadius = "999px";
+        del.style.width = "24px";
+        del.style.height = "24px";
+        del.style.cursor = "pointer";
+        del.style.background = "rgba(0,0,0,0.55)";
+        del.style.color = "#fff";
+        del.addEventListener("click", () => {
+          homepageState.aboutImages.splice(idx, 1);
+          homepageState.aboutImages = normalizeList(
+            homepageState.aboutImages,
+            MAX_ABOUT_IMAGES
+          );
+          if (aboutImagesTextarea) {
+            aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+          }
+          renderAboutGallery();
+        });
+
+        wrap.appendChild(img);
+        wrap.appendChild(del);
+        aboutGalleryEl.appendChild(wrap);
+      });
+    }
+  }
+
   if (heroImagesTextarea) {
     heroImagesTextarea.addEventListener("blur", () => {
       syncHeroImagesFromTextarea();
+    });
+  }
+
+  if (aboutImagesTextarea) {
+    aboutImagesTextarea.addEventListener("blur", () => {
+      syncAboutImagesFromTextarea();
     });
   }
 
@@ -469,6 +579,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  if (aboutImagesFileButton && aboutImagesFileInput) {
+    aboutImagesFileButton.addEventListener("click", () => aboutImagesFileInput.click());
+    aboutImagesFileInput.addEventListener("change", async () => {
+      const files = Array.from(aboutImagesFileInput.files || []);
+      if (!files.length) return;
+      try {
+        setAboutStatus("Processando imagens selecionadas...", "");
+        for (const f of files) {
+          const url = await fileToDataUrl(f);
+          homepageState.aboutImages.push(url);
+        }
+        homepageState.aboutImages = normalizeList(
+          homepageState.aboutImages,
+          MAX_ABOUT_IMAGES
+        );
+        if (aboutImagesTextarea) {
+          aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+        }
+        renderAboutGallery();
+        setAboutStatus("Imagens adicionadas. Clique em salvar.", "ok");
+      } catch (err) {
+        console.error(err);
+        setAboutStatus("Não foi possível processar as imagens.", "error");
+      } finally {
+        aboutImagesFileInput.value = "";
+      }
+    });
+  }
+
   if (saveHomepageBtn) {
     saveHomepageBtn.addEventListener("click", async (e) => {
       e.preventDefault();
@@ -477,13 +616,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
 
-        // Always sync hero images from textarea at save time
+        // Always sync images from textareas at save time
         if (heroImagesTextarea) {
           syncHeroImagesFromTextarea();
         }
+        if (aboutImagesTextarea) {
+          syncAboutImagesFromTextarea();
+        }
+
         const heroImages = normalizeList(
           homepageState.heroImages,
           MAX_HOMEPAGE_IMAGES
+        );
+
+        const aboutImages = normalizeList(
+          homepageState.aboutImages,
+          MAX_ABOUT_IMAGES
         );
 
         const notices = normalizeList(
@@ -496,14 +644,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch("/api/homepage", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aboutText, heroImages, notices, theme })
+          body: JSON.stringify({ aboutText, heroImages, aboutImages, notices, theme })
         });
         if (!res.ok) throw new Error("Falha ao salvar a homepage.");
         await res.json();
         homepageState.heroImages = heroImages;
+        homepageState.aboutImages = aboutImages;
         homepageState.notices = notices;
         if (heroImagesTextarea) {
           heroImagesTextarea.value = heroImages.join("\n");
+        }
+        if (aboutImagesTextarea) {
+          aboutImagesTextarea.value = aboutImages.join("\n");
         }
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
         setNoticeStatus("Avisos publicados na vitrine.", "ok");
@@ -994,7 +1146,9 @@ document.addEventListener("DOMContentLoaded", () => {
           Array.isArray(currentProductImages) && currentProductImages.length
             ? currentProductImages[0]
             : "",
-        images: Array.isArray(currentProductImages) ? currentProductImages.slice(0) : [],
+        images: Array.isArray(currentProductImages)
+          ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
+          : [],
         originalPrice,
         discountLabel
       };
