@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Generic theme variants (supports "natal", "pascoa" and any new one)
+  // Generic theme variants (supports more than only "natal")
   function applyThemeVariant(theme) {
     const variant = (theme && String(theme).trim()) || "default";
     if (rootEl) {
@@ -219,30 +219,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     imageWrapper.innerHTML = "";
 
-    // Viewport
     const viewport = document.createElement("div");
     viewport.className = "product-image-viewport";
-    viewport.style.position = "relative";
-    viewport.style.width = "100%";
-    viewport.style.height = "100%";
-    viewport.style.overflow = "hidden";
 
-    // Track
     const track = document.createElement("div");
     track.className = "product-image-track";
-    track.style.display = "flex";
-    track.style.width = "100%";
-    track.style.height = "100%";
-    track.style.transition = "transform 0.35s ease";
 
     cleanImages.forEach((src) => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Produto DARAH";
-      img.style.width = "100%";
-      img.style.height = "100%";
-      img.style.objectFit = "cover";
-      img.style.flex = "0 0 100%";
       track.appendChild(img);
     });
 
@@ -250,61 +236,32 @@ document.addEventListener("DOMContentLoaded", () => {
     imageWrapper.appendChild(viewport);
 
     if (cleanImages.length === 1) {
-      // Only one image: no arrows, no indicator
       return;
     }
 
     let currentIndex = 0;
     const total = cleanImages.length;
 
-    // Bottom centered controls: left arrow, indicator, right arrow together
-    const controlsBar = document.createElement("div");
-    controlsBar.className = "product-carousel-controls";
-    controlsBar.style.position = "absolute";
-    controlsBar.style.bottom = "8px";
-    controlsBar.style.left = "50%";
-    controlsBar.style.transform = "translateX(-50%)";
-    controlsBar.style.display = "flex";
-    controlsBar.style.alignItems = "center";
-    controlsBar.style.gap = "6px";
-    controlsBar.style.padding = "4px 8px";
-    controlsBar.style.borderRadius = "999px";
-    controlsBar.style.background = "rgba(0,0,0,0.55)";
-    controlsBar.style.color = "#ffffff";
+    const controls = document.createElement("div");
+    controls.className = "product-carousel-controls";
 
     const leftArrow = document.createElement("button");
     leftArrow.type = "button";
-    leftArrow.textContent = "<";
+    leftArrow.textContent = "‹";
     leftArrow.className = "product-carousel-arrow product-carousel-arrow-left";
-    leftArrow.style.borderRadius = "999px";
-    leftArrow.style.border = "none";
-    leftArrow.style.padding = "2px 6px";
-    leftArrow.style.fontSize = "12px";
-    leftArrow.style.cursor = "pointer";
-    leftArrow.style.background = "transparent";
-    leftArrow.style.color = "#ffffff";
 
     const rightArrow = document.createElement("button");
     rightArrow.type = "button";
-    rightArrow.textContent = ">";
+    rightArrow.textContent = "›";
     rightArrow.className = "product-carousel-arrow product-carousel-arrow-right";
-    rightArrow.style.borderRadius = "999px";
-    rightArrow.style.border = "none";
-    rightArrow.style.padding = "2px 6px";
-    rightArrow.style.fontSize = "12px";
-    rightArrow.style.cursor = "pointer";
-    rightArrow.style.background = "transparent";
-    rightArrow.style.color = "#ffffff";
 
     const indicator = document.createElement("div");
     indicator.className = "product-carousel-indicator";
-    indicator.style.fontSize = "12px";
 
-    controlsBar.appendChild(leftArrow);
-    controlsBar.appendChild(indicator);
-    controlsBar.appendChild(rightArrow);
-
-    viewport.appendChild(controlsBar);
+    controls.appendChild(leftArrow);
+    controls.appendChild(indicator);
+    controls.appendChild(rightArrow);
+    viewport.appendChild(controls);
 
     function updateCarousel() {
       const offsetPercent = currentIndex * 100;
@@ -313,18 +270,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (currentIndex === 0) {
         leftArrow.disabled = true;
-        leftArrow.style.opacity = "0.4";
       } else {
         leftArrow.disabled = false;
-        leftArrow.style.opacity = "1";
       }
 
       if (currentIndex === total - 1) {
         rightArrow.disabled = true;
-        rightArrow.style.opacity = "0.4";
       } else {
         rightArrow.disabled = false;
-        rightArrow.style.opacity = "1";
       }
     }
 
@@ -397,25 +350,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // Products and categories
   // =========================
-  function buildProductImagesArray(product) {
-    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
-    const fromImages = Array.isArray(product.images) ? product.images : [];
-    const merged = [...fromImageUrls, ...fromImages];
-
-    let cleaned = merged
-      .map((u) => String(u || "").trim())
-      .filter((u, index, arr) => u.length && arr.indexOf(u) === index);
-
-    if (product.imageUrl) {
-      const cover = String(product.imageUrl).trim();
-      if (cover && !cleaned.includes(cover)) {
-        cleaned.unshift(cover);
-      }
-    }
-
-    return cleaned.slice(0, MAX_PRODUCT_IMAGES);
-  }
-
   function renderProductList(containerId, products, categoryKey) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -437,7 +371,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const imageWrapper = document.createElement("div");
       imageWrapper.className = "product-image-wrapper";
 
-      const images = buildProductImagesArray(product);
+      // Build image list for carousel, limited to MAX_PRODUCT_IMAGES
+      let images = [];
+      if (Array.isArray(product.images) && product.images.length) {
+        images = product.images;
+      } else if (product.imageUrl) {
+        images = [product.imageUrl];
+      }
+
       if (images.length) {
         setupImageCarousel(imageWrapper, images);
       }
@@ -484,14 +425,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const oldPriceEl = document.createElement("span");
         oldPriceEl.className = "product-price-original";
         oldPriceEl.textContent = formatBRL(product.originalPrice);
-        oldPriceEl.style.marginRight = "6px";
-        oldPriceEl.style.textDecoration = "line-through";
-        oldPriceEl.style.color = "rgba(0,0,0,0.45)";
 
         const currentEl = document.createElement("span");
         currentEl.className = "product-price-current";
         currentEl.textContent = formatBRL(product.price);
-        currentEl.style.fontWeight = "600";
 
         priceBlock.appendChild(oldPriceEl);
         priceBlock.appendChild(currentEl);
@@ -500,11 +437,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const discountEl = document.createElement("span");
           discountEl.className = "product-discount-label";
           discountEl.textContent = String(product.discountLabel).trim();
-          discountEl.style.marginLeft = "6px";
-          discountEl.style.fontSize = "11px";
-          discountEl.style.padding = "2px 6px";
-          discountEl.style.borderRadius = "999px";
-          discountEl.style.background = "rgba(0,0,0,0.05)";
           priceBlock.appendChild(discountEl);
         }
       } else {
