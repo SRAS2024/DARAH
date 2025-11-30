@@ -25,7 +25,8 @@ const PORT = process.env.PORT || 5000;
 
 // Limits
 const MAX_HOMEPAGE_IMAGES = 12;
-const MAX_PRODUCT_IMAGES = 25;
+const MAX_ABOUT_IMAGES = 3;
+const MAX_PRODUCT_IMAGES = 5;
 
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
@@ -87,7 +88,8 @@ const db = {
       "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
     heroImages: [],
     notices: [],
-    theme: "default"
+    theme: "default",
+    aboutImages: []
   },
   products: [] // sem produtos pré preenchidos
 };
@@ -207,6 +209,13 @@ app.get("/api/homepage", (_req, res) => {
         .slice(0, MAX_HOMEPAGE_IMAGES)
     : [];
 
+  const aboutImages = Array.isArray(db.homepage.aboutImages)
+    ? db.homepage.aboutImages
+        .map((s) => String(s || "").trim())
+        .filter((s, idx, a) => s && a.indexOf(s) === idx)
+        .slice(0, MAX_ABOUT_IMAGES)
+    : [];
+
   const notices = Array.isArray(db.homepage.notices)
     ? db.homepage.notices
         .map((n) => String(n || "").trim())
@@ -217,13 +226,15 @@ app.get("/api/homepage", (_req, res) => {
   res.json({
     aboutText: db.homepage.aboutText || "",
     heroImages,
+    aboutImages,
     notices,
     theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
   });
 });
 
 app.put("/api/homepage", async (req, res) => {
-  const { aboutText, heroImages, notices, theme } = req.body || {};
+  const { aboutText, heroImages, aboutImages, notices, theme } = req.body || {};
+
   if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
 
   if (Array.isArray(heroImages)) {
@@ -231,6 +242,13 @@ app.put("/api/homepage", async (req, res) => {
       .map((s) => String(s || "").trim())
       .filter((s, idx, a) => s && a.indexOf(s) === idx)
       .slice(0, MAX_HOMEPAGE_IMAGES);
+  }
+
+  if (Array.isArray(aboutImages)) {
+    db.homepage.aboutImages = aboutImages
+      .map((s) => String(s || "").trim())
+      .filter((s, idx, a) => s && a.indexOf(s) === idx)
+      .slice(0, MAX_ABOUT_IMAGES);
   }
 
   if (Array.isArray(notices)) {
@@ -241,7 +259,8 @@ app.put("/api/homepage", async (req, res) => {
   }
 
   if (typeof theme === "string") {
-    db.homepage.theme = theme === "natal" ? "natal" : "default";
+    const trimmed = theme.trim();
+    db.homepage.theme = trimmed || "default";
   }
 
   try {
