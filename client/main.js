@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Generic theme variants (supports more than only "natal")
+  // Generic theme variants (supports "natal", "pascoa" and any new one)
   function applyThemeVariant(theme) {
     const variant = (theme && String(theme).trim()) || "default";
     if (rootEl) {
@@ -257,53 +257,54 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentIndex = 0;
     const total = cleanImages.length;
 
-    // Arrows
+    // Bottom centered controls: left arrow, indicator, right arrow together
+    const controlsBar = document.createElement("div");
+    controlsBar.className = "product-carousel-controls";
+    controlsBar.style.position = "absolute";
+    controlsBar.style.bottom = "8px";
+    controlsBar.style.left = "50%";
+    controlsBar.style.transform = "translateX(-50%)";
+    controlsBar.style.display = "flex";
+    controlsBar.style.alignItems = "center";
+    controlsBar.style.gap = "6px";
+    controlsBar.style.padding = "4px 8px";
+    controlsBar.style.borderRadius = "999px";
+    controlsBar.style.background = "rgba(0,0,0,0.55)";
+    controlsBar.style.color = "#ffffff";
+
     const leftArrow = document.createElement("button");
     leftArrow.type = "button";
     leftArrow.textContent = "<";
     leftArrow.className = "product-carousel-arrow product-carousel-arrow-left";
-    leftArrow.style.position = "absolute";
-    leftArrow.style.bottom = "10px";
-    leftArrow.style.left = "10px";
     leftArrow.style.borderRadius = "999px";
     leftArrow.style.border = "none";
-    leftArrow.style.padding = "4px 8px";
-    leftArrow.style.fontSize = "14px";
+    leftArrow.style.padding = "2px 6px";
+    leftArrow.style.fontSize = "12px";
     leftArrow.style.cursor = "pointer";
-    leftArrow.style.background = "rgba(0,0,0,0.5)";
+    leftArrow.style.background = "transparent";
     leftArrow.style.color = "#ffffff";
 
     const rightArrow = document.createElement("button");
     rightArrow.type = "button";
     rightArrow.textContent = ">";
     rightArrow.className = "product-carousel-arrow product-carousel-arrow-right";
-    rightArrow.style.position = "absolute";
-    rightArrow.style.bottom = "10px";
-    rightArrow.style.right = "10px";
     rightArrow.style.borderRadius = "999px";
     rightArrow.style.border = "none";
-    rightArrow.style.padding = "4px 8px";
-    rightArrow.style.fontSize = "14px";
+    rightArrow.style.padding = "2px 6px";
+    rightArrow.style.fontSize = "12px";
     rightArrow.style.cursor = "pointer";
-    rightArrow.style.background = "rgba(0,0,0,0.5)";
+    rightArrow.style.background = "transparent";
     rightArrow.style.color = "#ffffff";
 
-    // Indicator
     const indicator = document.createElement("div");
     indicator.className = "product-carousel-indicator";
-    indicator.style.position = "absolute";
-    indicator.style.bottom = "10px";
-    indicator.style.left = "50%";
-    indicator.style.transform = "translateX(-50%)";
-    indicator.style.padding = "2px 10px";
-    indicator.style.borderRadius = "999px";
     indicator.style.fontSize = "12px";
-    indicator.style.background = "rgba(0,0,0,0.55)";
-    indicator.style.color = "#ffffff";
 
-    viewport.appendChild(leftArrow);
-    viewport.appendChild(rightArrow);
-    viewport.appendChild(indicator);
+    controlsBar.appendChild(leftArrow);
+    controlsBar.appendChild(indicator);
+    controlsBar.appendChild(rightArrow);
+
+    viewport.appendChild(controlsBar);
 
     function updateCarousel() {
       const offsetPercent = currentIndex * 100;
@@ -396,6 +397,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // Products and categories
   // =========================
+  function buildProductImagesArray(product) {
+    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    const fromImages = Array.isArray(product.images) ? product.images : [];
+    const merged = [...fromImageUrls, ...fromImages];
+
+    let cleaned = merged
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u.length && arr.indexOf(u) === index);
+
+    if (product.imageUrl) {
+      const cover = String(product.imageUrl).trim();
+      if (cover && !cleaned.includes(cover)) {
+        cleaned.unshift(cover);
+      }
+    }
+
+    return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+  }
+
   function renderProductList(containerId, products, categoryKey) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -417,14 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const imageWrapper = document.createElement("div");
       imageWrapper.className = "product-image-wrapper";
 
-      // Build image list for carousel, limited to MAX_PRODUCT_IMAGES
-      let images = [];
-      if (Array.isArray(product.images) && product.images.length) {
-        images = product.images;
-      } else if (product.imageUrl) {
-        images = [product.imageUrl];
-      }
-
+      const images = buildProductImagesArray(product);
       if (images.length) {
         setupImageCarousel(imageWrapper, images);
       }
