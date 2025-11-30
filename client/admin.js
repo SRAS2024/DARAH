@@ -8,9 +8,9 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   // Limits
-  const MAX_PRODUCT_IMAGES = 5;      // up to 5 imagens por produto
+  const MAX_PRODUCT_IMAGES = 5;      // até 5 imagens por produto
   const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre (se existir)
+  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Theme
   const themeSelect = document.getElementById("adminThemeSelect");
 
-  // Homepage admin controls
+  // Homepage admin controls (Início)
   const aboutTextEl = document.getElementById("adminAboutText");
   const heroGalleryEl = document.getElementById("adminHeroGallery");
   const heroImagesTextarea = document.getElementById("adminHeroImages");
@@ -52,18 +52,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveHomepageBtn = document.getElementById("saveHomepageBtn");
   const homepageStatusEl = document.getElementById("adminHomepageStatus");
 
+  // About page long text (field exists in HTML, can be wired later if needed)
+  const aboutLongTextEl = document.getElementById("adminAboutLongText");
+
   // Optional site notices
   const addNoticeBtn = document.getElementById("adminAddNoticeBtn");
   const noticeListEl = document.getElementById("adminNoticeList");
   const noticeStatusEl = document.getElementById("adminNoticeStatus");
   const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
-  // Optional About collage controls (if present in HTML)
-  const aboutGalleryEl = document.getElementById("adminAboutGallery");
+  // About page collage controls (matching admin.html)
+  const aboutCollageEl = document.getElementById("adminAboutCollagePreview");
+  const aboutImagePreviewEl = document.getElementById("adminAboutImagePreview");
+  const aboutImagePlaceholderEl = document.getElementById("adminAboutImagePlaceholder");
   const aboutImagesTextarea = document.getElementById("adminAboutImages");
   const aboutImagesFileInput = document.getElementById("adminAboutImagesFile");
   const aboutImagesFileButton = document.getElementById("adminAboutImagesFileButton");
-  const aboutStatusEl = document.getElementById("adminAboutStatus");
+  const aboutSaveStatusEl = document.getElementById("adminAboutSaveStatus");
+  const saveAboutPageBtn = document.getElementById("saveAboutPageBtn");
 
   // Product modal and templates
   const productModalBackdrop = document.getElementById("adminProductModalBackdrop");
@@ -109,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     heroImages: [],
     notices: [],
     theme: "default",
-    aboutImages: []
+    aboutImages: [] // colagem da página "Sobre nós"
   };
   let currentProductEditing = null;
   let currentProductImages = []; // data URLs, first is cover
@@ -156,11 +162,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setAboutStatus(message, type) {
-    if (!aboutStatusEl) return;
-    aboutStatusEl.textContent = message || "";
-    aboutStatusEl.classList.remove("ok", "error");
-    if (type === "ok") aboutStatusEl.classList.add("ok");
-    if (type === "error") aboutStatusEl.classList.add("error");
+    if (!aboutSaveStatusEl) return;
+    aboutSaveStatusEl.textContent = message || "";
+    aboutSaveStatusEl.classList.remove("ok", "error");
+    if (type === "ok") aboutSaveStatusEl.classList.add("ok");
+    if (type === "error") aboutSaveStatusEl.classList.add("error");
   }
 
   function setFormStatus(message, type) {
@@ -214,7 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
       root.dataset.themeVariant = value;
     }
     if (themeSelect && themeSelect.value !== value) {
-      // Only set if option exists, otherwise leave select as is
       const hasOption = Array.from(themeSelect.options).some(
         (opt) => opt.value === value
       );
@@ -280,6 +285,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (aboutImagesTextarea) {
         aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+      }
+
+      // Opcionalmente, podemos pré preencher o texto longo com o mesmo texto curto
+      if (aboutLongTextEl && typeof hp.aboutText === "string") {
+        if (!aboutLongTextEl.value.trim()) {
+          aboutLongTextEl.value = hp.aboutText;
+        }
       }
 
       applyThemeVariant(homepageState.theme);
@@ -375,55 +387,80 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAboutGallery() {
-    if (!aboutGalleryEl) return;
-    aboutGalleryEl.innerHTML = "";
-    if (!homepageState.aboutImages.length) {
+    if (!aboutCollageEl) return;
+
+    aboutCollageEl.innerHTML = "";
+
+    const images = Array.isArray(homepageState.aboutImages)
+      ? homepageState.aboutImages
+      : [];
+
+    if (!images.length) {
       const ph = document.createElement("div");
       ph.style.borderRadius = "14px";
       ph.style.background = "#dcdcdc";
       ph.style.height = "120px";
-      aboutGalleryEl.appendChild(ph);
-    } else {
-      homepageState.aboutImages.forEach((url, idx) => {
-        const wrap = document.createElement("div");
-        wrap.style.position = "relative";
+      aboutCollageEl.appendChild(ph);
 
-        const img = document.createElement("img");
-        img.src = url;
-        img.alt = "Imagem da página Sobre";
-        img.loading = "lazy";
-
-        const del = document.createElement("button");
-        del.type = "button";
-        del.textContent = "×";
-        del.title = "Remover";
-        del.style.position = "absolute";
-        del.style.top = "6px";
-        del.style.right = "6px";
-        del.style.border = "none";
-        del.style.borderRadius = "999px";
-        del.style.width = "24px";
-        del.style.height = "24px";
-        del.style.cursor = "pointer";
-        del.style.background = "rgba(0,0,0,0.55)";
-        del.style.color = "#fff";
-        del.addEventListener("click", () => {
-          homepageState.aboutImages.splice(idx, 1);
-          homepageState.aboutImages = normalizeList(
-            homepageState.aboutImages,
-            MAX_ABOUT_IMAGES
-          );
-          if (aboutImagesTextarea) {
-            aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
-          }
-          renderAboutGallery();
-        });
-
-        wrap.appendChild(img);
-        wrap.appendChild(del);
-        aboutGalleryEl.appendChild(wrap);
-      });
+      if (aboutImagePreviewEl) {
+        aboutImagePreviewEl.src = "";
+        aboutImagePreviewEl.style.display = "none";
+      }
+      if (aboutImagePlaceholderEl) {
+        aboutImagePlaceholderEl.style.display = "flex";
+      }
+      return;
     }
+
+    // Pequena pré visualização da primeira foto
+    if (aboutImagePreviewEl) {
+      aboutImagePreviewEl.src = images[0];
+      aboutImagePreviewEl.loading = "lazy";
+      aboutImagePreviewEl.style.display = "block";
+    }
+    if (aboutImagePlaceholderEl) {
+      aboutImagePlaceholderEl.style.display = "none";
+    }
+
+    images.forEach((url, idx) => {
+      const wrap = document.createElement("div");
+      wrap.style.position = "relative";
+
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Imagem da página Sobre";
+      img.loading = "lazy";
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "×";
+      del.title = "Remover";
+      del.style.position = "absolute";
+      del.style.top = "6px";
+      del.style.right = "6px";
+      del.style.border = "none";
+      del.style.borderRadius = "999px";
+      del.style.width = "24px";
+      del.style.height = "24px";
+      del.style.cursor = "pointer";
+      del.style.background = "rgba(0,0,0,0.55)";
+      del.style.color = "#fff";
+      del.addEventListener("click", () => {
+        homepageState.aboutImages.splice(idx, 1);
+        homepageState.aboutImages = normalizeList(
+          homepageState.aboutImages,
+          MAX_ABOUT_IMAGES
+        );
+        if (aboutImagesTextarea) {
+          aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+        }
+        renderAboutGallery();
+      });
+
+      wrap.appendChild(img);
+      wrap.appendChild(del);
+      aboutCollageEl.appendChild(wrap);
+    });
   }
 
   if (heroImagesTextarea) {
@@ -607,62 +644,75 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (saveHomepageBtn) {
-    saveHomepageBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      try {
-        setHomepageStatus("Salvando...", "");
+  async function saveHomepage() {
+    try {
+      setHomepageStatus("Salvando...", "");
+      setAboutStatus("Salvando...", "");
 
-        const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
+      const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
 
-        // Always sync images from textareas at save time
-        if (heroImagesTextarea) {
-          syncHeroImagesFromTextarea();
-        }
-        if (aboutImagesTextarea) {
-          syncAboutImagesFromTextarea();
-        }
-
-        const heroImages = normalizeList(
-          homepageState.heroImages,
-          MAX_HOMEPAGE_IMAGES
-        );
-
-        const aboutImages = normalizeList(
-          homepageState.aboutImages,
-          MAX_ABOUT_IMAGES
-        );
-
-        const notices = normalizeList(
-          homepageState.notices.filter((n) => n && n.trim().length),
-          10
-        );
-
-        const theme = homepageState.theme || "default";
-
-        const res = await fetch("/api/homepage", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aboutText, heroImages, aboutImages, notices, theme })
-        });
-        if (!res.ok) throw new Error("Falha ao salvar a homepage.");
-        await res.json();
-        homepageState.heroImages = heroImages;
-        homepageState.aboutImages = aboutImages;
-        homepageState.notices = notices;
-        if (heroImagesTextarea) {
-          heroImagesTextarea.value = heroImages.join("\n");
-        }
-        if (aboutImagesTextarea) {
-          aboutImagesTextarea.value = aboutImages.join("\n");
-        }
-        setHomepageStatus("Homepage atualizada com sucesso.", "ok");
-        setNoticeStatus("Avisos publicados na vitrine.", "ok");
-        await loadHomepageAdmin();
-      } catch (err) {
-        console.error(err);
-        setHomepageStatus("Não foi possível salvar a homepage.", "error");
+      if (heroImagesTextarea) {
+        syncHeroImagesFromTextarea();
       }
+      if (aboutImagesTextarea) {
+        syncAboutImagesFromTextarea();
+      }
+
+      const heroImages = normalizeList(
+        homepageState.heroImages,
+        MAX_HOMEPAGE_IMAGES
+      );
+
+      const aboutImages = normalizeList(
+        homepageState.aboutImages,
+        MAX_ABOUT_IMAGES
+      );
+
+      const notices = normalizeList(
+        homepageState.notices.filter((n) => n && n.trim().length),
+        10
+      );
+
+      const theme = homepageState.theme || "default";
+
+      const res = await fetch("/api/homepage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aboutText, heroImages, aboutImages, notices, theme })
+      });
+      if (!res.ok) throw new Error("Falha ao salvar a homepage.");
+      await res.json();
+      homepageState.heroImages = heroImages;
+      homepageState.aboutImages = aboutImages;
+      homepageState.notices = notices;
+      if (heroImagesTextarea) {
+        heroImagesTextarea.value = heroImages.join("\n");
+      }
+      if (aboutImagesTextarea) {
+        aboutImagesTextarea.value = aboutImages.join("\n");
+      }
+      setHomepageStatus("Homepage atualizada com sucesso.", "ok");
+      setNoticeStatus("Avisos publicados na vitrine.", "ok");
+      setAboutStatus('Colagem da página "Sobre nós" atualizada.', "ok");
+      await loadHomepageAdmin();
+    } catch (err) {
+      console.error(err);
+      setHomepageStatus("Não foi possível salvar a homepage.", "error");
+      setAboutStatus('Não foi possível salvar a página "Sobre nós".', "error");
+    }
+  }
+
+  if (saveHomepageBtn) {
+    saveHomepageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveHomepage();
+    });
+  }
+
+  if (saveAboutPageBtn) {
+    saveAboutPageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveHomepage();
     });
   }
 
