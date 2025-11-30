@@ -1,3 +1,4 @@
+// client/admin.js
 "use strict";
 
 /**
@@ -985,7 +986,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = {
         category: hiddenForm.category ? hiddenForm.category.value : "",
-        // FIXED: use .value.trim() instead of calling trim on the element itself
         name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
         description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price,
