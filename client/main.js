@@ -29,14 +29,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Homepage elements
   const aboutTextEl = document.getElementById("aboutText");
+  const aboutLongTextEl = document.getElementById("aboutLongText");
   const heroImagesEl = document.getElementById("heroImages");
   const heroEl =
     document.querySelector("#view-home .hero") || document.querySelector(".hero");
   const siteNoticesEl = document.getElementById("siteNotices");
   const siteNoticesListEl = document.getElementById("siteNoticesList");
 
-  // About tab collage (if present)
-  const aboutImagesEl = document.getElementById("aboutImages");
+  // About tab collage (public site)
+  const aboutCollageEl = document.getElementById("aboutCollage");
 
   // =========================
   // Helpers
@@ -150,8 +151,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAboutImages(srcs) {
-    if (!aboutImagesEl) return;
-    aboutImagesEl.innerHTML = "";
+    if (!aboutCollageEl) return;
+    aboutCollageEl.innerHTML = "";
 
     const imgs = Array.isArray(srcs)
       ? srcs
@@ -160,17 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
       : [];
 
     if (!imgs.length) {
-      aboutImagesEl.style.display = "none";
+      aboutCollageEl.style.display = "none";
       return;
     }
 
-    aboutImagesEl.style.display = "grid";
+    aboutCollageEl.style.display = "grid";
 
     imgs.slice(0, MAX_ABOUT_IMAGES).forEach((src) => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Sobre a DARAH";
-      aboutImagesEl.appendChild(img);
+      aboutCollageEl.appendChild(img);
     });
   }
 
@@ -182,6 +183,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (aboutTextEl && typeof hp.aboutText === "string") {
         aboutTextEl.textContent = hp.aboutText;
+      }
+
+      if (aboutLongTextEl) {
+        if (typeof hp.aboutLongText === "string" && hp.aboutLongText.trim().length) {
+          aboutLongTextEl.textContent = hp.aboutLongText;
+        } else if (typeof hp.aboutText === "string") {
+          aboutLongTextEl.textContent = hp.aboutText;
+        } else {
+          aboutLongTextEl.textContent = "";
+        }
       }
 
       if (hp && typeof hp.theme === "string") {
@@ -200,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderAboutImages([]);
       renderNotices([]);
       if (aboutTextEl) aboutTextEl.textContent = "";
+      if (aboutLongTextEl) aboutLongTextEl.textContent = "";
     }
   }
 
