@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Views mirror
   const views = {
     home: document.getElementById("view-home"),
+    about: document.getElementById("view-about"),
     specials: document.getElementById("view-specials"),
     sets: document.getElementById("view-sets"),
     rings: document.getElementById("view-rings"),
@@ -705,7 +706,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = btn.dataset.view;
       if (!key) return;
       setActiveView(key);
-      if (key === "home") {
+      if (key === "home" || key === "about") {
         loadHomepage();
       }
     });
