@@ -416,6 +416,8 @@ body {
 
 /* Carousel controls */
 
+/* Default arrow and indicator positioning, used for admin carousel
+   and any layout without the .product-carousel-controls wrapper */
 .product-carousel-arrow {
   position: absolute;
   bottom: 10px;
@@ -461,6 +463,50 @@ body {
   background: rgba(0, 0, 0, 0.55);
   color: #ffffff;
   z-index: 2;
+}
+
+/* Centered control bar used on the storefront carousel */
+.product-carousel-controls {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  z-index: 2;
+}
+
+/* Inside the bar, arrows are inline and not absolutely positioned */
+.product-carousel-controls .product-carousel-arrow {
+  position: static;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.product-carousel-controls .product-carousel-arrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  transform: none;
+}
+
+.product-carousel-controls .product-carousel-indicator {
+  position: static;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  padding: 0 6px;
+  background: transparent;
+  border-radius: 0;
 }
 
 /* Product body */
@@ -999,5 +1045,21 @@ body {
     bottom: 8px;
     font-size: 11px;
     padding: 2px 8px;
+  }
+
+  .product-carousel-controls {
+    bottom: 6px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .product-carousel-controls .product-carousel-arrow {
+    font-size: 11px;
+    padding: 2px 5px;
+  }
+
+  .product-carousel-controls .product-carousel-indicator {
+    font-size: 10px;
+    padding: 0 4px;
   }
 }
