@@ -1,4 +1,4 @@
-// client/admin.js
+// client/main.js
 "use strict";
 
 /**
@@ -9,9 +9,9 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   // Limits
-  const MAX_PRODUCT_IMAGES = 5;      // up to 5 imagens por produto
-  const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre (se existir)
+  const MAX_PRODUCT_IMAGES = 5;      // até 5 imagens por produto
+  const MAX_HOMEPAGE_IMAGES = 12;   // até 12 imagens no collage da página inicial
+  const MAX_ABOUT_IMAGES = 3;       // até 3 imagens no collage da aba Sobre
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
@@ -108,9 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let homepageState = {
     aboutText: "",
     heroImages: [],
+    aboutImages: [],
     notices: [],
-    theme: "default",
-    aboutImages: []
+    theme: "default"
   };
   let currentProductEditing = null;
   let currentProductImages = []; // data URLs, first is cover
@@ -206,6 +206,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Normalize arrays with dedupe and max length
+  function normalizeList(list, max) {
+    if (!Array.isArray(list)) return [];
+    const cleaned = list
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+    return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
+  }
+
   // Make theme variant generic so new options work without extra code
   function applyThemeVariant(variant) {
     const root = document.documentElement;
@@ -215,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
       root.dataset.themeVariant = value;
     }
     if (themeSelect && themeSelect.value !== value) {
-      // Only set if option exists, otherwise leave select as is
       const hasOption = Array.from(themeSelect.options).some(
         (opt) => opt.value === value
       );
@@ -223,14 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
         themeSelect.value = value;
       }
     }
-  }
-
-  function normalizeList(list, max) {
-    if (!Array.isArray(list)) return [];
-    const cleaned = list
-      .map((u) => String(u || "").trim())
-      .filter((u, index, arr) => u && arr.indexOf(u) === index);
-    return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
   }
 
   // View switching inside admin
@@ -271,9 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
       homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
+      homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
       homepageState.notices = normalizeList(hp.notices || [], 10);
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
-      homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
 
       if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
       if (heroImagesTextarea) {
@@ -616,7 +616,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
 
-        // Always sync images from textareas at save time
         if (heroImagesTextarea) {
           syncHeroImagesFromTextarea();
         }
@@ -675,14 +674,12 @@ document.addEventListener("DOMContentLoaded", () => {
       let res = await fetch("/api/admin/products");
       if (!res.ok) {
         if (res.status === 404) {
-          // Fallback if admin route does not exist
           res = await fetch("/api/products");
         }
       }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
 
-      // /api/products returns grouped by category, admin returns flat list
       if (Array.isArray(products)) {
         allProducts = products;
       } else if (products && typeof products === "object") {
@@ -814,7 +811,6 @@ document.addEventListener("DOMContentLoaded", () => {
           imgEl.style.display = "block";
         }
       } else {
-        // Multi image carousel in admin, same behavior as storefront
         wrapper.innerHTML = "";
 
         const viewport = document.createElement("div");
@@ -940,7 +936,6 @@ document.addEventListener("DOMContentLoaded", () => {
       img.loading = "lazy";
       btn.appendChild(img);
 
-      // Small x button to remove this image
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.textContent = "×";
@@ -1104,8 +1099,6 @@ document.addEventListener("DOMContentLoaded", () => {
           currentProductImages = [];
         }
         currentProductImages = currentProductImages.concat(newImages);
-
-        // Deduplicate and cap at MAX_PRODUCT_IMAGES to avoid lag
         currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
 
         renderProductImagesUI();
@@ -1167,7 +1160,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
-        // errors already handled in create or update helpers
       }
     });
   }
