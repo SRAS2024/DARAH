@@ -66,6 +66,12 @@ async function initDatabase(db) {
     );
   `);
 
+  // In case the table existed without about_images, add it safely
+  await pg.query(`
+    ALTER TABLE homepage
+      ADD COLUMN IF NOT EXISTS about_images JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+
   await pg.query(`
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
@@ -83,13 +89,8 @@ async function initDatabase(db) {
     );
   `);
 
-  // In case the tables already existed without the new columns,
+  // In case the products table already existed without the new columns,
   // add them safely.
-  await pg.query(`
-    ALTER TABLE homepage
-      ADD COLUMN IF NOT EXISTS about_images JSONB NOT NULL DEFAULT '[]'::jsonb;
-  `);
-
   await pg.query(`
     ALTER TABLE products
       ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
