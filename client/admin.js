@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Limits
   const MAX_PRODUCT_IMAGES = 5;      // até 5 imagens por produto
   const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre
+  const MAX_ABOUT_IMAGES = 4;        // até 4 imagens no collage da aba Sobre
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
