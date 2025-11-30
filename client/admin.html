@@ -239,9 +239,10 @@
 
       /* Admin product grid mirrors storefront */
       .admin-product-grid {
+        margin-top: 18px;
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
       }
       @media (max-width: 900px) {
         .admin-product-grid {
@@ -262,6 +263,7 @@
         display: flex;
         flex-direction: column;
         border: 1px solid rgba(0, 0, 0, 0.02);
+        position: relative;
       }
 
       .admin-product-card.add-card {
@@ -295,11 +297,15 @@
         position: relative;
         width: 100%;
         padding-top: 75%;
+        background: #ececec;
         overflow: hidden;
       }
-      .admin-product-image-wrapper img {
+      .admin-product-image-wrapper > img {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
+        object-fit: cover;
       }
 
       .admin-product-body {
