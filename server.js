@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 5000;
 
 // Limits
 const MAX_HOMEPAGE_IMAGES = 12;
-const MAX_ABOUT_IMAGES = 3;
+const MAX_ABOUT_IMAGES = 4;
 const MAX_PRODUCT_IMAGES = 5;
 
 /* ------------------------------------------------------------------ */
