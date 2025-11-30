@@ -298,11 +298,8 @@
         overflow: hidden;
       }
       .admin-product-image-wrapper img {
-        position: absolute;
-        inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
       }
 
       .admin-product-body {
@@ -544,6 +541,7 @@
       <nav class="main-nav">
         <div class="nav-left">
           <button class="nav-link active" data-view="home">Início</button>
+          <button class="nav-link" data-view="about">Sobre nós</button>
           <button class="nav-link" data-view="specials">Ofertas especiais</button>
           <button class="nav-link" data-view="sets">Conjuntos</button>
           <button class="nav-link" data-view="rings">Anéis</button>
@@ -557,6 +555,7 @@
             <select id="adminThemeSelect" class="admin-theme-select">
               <option value="default">Padrão</option>
               <option value="natal">Natal</option>
+              <option value="pascoa">Páscoa</option>
             </select>
           </div>
           <span class="admin-badge-top">Painel administrativo privado</span>
@@ -700,6 +699,80 @@
             <p class="home-highlight-text">
               Explore nossas coleções de anéis, colares, pulseiras e brincos.
             </p>
+          </div>
+        </section>
+
+        <!-- VISÃO SOBRE NÓS -->
+        <section id="view-about" class="view about-view">
+          <h2 class="section-title">Sobre nós</h2>
+          <div class="about-layout">
+            <div class="about-text-block">
+              <div class="admin-field">
+                <label for="adminAboutLongText" class="admin-label">
+                  Texto da página "Sobre nós"
+                </label>
+                <textarea
+                  id="adminAboutLongText"
+                  class="admin-textarea"
+                  placeholder="Conte a história da DARAH, missão, valores e o que desejar."
+                ></textarea>
+              </div>
+              <p class="hero-admin-note">
+                Este texto aparece na aba "Sobre nós" do site público.
+              </p>
+            </div>
+            <div class="about-text-block">
+              <div class="admin-field">
+                <label class="admin-label">Fotos da página "Sobre nós"</label>
+                <div class="admin-image-upload-row">
+                  <div class="admin-image-preview" style="width:72px;height:72px;">
+                    <div id="adminAboutImagePlaceholder" class="admin-image-placeholder">
+                      +
+                    </div>
+                    <img
+                      id="adminAboutImagePreview"
+                      alt="Pré visualização da colagem"
+                      style="display:none"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      id="adminAboutImagesFileButton"
+                      class="admin-button-secondary"
+                    >
+                      Escolher foto(s)
+                    </button>
+                    <p class="admin-status" style="margin-top:4px">
+                      Até 3 fotos. Se nenhuma foto for adicionada, a colagem não aparece na vitrine.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  id="adminAboutImagesFile"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display:none"
+                />
+                <textarea
+                  id="adminAboutImages"
+                  class="admin-textarea"
+                  style="display:none"
+                ></textarea>
+                <div
+                  id="adminAboutCollagePreview"
+                  class="about-collage"
+                  style="margin-top:10px"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <button id="saveAboutPageBtn" class="primary-button">
+              Salvar página "Sobre nós"
+            </button>
+            <p id="adminAboutSaveStatus" class="admin-status"></p>
           </div>
         </section>
 
