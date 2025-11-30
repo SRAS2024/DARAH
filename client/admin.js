@@ -9,9 +9,9 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   // Limits
-  const MAX_PRODUCT_IMAGES = 5;      // up to 5 imagens por produto
-  const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 3;        // até 3 imagens no collage da aba Sobre (se existir)
+  const MAX_PRODUCT_IMAGES = 5;      // até 5 imagens por produto
+  const MAX_HOMEPAGE_IMAGES = 12;   // até 12 imagens no collage da página inicial
+  const MAX_ABOUT_IMAGES = 3;       // até 3 imagens no collage da aba Sobre
 
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const noticeStatusEl = document.getElementById("adminNoticeStatus");
   const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
-  // Optional About collage controls (if present in HTML)
+  // Optional About collage controls
   const aboutGalleryEl = document.getElementById("adminAboutGallery");
   const aboutImagesTextarea = document.getElementById("adminAboutImages");
   const aboutImagesFileInput = document.getElementById("adminAboutImagesFile");
@@ -215,7 +215,6 @@ document.addEventListener("DOMContentLoaded", () => {
       root.dataset.themeVariant = value;
     }
     if (themeSelect && themeSelect.value !== value) {
-      // Only set if option exists, otherwise leave select as is
       const hasOption = Array.from(themeSelect.options).some(
         (opt) => opt.value === value
       );
@@ -289,9 +288,11 @@ document.addEventListener("DOMContentLoaded", () => {
       renderNotices();
 
       setHomepageStatus("Conteúdo carregado com sucesso.", "ok");
+      setAboutStatus("Seção Sobre carregada com sucesso.", "ok");
     } catch (err) {
       console.error(err);
       setHomepageStatus("Não foi possível carregar a homepage.", "error");
+      setAboutStatus("Não foi possível carregar a seção Sobre.", "error");
     }
   }
 
@@ -613,6 +614,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       try {
         setHomepageStatus("Salvando...", "");
+        setAboutStatus("Salvando seção Sobre...", "");
 
         const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
 
@@ -659,10 +661,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         setHomepageStatus("Homepage atualizada com sucesso.", "ok");
         setNoticeStatus("Avisos publicados na vitrine.", "ok");
+        setAboutStatus("Seção Sobre atualizada com sucesso.", "ok");
         await loadHomepageAdmin();
       } catch (err) {
         console.error(err);
         setHomepageStatus("Não foi possível salvar a homepage.", "error");
+        setAboutStatus("Não foi possível salvar a seção Sobre.", "error");
       }
     });
   }
@@ -675,7 +679,6 @@ document.addEventListener("DOMContentLoaded", () => {
       let res = await fetch("/api/admin/products");
       if (!res.ok) {
         if (res.status === 404) {
-          // Fallback if admin route does not exist
           res = await fetch("/api/products");
         }
       }
@@ -940,7 +943,6 @@ document.addEventListener("DOMContentLoaded", () => {
       img.loading = "lazy";
       btn.appendChild(img);
 
-      // Small x button to remove this image
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.textContent = "×";
@@ -1105,7 +1107,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         currentProductImages = currentProductImages.concat(newImages);
 
-        // Deduplicate and cap at MAX_PRODUCT_IMAGES to avoid lag
         currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
 
         renderProductImagesUI();
@@ -1167,7 +1168,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
-        // errors already handled in create or update helpers
       }
     });
   }
@@ -1385,7 +1385,6 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {
   }
 
-  // Small utility: debounce (kept in case needed later)
   function debounce(fn, ms) {
     let t = null;
     return (...args) => {
