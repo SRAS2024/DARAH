@@ -3,7 +3,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Limits (mirror admin)
   const MAX_HOMEPAGE_IMAGES = 12;
-  const MAX_ABOUT_IMAGES = 3;
+  const MAX_ABOUT_IMAGES = 4;
   const MAX_PRODUCT_IMAGES = 5;
 
   // Navigation and common UI
