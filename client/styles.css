@@ -18,7 +18,7 @@
   /* Admin welcome loader accent */
   --accent-blue: #8ec5ff;
 
-  /* Dourado para o logotipo DARAH no Natal */
+  /* Dourado para o logotipo DARAH no Natal e Páscoa */
   --brand-gold: #ffd700;
 }
 
@@ -41,6 +41,28 @@ html[data-theme-variant="natal"] {
 
 /* DARAH em dourado 24k no tema de Natal */
 html[data-theme-variant="natal"] .brand-name {
+  color: var(--brand-gold);
+}
+
+/* Tema de Páscoa azul e dourado */
+html[data-theme-variant="pascoa"] {
+  --banner-bg: #0d47a1;
+  --banner-text: #e3f2fd;
+  --page-bg: #eaf3ff;
+  --card-bg: #ffffff;
+
+  --accent: #1565c0;
+  --accent-soft: #bbdefb;
+  --border-soft: #90caf9;
+
+  --text-main: #123055;
+  --text-muted: #4b6a93;
+
+  --accent-blue: #81d4fa;
+}
+
+/* DARAH em dourado 24k no tema de Páscoa */
+html[data-theme-variant="pascoa"] .brand-name {
   color: var(--brand-gold);
 }
 
@@ -276,6 +298,52 @@ body {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-muted);
+}
+
+/* About view shared layout */
+
+.about-view {
+  margin-top: 10px;
+}
+
+.about-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.about-text-block {
+  background: var(--card-bg);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.about-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-main);
+  white-space: pre-line;
+}
+
+.about-collage {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  background: var(--card-bg);
+  padding: 12px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.about-collage img {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 /* Product sections */
@@ -520,8 +588,9 @@ body {
   overflow: hidden;
 }
 
-.admin-product-image-wrapper img,
-.admin-product-card .admin-product-image {
+/* Somente a imagem direta continua absoluta.
+   As imagens do carrossel usam .product-image-track e permanecem fluidas. */
+.admin-product-image-wrapper > img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -838,6 +907,10 @@ body {
     position: sticky;
     bottom: 0;
     margin-top: 14px;
+  }
+
+  .about-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
