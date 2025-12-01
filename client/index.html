@@ -13,20 +13,92 @@
         <span class="brand-name">DARAH</span>
       </div>
       <nav class="main-nav">
+        <!-- Botão de menu mobile (três linhas) -->
+        <button
+          class="nav-mobile-toggle"
+          type="button"
+          aria-label="Abrir menu de navegação"
+          aria-expanded="false"
+          aria-controls="navDropdown"
+        >
+          <span class="nav-mobile-toggle-box">
+            <span class="nav-mobile-toggle-line"></span>
+            <span class="nav-mobile-toggle-line"></span>
+            <span class="nav-mobile-toggle-line"></span>
+          </span>
+        </button>
+
         <div class="nav-left">
-          <button class="nav-link active" data-view="home">Início</button>
-          <button class="nav-link" data-view="about">Sobre nós</button>
-          <button class="nav-link" data-view="specials">Ofertas especiais</button>
-          <button class="nav-link" data-view="sets">Conjuntos</button>
-          <button class="nav-link" data-view="rings">Anéis</button>
-          <button class="nav-link" data-view="necklaces">Colares</button>
-          <button class="nav-link" data-view="bracelets">Pulseiras</button>
-          <button class="nav-link" data-view="earrings">Brincos</button>
+          <!-- As três primeiras abas serão as principais no mobile -->
+          <button
+            class="nav-link active"
+            data-view="home"
+            data-mobile-priority="true"
+          >
+            Início
+          </button>
+          <button
+            class="nav-link"
+            data-view="about"
+            data-mobile-priority="true"
+          >
+            Sobre nós
+          </button>
+          <button
+            class="nav-link"
+            data-view="specials"
+            data-mobile-priority="true"
+          >
+            Ofertas especiais
+          </button>
+
+          <!-- As abas abaixo irão para o dropdown no mobile -->
+          <button
+            class="nav-link"
+            data-view="sets"
+            data-mobile-extra="true"
+          >
+            Conjuntos
+          </button>
+          <button
+            class="nav-link"
+            data-view="rings"
+            data-mobile-extra="true"
+          >
+            Anéis
+          </button>
+          <button
+            class="nav-link"
+            data-view="necklaces"
+            data-mobile-extra="true"
+          >
+            Colares
+          </button>
+          <button
+            class="nav-link"
+            data-view="bracelets"
+            data-mobile-extra="true"
+          >
+            Pulseiras
+          </button>
+          <button
+            class="nav-link"
+            data-view="earrings"
+            data-mobile-extra="true"
+          >
+            Brincos
+          </button>
         </div>
+
         <button id="cartButton" class="cart-button" aria-label="Abrir carrinho">
           <span class="cart-icon">🛒</span>
           <span id="cartCount" class="cart-count">0</span>
         </button>
+
+        <!-- Dropdown que exibirá as abas extras no mobile -->
+        <div id="navDropdown" class="nav-dropdown" aria-hidden="true">
+          <!-- Os botões extras serão clonados e inseridos aqui por main.js -->
+        </div>
       </nav>
     </header>
 
