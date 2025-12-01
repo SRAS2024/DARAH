@@ -568,85 +568,102 @@
         </div>
       </div>
       <nav class="main-nav">
-        <div class="nav-inner">
-          <div class="nav-left">
-            <button class="nav-link active" data-view="home">Início</button>
-            <button class="nav-link" data-view="about">Sobre nós</button>
-            <button
-              class="nav-link"
-              data-view="specials"
-              data-mobile-extra="true"
-            >
-              Ofertas especiais
-            </button>
-            <button
-              class="nav-link"
-              data-view="sets"
-              data-mobile-extra="true"
-            >
-              Conjuntos
-            </button>
-            <button
-              class="nav-link"
-              data-view="rings"
-              data-mobile-extra="true"
-            >
-              Anéis
-            </button>
-            <button
-              class="nav-link"
-              data-view="necklaces"
-              data-mobile-extra="true"
-            >
-              Colares
-            </button>
-            <button
-              class="nav-link"
-              data-view="bracelets"
-              data-mobile-extra="true"
-            >
-              Pulseiras
-            </button>
-            <button
-              class="nav-link"
-              data-view="earrings"
-              data-mobile-extra="true"
-            >
-              Brincos
-            </button>
-          </div>
+        <!-- Botão de menu mobile (três linhas) -->
+        <button
+          class="nav-mobile-toggle"
+          type="button"
+          aria-label="Abrir menu de navegação"
+          aria-expanded="false"
+          aria-controls="navDropdown"
+        >
+          <span class="nav-mobile-toggle-box">
+            <span class="nav-mobile-toggle-line"></span>
+            <span class="nav-mobile-toggle-line"></span>
+            <span class="nav-mobile-toggle-line"></span>
+          </span>
+        </button>
 
+        <div class="nav-left">
+          <!-- No mobile, apenas estas duas abas aparecem na barra principal -->
           <button
-            class="nav-mobile-toggle"
-            type="button"
-            aria-label="Abrir menu"
-            aria-expanded="false"
+            class="nav-link active"
+            data-view="home"
+            data-mobile-priority="true"
           >
-            <span class="nav-mobile-line"></span>
-            <span class="nav-mobile-line"></span>
-            <span class="nav-mobile-line"></span>
+            Início
+          </button>
+          <button
+            class="nav-link"
+            data-view="about"
+            data-mobile-priority="true"
+          >
+            Sobre nós
           </button>
 
-          <div class="admin-header-actions">
-            <div class="admin-theme-toggle">
-              <span class="admin-theme-label">Tema</span>
-              <select id="adminThemeSelect" class="admin-theme-select">
-                <option value="default">Padrão</option>
-                <option value="natal">Natal</option>
-                <option value="pascoa">Páscoa</option>
-              </select>
-            </div>
-            <span class="admin-badge-top">Painel administrativo privado</span>
-            <div class="admin-user-box">
-              <span id="adminUserNameLabel" class="admin-user-label"></span>
-              <button
-                id="adminLogoutButton"
-                type="button"
-                class="admin-button-secondary admin-logout-button"
-              >
-                Sair
-              </button>
-            </div>
+          <!-- As demais abas vão para o dropdown no mobile, com Ofertas especiais primeiro -->
+          <button
+            class="nav-link"
+            data-view="specials"
+            data-mobile-extra="true"
+          >
+            Ofertas especiais
+          </button>
+          <button
+            class="nav-link"
+            data-view="sets"
+            data-mobile-extra="true"
+          >
+            Conjuntos
+          </button>
+          <button
+            class="nav-link"
+            data-view="rings"
+            data-mobile-extra="true"
+          >
+            Anéis
+          </button>
+          <button
+            class="nav-link"
+            data-view="necklaces"
+            data-mobile-extra="true"
+          >
+            Colares
+          </button>
+          <button
+            class="nav-link"
+            data-view="bracelets"
+            data-mobile-extra="true"
+          >
+            Pulseiras
+          </button>
+          <button
+            class="nav-link"
+            data-view="earrings"
+            data-mobile-extra="true"
+          >
+            Brincos
+          </button>
+        </div>
+
+        <div class="admin-header-actions">
+          <div class="admin-theme-toggle">
+            <span class="admin-theme-label">Tema</span>
+            <select id="adminThemeSelect" class="admin-theme-select">
+              <option value="default">Padrão</option>
+              <option value="natal">Natal</option>
+              <option value="pascoa">Páscoa</option>
+            </select>
+          </div>
+          <span class="admin-badge-top">Painel administrativo privado</span>
+          <div class="admin-user-box">
+            <span id="adminUserNameLabel" class="admin-user-label"></span>
+            <button
+              id="adminLogoutButton"
+              type="button"
+              class="admin-button-secondary admin-logout-button"
+            >
+              Sair
+            </button>
           </div>
         </div>
 
@@ -696,7 +713,11 @@
       </section>
 
       <!-- Carregando / boas vindas -->
-      <section id="adminLoadingSection" class="admin-loading-section" aria-hidden="true">
+      <section
+        id="adminLoadingSection"
+        class="admin-loading-section"
+        aria-hidden="true"
+      >
         <div class="admin-card admin-loading-card">
           <p class="home-highlight-text">Preparando o painel administrativo.</p>
           <div class="loading-circle-wrapper">
@@ -721,7 +742,9 @@
               <h2 class="hero-title">Joias DARAH</h2>
 
               <div class="admin-field" style="margin-top:4px">
-                <label for="adminAboutText" class="admin-label">Texto sobre a marca</label>
+                <label for="adminAboutText" class="admin-label"
+                  >Texto sobre a marca</label
+                >
                 <textarea
                   id="adminAboutText"
                   class="admin-textarea"
@@ -812,7 +835,10 @@
                 <label class="admin-label">Fotos da página "Sobre nós"</label>
                 <div class="admin-image-upload-row">
                   <div class="admin-image-preview" style="width:72px;height:72px;">
-                    <div id="adminAboutImagePlaceholder" class="admin-image-placeholder">
+                    <div
+                      id="adminAboutImagePlaceholder"
+                      class="admin-image-placeholder"
+                    >
                       +
                     </div>
                     <img
@@ -830,8 +856,8 @@
                       Escolher foto(s)
                     </button>
                     <p class="admin-status" style="margin-top:4px">
-                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem não aparece na
-                      vitrine.
+                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem não aparece
+                      na vitrine.
                     </p>
                   </div>
                 </div>
@@ -916,11 +942,7 @@
             <form id="productForm">
               <div class="admin-field">
                 <label for="productCategory" class="admin-label">Categoria</label>
-                <select
-                  id="productCategory"
-                  class="admin-select"
-                  required
-                >
+                <select id="productCategory" class="admin-select" required>
                   <option value="specials">Ofertas especiais</option>
                   <option value="sets">Conjuntos</option>
                   <option value="rings">Anéis</option>
@@ -948,7 +970,10 @@
                 <label class="admin-label">Imagens do produto</label>
                 <div class="admin-image-upload-row">
                   <div class="admin-image-preview">
-                    <div id="productImagePlaceholder" class="admin-image-placeholder">
+                    <div
+                      id="productImagePlaceholder"
+                      class="admin-image-placeholder"
+                    >
                       +
                     </div>
                     <img
@@ -978,11 +1003,7 @@
                   multiple
                   style="display:none"
                 />
-                <input
-                  id="productImageUrl"
-                  type="text"
-                  style="display:none"
-                />
+                <input id="productImageUrl" type="text" style="display:none" />
                 <div id="productImageThumbs" class="admin-image-thumbs"></div>
                 <p class="admin-status" style="margin-top:4px">
                   Toque em uma miniatura para defini-la como capa do produto.
@@ -1023,7 +1044,8 @@
                   />
                 </div>
                 <p class="admin-status" style="margin-top:4px">
-                  Se preenchido, aparecerá como valor riscado na aba "Ofertas especiais".
+                  Se preenchido, aparecerá como valor riscado na aba "Ofertas
+                  especiais".
                 </p>
               </div>
 
