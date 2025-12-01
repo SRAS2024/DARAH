@@ -493,6 +493,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Helper to infer the base category for specials
+  function inferBaseCategory(product) {
+    const raw = String(product.category || "").toLowerCase().trim();
+
+    // If already a known base category, just use it
+    if (["rings", "necklaces", "bracelets", "earrings", "sets"].includes(raw)) {
+      return raw;
+    }
+
+    // If the category is "specials" or empty, try to guess from the name
+    const name = String(product.name || "").toLowerCase();
+
+    if (name.includes("anel") || name.includes("aliança")) return "rings";
+    if (name.includes("colar") || name.includes("gargantilha")) return "necklaces";
+    if (name.includes("pulseira") || name.includes("bracelete")) return "bracelets";
+    if (name.includes("brinco")) return "earrings";
+    if (name.includes("conjunto") || name.includes("combo") || name.includes("kit"))
+      return "sets";
+
+    // Fallback: no clear base category
+    return "";
+  }
+
   async function loadProducts() {
     try {
       const res = await fetch("/api/products");
@@ -521,7 +544,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Any product that appears in "specials" is also added to its base category
       specials.forEach((product) => {
-        const cat = String(product.category || "").toLowerCase();
+        const cat = inferBaseCategory(product);
+
         switch (cat) {
           case "rings":
             addUniqueById(rings, product);
