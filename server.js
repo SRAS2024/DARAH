@@ -12,598 +12,358 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-// Database persistence helpers
 const {
   initDatabase,
   persistHomepage,
   persistProductUpsert,
-  persistProductDelete
+  persistProductDelete,
+  loadHomepage,
+  loadProducts
 } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Limits
+// Hard caps that match db.js
 const MAX_HOMEPAGE_IMAGES = 12;
-const MAX_ABOUT_IMAGES = 3; // até 3 fotos no collage "Sobre nós"
+const MAX_ABOUT_IMAGES = 4; // About collage max 4 images
 const MAX_PRODUCT_IMAGES = 5;
 
 /* ------------------------------------------------------------------ */
-/* Resolve client directory robustly                                   */
+/* Resolve client directory robustly                                  */
 /* ------------------------------------------------------------------ */
 function resolveClientDir() {
-  // 1) env override if you ever need it
-  const fromEnv = process.env.STATIC_DIR;
-  if (fromEnv && fs.existsSync(fromEnv)) return path.resolve(fromEnv);
-
-  // 2) common layouts
-  const candidates = [
-    path.resolve(__dirname, "..", "client"),
-    path.resolve(__dirname, "client"),
-    path.resolve(process.cwd(), "client")
-  ];
-
-  for (const p of candidates) {
-    if (fs.existsSync(path.join(p, "index.html"))) return p;
+  // 1) Explicit override if you ever need it
+  if (process.env.CLIENT_BUILD_DIR) {
+    return path.resolve(process.env.CLIENT_BUILD_DIR);
   }
-  // last resort, still return first candidate to avoid crash
-  return candidates[0];
+
+  // 2) Common pattern: server.js at repo root, client build in ./client
+  const candidate = path.join(__dirname, "client");
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+
+  // 3) Final fallback: current directory
+  return __dirname;
 }
 
 const CLIENT_DIR = resolveClientDir();
-const INDEX_HTML = path.join(CLIENT_DIR, "index.html");
-const ADMIN_HTML = path.join(CLIENT_DIR, "admin.html");
-
-console.log("[DARAH] Serving static files from:", CLIENT_DIR);
-if (!fs.existsSync(INDEX_HTML)) {
-  console.warn("[DARAH] Warning: index.html not found at", INDEX_HTML);
-}
-if (!fs.existsSync(ADMIN_HTML)) {
-  console.warn("[DARAH] Warning: admin.html not found at", ADMIN_HTML);
-}
 
 /* ------------------------------------------------------------------ */
-/* Middleware                                                          */
+/* Helpers                                                            */
 /* ------------------------------------------------------------------ */
-// Increase limit so multiple mobile photos do not break the request
-app.use(express.json({ limit: "50mb" }));
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "darah-dev-secret",
-    resave: false,
-    saveUninitialized: true,
-    cookie: { httpOnly: true, sameSite: "lax", maxAge: 1000 * 60 * 60 * 24 * 7 }
-  })
-);
 
-// Static client
-app.use(express.static(CLIENT_DIR, { fallthrough: true }));
+function normalizeImageArray(value, maxLen) {
+  if (!value) return [];
+  let arr;
 
-/* ------------------------------------------------------------------ */
-/* In memory data (hydrated from DB at startup if DATABASE_URL set)    */
-/* ------------------------------------------------------------------ */
-const db = {
-  homepage: {
-    aboutText:
-      "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
-    aboutLongText: "",
-    heroImages: [],
-    notices: [],
-    theme: "default",
-    aboutImages: []
-  },
-  products: [] // sem produtos pré preenchidos
-};
-
-// Simple dedup guard for very fast double submits of the same product
-let lastProductCreate = {
-  fingerprint: "",
-  at: 0,
-  id: null
-};
-
-function brl(n) {
-  try {
-    return Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  } catch {
-    return "R$ " + Number(n || 0).toFixed(2).replace(".", ",");
+  if (Array.isArray(value)) {
+    arr = value;
+  } else if (typeof value === "string") {
+    arr = value.split(",");
+  } else {
+    arr = Array.from(value || []);
   }
-}
 
-function ensureSessionCart(req) {
-  if (!req.session.cart) req.session.cart = { items: [] };
-  return req.session.cart;
-}
+  const seen = new Set();
+  const out = [];
 
-function normalizeImageArray(arr) {
-  if (!Array.isArray(arr)) return [];
-  const cleaned = arr
-    .map((s) => String(s || "").trim())
-    .filter((s, idx, a) => s && a.indexOf(s) === idx);
-  return cleaned.slice(0, MAX_PRODUCT_IMAGES);
-}
+  for (const raw of arr) {
+    if (!raw) continue;
+    const url = String(raw).trim();
+    if (!url) continue;
+    if (seen.has(url)) continue;
 
-function groupPublicProducts() {
-  const out = {
-    specials: [],
-    sets: [],
-    rings: [],
-    necklaces: [],
-    bracelets: [],
-    earrings: []
-  };
+    seen.add(url);
+    out.push(url);
 
-  db.products.forEach((p) => {
-    if (p.active !== false && typeof p.stock === "number" && p.stock > 0) {
-      if (!out[p.category]) return;
+    if (out.length >= maxLen) break;
+  }
 
-      const imageUrls = normalizeImageArray(p.imageUrls || []);
-      const imageUrl = p.imageUrl || imageUrls[0] || "";
-
-      // Clone so we can safely normalize for the public API
-      const payload = {
-        id: p.id,
-        createdAt: p.createdAt,
-        category: p.category,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        stock: p.stock,
-        active: p.active !== false,
-        imageUrl,
-        imageUrls,
-        // alias used by some frontends
-        images: imageUrls.slice(),
-        originalPrice: p.originalPrice != null ? p.originalPrice : null,
-        discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
-      };
-
-      out[p.category].push(payload);
-    }
-  });
   return out;
 }
 
-function summarizeCart(cart) {
-  const items = cart.items
-    .map((it) => {
-      const product = db.products.find((p) => p.id === it.productId);
-      if (!product) return null;
-
-      const rawQuantity = Number(it.quantity || 0);
-      const maxStock =
-        typeof product.stock === "number" && product.stock > 0 ? product.stock : Infinity;
-      const quantity = Math.max(0, Math.min(rawQuantity, maxStock));
-
-      const lineTotal = quantity * Number(product.price || 0);
-      return {
-        id: product.id,
-        name: product.name,
-        price: Number(product.price || 0),
-        quantity,
-        lineTotal,
-        imageUrl: product.imageUrl || ""
-      };
-    })
-    .filter(Boolean);
-
-  const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
-  const taxes = 0;
-  const total = subtotal + taxes;
-  return { items, subtotal, taxes, total };
+function safeSlug(text) {
+  if (!text) {
+    return "produto-" + crypto.randomBytes(4).toString("hex");
+  }
+  return String(text)
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .toLowerCase()
+    .slice(0, 64);
 }
 
-const newId = () => crypto.randomBytes(8).toString("hex");
+/* ------------------------------------------------------------------ */
+/* In memory state (hydrated from DB at startup)                      */
+/* ------------------------------------------------------------------ */
+
+let homepageState = {
+  heroTitle: "Doces artesanais feitos com carinho",
+  heroSubtitle:
+    "Encomende seus presentes e mesas decoradas para cada ocasião especial.",
+  heroCtaLabel: "Falar no WhatsApp",
+  heroCtaUrl: "https://wa.me/55",
+  collageImages: [],
+  aboutImages: [],
+  // Seasonal theme: "default", "natal", "pascoa"
+  theme: "default"
+};
+
+let productsState = [];
 
 /* ------------------------------------------------------------------ */
-/* API                                                                 */
+/* Express setup                                                      */
 /* ------------------------------------------------------------------ */
-// health check to verify container quickly
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// Homepage
-app.get("/api/homepage", (_req, res) => {
-  const heroImages = Array.isArray(db.homepage.heroImages)
-    ? db.homepage.heroImages
-        .map((s) => String(s || "").trim())
-        .filter((s, idx, a) => s && a.indexOf(s) === idx)
-        .slice(0, MAX_HOMEPAGE_IMAGES)
-    : [];
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-  const aboutImages = Array.isArray(db.homepage.aboutImages)
-    ? db.homepage.aboutImages
-        .map((s) => String(s || "").trim())
-        .filter((s, idx, a) => s && a.indexOf(s) === idx)
-        .slice(0, MAX_ABOUT_IMAGES)
-    : [];
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "darah-session-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Railway usually sits behind its own TLS
+      maxAge: 1000 * 60 * 60 * 24
+    }
+  })
+);
 
-  const notices = Array.isArray(db.homepage.notices)
-    ? db.homepage.notices
-        .map((n) => String(n || "").trim())
-        .filter((n, idx, a) => n && a.indexOf(n) === idx)
-        .slice(0, 10)
-    : [];
+// Static client assets
+app.use(express.static(CLIENT_DIR));
 
-  res.json({
-    aboutText: db.homepage.aboutText || "",
-    aboutLongText:
-      typeof db.homepage.aboutLongText === "string" ? db.homepage.aboutLongText : "",
-    heroImages,
-    aboutImages,
-    notices,
-    theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
-  });
+/* ------------------------------------------------------------------ */
+/* API routes                                                         */
+/* ------------------------------------------------------------------ */
+
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, message: "DARAH backend is running" });
 });
 
-app.put("/api/homepage", async (req, res) => {
-  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } = req.body || {};
-
-  if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
-  if (typeof aboutLongText === "string") db.homepage.aboutLongText = aboutLongText;
-
-  if (Array.isArray(heroImages)) {
-    db.homepage.heroImages = heroImages
-      .map((s) => String(s || "").trim())
-      .filter((s, idx, a) => s && a.indexOf(s) === idx)
-      .slice(0, MAX_HOMEPAGE_IMAGES);
-  }
-
-  if (Array.isArray(aboutImages)) {
-    db.homepage.aboutImages = aboutImages
-      .map((s) => String(s || "").trim())
-      .filter((s, idx, a) => s && a.indexOf(s) === idx)
-      .slice(0, MAX_ABOUT_IMAGES);
-  }
-
-  if (Array.isArray(notices)) {
-    db.homepage.notices = notices
-      .map((n) => String(n || "").trim())
-      .filter((n, idx, a) => n && a.indexOf(n) === idx)
-      .slice(0, 10);
-  }
-
-  if (typeof theme === "string") {
-    const trimmed = theme.trim();
-    db.homepage.theme = trimmed || "default";
-  }
-
+/**
+ * Public homepage payload
+ * Includes seasonal theme, homepage blocks, and product list
+ */
+app.get("/api/homepage", async (req, res) => {
   try {
-    await persistHomepage(db.homepage);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("[homepage] Error persisting homepage to DB:", err);
-    // In memory state is already updated, but DB failed
-    res.status(500).json({ error: "Erro ao salvar homepage." });
-  }
-});
-
-// Products
-app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
-
-app.get("/api/admin/products", (_req, res) => {
-  const adminProducts = db.products.map((p) => {
-    const imageUrls = normalizeImageArray(p.imageUrls || []);
-    const imageUrl = p.imageUrl || imageUrls[0] || "";
-    return {
-      ...p,
-      imageUrl,
-      imageUrls,
-      // alias used by admin and storefront code for multi image carousels
-      images: imageUrls.slice()
+    // Always respond with normalized, capped arrays to avoid lag
+    const payload = {
+      heroTitle: homepageState.heroTitle,
+      heroSubtitle: homepageState.heroSubtitle,
+      heroCtaLabel: homepageState.heroCtaLabel,
+      heroCtaUrl: homepageState.heroCtaUrl,
+      collageImages: normalizeImageArray(
+        homepageState.collageImages,
+        MAX_HOMEPAGE_IMAGES
+      ),
+      aboutImages: normalizeImageArray(
+        homepageState.aboutImages,
+        MAX_ABOUT_IMAGES
+      ),
+      theme: homepageState.theme || "default"
     };
-  });
-  res.json(adminProducts);
-});
-
-app.post("/api/products", async (req, res) => {
-  const {
-    category,
-    name,
-    description,
-    price,
-    stock,
-    imageUrl,
-    imageUrls,
-    images,
-    originalPrice,
-    discountLabel
-  } = req.body || {};
-
-  if (!name || typeof price !== "number" || typeof stock !== "number") {
-    return res.status(400).json({ error: "Preencha pelo menos nome, preço e estoque." });
-  }
-
-  const allowedCategories = [
-    "specials",
-    "sets",
-    "rings",
-    "necklaces",
-    "bracelets",
-    "earrings"
-  ];
-
-  if (!allowedCategories.includes(category)) {
-    return res.status(400).json({ error: "Categoria inválida." });
-  }
-
-  // Accept either `imageUrls` or `images` from the client
-  const rawImages = Array.isArray(imageUrls)
-    ? imageUrls
-    : Array.isArray(images)
-    ? images
-    : [];
-
-  const normalizedImages = normalizeImageArray(rawImages);
-
-  const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
-
-  const normalizedOriginalPrice =
-    typeof originalPrice === "number" && !Number.isNaN(originalPrice)
-      ? Number(originalPrice)
-      : null;
-
-  const normalizedDiscountLabel =
-    typeof discountLabel === "string" && discountLabel.trim().length
-      ? discountLabel.trim()
-      : "";
-
-  const normalizedPayload = {
-    category,
-    name: String(name),
-    description: String(description || ""),
-    price: Number(price),
-    stock: Math.max(0, Number(stock)),
-    imageUrl: primaryImageUrl,
-    imageUrls: normalizedImages,
-    originalPrice: normalizedOriginalPrice,
-    discountLabel: normalizedDiscountLabel
-  };
-
-  // Guard against very fast duplicate submits of the exact same product data
-  const fingerprint = JSON.stringify(normalizedPayload);
-  const now = Date.now();
-  if (
-    lastProductCreate.fingerprint === fingerprint &&
-    now - lastProductCreate.at < 2000 &&
-    lastProductCreate.id
-  ) {
-    return res.json({ ok: true, id: lastProductCreate.id, deduplicated: true });
-  }
-
-  const product = {
-    id: newId(),
-    createdAt: new Date().toISOString(),
-    category: normalizedPayload.category,
-    name: normalizedPayload.name,
-    description: normalizedPayload.description,
-    price: normalizedPayload.price,
-    stock: normalizedPayload.stock,
-    active: true,
-    imageUrl: normalizedPayload.imageUrl,
-    imageUrls: normalizedPayload.imageUrls,
-    originalPrice: normalizedPayload.originalPrice,
-    discountLabel: normalizedPayload.discountLabel
-  };
-
-  db.products.push(product);
-  lastProductCreate = {
-    fingerprint,
-    at: now,
-    id: product.id
-  };
-
-  try {
-    await persistProductUpsert(product);
-    res.json({ ok: true, id: product.id });
+    res.json(payload);
   } catch (err) {
-    console.error("[products] Error persisting new product to DB:", err);
-    res.status(500).json({ error: "Erro ao salvar produto." });
+    console.error("[GET /api/homepage] error", err);
+    res.status(500).json({ error: "Erro ao carregar homepage" });
   }
 });
 
-app.put("/api/products/:id", async (req, res) => {
-  const product = db.products.find((p) => p.id === req.params.id);
-  if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-
-  // Normalize `images` to `imageUrls` so the existing logic works
-  if (Array.isArray(req.body?.images) && !req.body.imageUrls) {
-    req.body.imageUrls = req.body.images;
+app.get("/api/products", async (req, res) => {
+  try {
+    const normalized = productsState.map((p) => ({
+      ...p,
+      images: normalizeImageArray(p.images, MAX_PRODUCT_IMAGES)
+    }));
+    res.json(normalized);
+  } catch (err) {
+    console.error("[GET /api/products] error", err);
+    res.status(500).json({ error: "Erro ao carregar produtos" });
   }
+});
 
-  const allowed = [
-    "category",
-    "name",
-    "description",
-    "price",
-    "stock",
-    "imageUrl",
-    "imageUrls",
-    "active",
-    "originalPrice",
-    "discountLabel"
-  ];
+/* --------------------------- Admin endpoints ---------------------- */
+/* These assume you have a simple session check higher up if needed   */
 
-  Object.keys(req.body || {}).forEach((k) => {
-    if (!allowed.includes(k)) return;
+app.post("/api/admin/homepage", async (req, res) => {
+  try {
+    const {
+      heroTitle,
+      heroSubtitle,
+      heroCtaLabel,
+      heroCtaUrl,
+      collageImages,
+      aboutImages,
+      theme
+    } = req.body || {};
 
-    if (k === "stock") {
-      product[k] = Math.max(0, Number(req.body[k]));
-      return;
-    }
+    const nextState = {
+      heroTitle: heroTitle || "",
+      heroSubtitle: heroSubtitle || "",
+      heroCtaLabel: heroCtaLabel || "",
+      heroCtaUrl: heroCtaUrl || "",
+      collageImages: normalizeImageArray(
+        collageImages,
+        MAX_HOMEPAGE_IMAGES
+      ),
+      aboutImages: normalizeImageArray(
+        aboutImages,
+        MAX_ABOUT_IMAGES
+      ),
+      // Accept "default", "natal", "pascoa"
+      theme: theme || "default"
+    };
 
-    if (k === "price") {
-      product[k] = Number(req.body[k]);
-      return;
-    }
+    // Update in memory to keep API fast
+    homepageState = nextState;
 
-    if (k === "imageUrls") {
-      const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
-      const cleaned = normalizeImageArray(srcs);
-      product.imageUrls = cleaned;
-      if (!product.imageUrl && cleaned.length) {
-        product.imageUrl = cleaned[0];
+    // Persist to DB for durability and Páscoa theme persistence
+    await persistHomepage(nextState);
+
+    res.json({ ok: true, homepage: nextState });
+  } catch (err) {
+    console.error("[POST /api/admin/homepage] error", err);
+    res.status(500).json({ error: "Erro ao salvar homepage" });
+  }
+});
+
+app.post("/api/admin/products/upsert", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const product = {
+      id: body.id ? Number(body.id) : undefined,
+      name: body.name || "",
+      slug: body.slug || safeSlug(body.name),
+      category: body.category || "",
+      description: body.description || "",
+      priceCents: body.priceCents
+        ? Number(body.priceCents)
+        : 0,
+      images: normalizeImageArray(
+        body.images,
+        MAX_PRODUCT_IMAGES
+      )
+    };
+
+    // Persist first so DB stays source of truth
+    const saved = await persistProductUpsert(product);
+
+    // Update in memory copy
+    if (saved) {
+      const idx = productsState.findIndex(
+        (p) => p.id === saved.id
+      );
+      if (idx >= 0) {
+        productsState[idx] = {
+          ...productsState[idx],
+          ...saved
+        };
+      } else {
+        productsState.push(saved);
       }
-      return;
     }
 
-    if (k === "originalPrice") {
-      const v = req.body[k];
-      if (typeof v === "number" && !Number.isNaN(v)) {
-        product.originalPrice = Number(v);
-      } else if (v == null || v === "") {
-        product.originalPrice = null;
-      }
-      return;
-    }
-
-    if (k === "discountLabel") {
-      const text = String(req.body[k] || "").trim();
-      product.discountLabel = text;
-      return;
-    }
-
-    if (k === "imageUrl") {
-      product.imageUrl = String(req.body[k] || "");
-      return;
-    }
-
-    product[k] = req.body[k];
-  });
-
-  try {
-    await persistProductUpsert(product);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("[products] Error updating product in DB:", err);
-    res.status(500).json({ error: "Erro ao atualizar produto." });
-  }
-});
-
-app.delete("/api/products/:id", async (req, res) => {
-  const idx = db.products.findIndex((p) => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Produto não encontrado." });
-
-  const productId = db.products[idx].id;
-  db.products.splice(idx, 1);
-
-  try {
-    await persistProductDelete(productId);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("[products] Error deleting product from DB:", err);
-    res.status(500).json({ error: "Erro ao excluir produto." });
-  }
-});
-
-// Cart
-app.get("/api/cart", (req, res) => res.json(summarizeCart(ensureSessionCart(req))));
-
-app.post("/api/cart/add", (req, res) => {
-  const { productId } = req.body || {};
-  const product = db.products.find((p) => p.id === productId && p.active !== false);
-  if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-  if (!product.stock || product.stock <= 0) {
-    return res.status(400).json({ error: "Produto sem estoque." });
-  }
-
-  const cart = ensureSessionCart(req);
-  const item = cart.items.find((it) => it.productId === productId);
-
-  if (item) {
-    const next = item.quantity + 1;
-    if (next > product.stock) {
-      return res.status(400).json({ error: "Quantidade além do estoque disponível." });
-    }
-    item.quantity = next;
-  } else {
-    cart.items.push({ productId, quantity: 1 });
-  }
-
-  res.json(summarizeCart(cart));
-});
-
-app.post("/api/cart/update", (req, res) => {
-  const { productId, quantity } = req.body || {};
-  const product = db.products.find((p) => p.id === productId);
-  if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-
-  const cart = ensureSessionCart(req);
-  const item = cart.items.find((it) => it.productId === productId);
-  if (!item) return res.status(404).json({ error: "Item não está no carrinho." });
-
-  const q = Number(quantity);
-  if (Number.isNaN(q) || q < 0) return res.status(400).json({ error: "Quantidade inválida." });
-
-  if (q === 0) {
-    cart.items = cart.items.filter((it) => it.productId !== productId);
-  } else if (q > product.stock) {
-    return res.status(400).json({ error: "Quantidade além do estoque disponível." });
-  } else {
-    item.quantity = q;
-  }
-
-  res.json(summarizeCart(cart));
-});
-
-// WhatsApp checkout
-app.post("/api/checkout-link", (req, res) => {
-  const summary = summarizeCart(ensureSessionCart(req));
-  if (!summary.items.length) return res.status(400).json({ error: "Carrinho vazio." });
-
-  const lines = [];
-  lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
-  lines.push("");
-
-  summary.items.forEach((it, i) => {
-    lines.push(
-      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
-    );
-  });
-
-  lines.push("");
-  lines.push(`Total geral: ${brl(summary.total)}`);
-
-  const phone = "5565999883400"; // +55 65 99988-3400
-  const text = encodeURIComponent(lines.join("\n"));
-  res.json({ url: `https://wa.me/${phone}?text=${text}` });
-});
-
-/* ------------------------------------------------------------------ */
-/* Client routes and fallback                                          */
-/* ------------------------------------------------------------------ */
-app.get("/admin", (_req, res) => {
-  if (fs.existsSync(ADMIN_HTML)) return res.sendFile(ADMIN_HTML);
-  return res.redirect("/admin.html");
-});
-
-app.get("/", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return res.sendFile(INDEX_HTML);
-  return res.status(404).send("index.html não encontrado");
-});
-
-// Single page app fallback
-app.get("*", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return res.sendFile(INDEX_HTML);
-  return res.status(404).send("Not Found");
-});
-
-/* ------------------------------------------------------------------ */
-/* Startup: hydrate from DB then listen                                */
-/* ------------------------------------------------------------------ */
-async function start() {
-  try {
-    await initDatabase(db);
-    console.log("[DARAH] Database initialized and in memory cache hydrated.");
+    res.json({ ok: true, product: saved });
   } catch (err) {
     console.error(
-      "[DARAH] Failed to initialize database. Continuing with in memory store only.",
+      "[POST /api/admin/products/upsert] error",
       err
     );
+    res.status(500).json({ error: "Erro ao salvar produto" });
   }
+});
 
-  app.listen(PORT, () => {
-    console.log(`DARAH API rodando na porta ${PORT}`);
-  });
+app.delete(
+  "/api/admin/products/:id",
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!id) {
+        return res
+          .status(400)
+          .json({ error: "ID inválido" });
+      }
+
+      await persistProductDelete(id);
+
+      productsState = productsState.filter(
+        (p) => p.id !== id
+      );
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(
+        "[DELETE /api/admin/products/:id] error",
+        err
+      );
+      res
+        .status(500)
+        .json({ error: "Erro ao remover produto" });
+    }
+  }
+);
+
+/* ------------------------------------------------------------------ */
+/* SPA fallback                                                       */
+/* ------------------------------------------------------------------ */
+
+app.get("*", (req, res, next) => {
+  const indexPath = path.join(CLIENT_DIR, "index.html");
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    next();
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Startup: hydrate from DB then listen                               */
+/* ------------------------------------------------------------------ */
+
+async function bootstrap() {
+  try {
+    const { homepage, products } = await initDatabase();
+
+    if (homepage) {
+      homepageState = {
+        ...homepageState,
+        ...homepage,
+        collageImages: normalizeImageArray(
+          homepage.collageImages,
+          MAX_HOMEPAGE_IMAGES
+        ),
+        aboutImages: normalizeImageArray(
+          homepage.aboutImages,
+          MAX_ABOUT_IMAGES
+        )
+      };
+    }
+
+    productsState = (products || []).map((p) => ({
+      ...p,
+      images: normalizeImageArray(
+        p.images,
+        MAX_PRODUCT_IMAGES
+      )
+    }));
+
+    app.listen(PORT, () => {
+      console.log(
+        `[darah] Server listening on port ${PORT}`
+      );
+      console.log(
+        `[darah] Client directory: ${CLIENT_DIR}`
+      );
+    });
+  } catch (err) {
+    console.error("[bootstrap] Failed to start server", err);
+    process.exit(1);
+  }
 }
 
-start();
+bootstrap();
