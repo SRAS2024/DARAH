@@ -59,6 +59,7 @@ async function initDatabase(db) {
     CREATE TABLE IF NOT EXISTS homepage (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       about_text TEXT NOT NULL DEFAULT '',
+      about_long_text TEXT NOT NULL DEFAULT '',
       hero_images JSONB NOT NULL DEFAULT '[]'::jsonb,
       notices JSONB NOT NULL DEFAULT '[]'::jsonb,
       theme TEXT NOT NULL DEFAULT 'default',
@@ -66,10 +67,11 @@ async function initDatabase(db) {
     );
   `);
 
-  // In case the table existed without about_images, add it safely
+  // In case the table existed without the newer columns, add them safely
   await pg.query(`
     ALTER TABLE homepage
-      ADD COLUMN IF NOT EXISTS about_images JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ADD COLUMN IF NOT EXISTS about_images JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS about_long_text TEXT NOT NULL DEFAULT '';
   `);
 
   await pg.query(`
@@ -100,13 +102,14 @@ async function initDatabase(db) {
 
   // 2) Hydrate homepage from DB, or seed from current in memory default
   const homeResult = await pg.query(
-    "SELECT about_text, hero_images, notices, theme, about_images FROM homepage WHERE id = 1"
+    "SELECT about_text, about_long_text, hero_images, notices, theme, about_images FROM homepage WHERE id = 1"
   );
 
   if (homeResult.rows.length === 0) {
     // Seed from in memory default
     const home = db.homepage || {
       aboutText: "",
+      aboutLongText: "",
       heroImages: [],
       notices: [],
       theme: "default",
@@ -115,12 +118,13 @@ async function initDatabase(db) {
 
     await pg.query(
       `
-      INSERT INTO homepage (id, about_text, hero_images, notices, theme, about_images)
-      VALUES (1, $1, $2::jsonb, $3::jsonb, $4, $5::jsonb)
+      INSERT INTO homepage (id, about_text, about_long_text, hero_images, notices, theme, about_images)
+      VALUES (1, $1, $2, $3::jsonb, $4::jsonb, $5, $6::jsonb)
       ON CONFLICT (id) DO NOTHING;
     `,
       [
         String(home.aboutText || ""),
+        String(home.aboutLongText || ""),
         JSON.stringify(Array.isArray(home.heroImages) ? home.heroImages : []),
         JSON.stringify(Array.isArray(home.notices) ? home.notices : []),
         typeof home.theme === "string" ? home.theme : "default",
@@ -133,6 +137,7 @@ async function initDatabase(db) {
     const row = homeResult.rows[0];
     db.homepage = {
       aboutText: row.about_text || "",
+      aboutLongText: row.about_long_text || "",
       heroImages: Array.isArray(row.hero_images) ? row.hero_images : [],
       notices: Array.isArray(row.notices) ? row.notices : [],
       theme: row.theme || "default",
@@ -191,6 +196,7 @@ async function persistHomepage(homepage) {
   if (!pg) return;
 
   const aboutText = String(homepage.aboutText || "");
+  const aboutLongText = String(homepage.aboutLongText || "");
   const heroImages = Array.isArray(homepage.heroImages) ? homepage.heroImages : [];
   const notices = Array.isArray(homepage.notices) ? homepage.notices : [];
   const aboutImages = Array.isArray(homepage.aboutImages) ? homepage.aboutImages : [];
@@ -201,17 +207,19 @@ async function persistHomepage(homepage) {
 
   await pg.query(
     `
-    INSERT INTO homepage (id, about_text, hero_images, notices, theme, about_images)
-    VALUES (1, $1, $2::jsonb, $3::jsonb, $4, $5::jsonb)
+    INSERT INTO homepage (id, about_text, about_long_text, hero_images, notices, theme, about_images)
+    VALUES (1, $1, $2, $3::jsonb, $4::jsonb, $5, $6::jsonb)
     ON CONFLICT (id) DO UPDATE SET
-      about_text   = EXCLUDED.about_text,
-      hero_images  = EXCLUDED.hero_images,
-      notices      = EXCLUDED.notices,
-      theme        = EXCLUDED.theme,
-      about_images = EXCLUDED.about_images;
+      about_text      = EXCLUDED.about_text,
+      about_long_text = EXCLUDED.about_long_text,
+      hero_images     = EXCLUDED.hero_images,
+      notices         = EXCLUDED.notices,
+      theme           = EXCLUDED.theme,
+      about_images    = EXCLUDED.about_images;
   `,
     [
       aboutText,
+      aboutLongText,
       JSON.stringify(heroImages),
       JSON.stringify(notices),
       theme,
