@@ -192,6 +192,8 @@ body {
   cursor: pointer;
   color: var(--text-muted);
   transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
+  flex: 0 0 auto;           /* evita encolher e cortar textos longos */
+  white-space: nowrap;      /* mantém o texto inteiro dentro do pill */
 }
 
 .nav-link:hover {
@@ -601,6 +603,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 auto;        /* faz o conteúdo ocupar a altura toda do card */
 }
 
 .product-name {
@@ -618,7 +621,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
+  margin-top: auto;      /* empurra bloco de preço + estoque para a base do card */
 }
 
 /* Price block for offers and standard products */
@@ -664,7 +667,7 @@ body {
 }
 
 .primary-button {
-  margin-top: 10px;
+  margin-top: 8px;       /* espaçamento curto abaixo do bloco de preço */
   padding: 9px 12px;
   border-radius: 999px;
   border: none;
@@ -736,6 +739,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 auto;       /* faz o corpo crescer, empurrando ações para baixo */
 }
 
 .admin-product-title {
@@ -753,7 +757,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 4px;
+  margin-top: auto;      /* mantém preço/estoque alinhados no rodapé do corpo */
   gap: 6px;
 }
 
@@ -1059,8 +1063,9 @@ body {
 
   .nav-left {
     flex-wrap: nowrap;
-    overflow-x: hidden;
-    padding-bottom: 0;
+    overflow-x: auto;             /* em vez de hidden, permite rolar as abas */
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
     flex: 1;
     justify-content: flex-start;
     gap: 6px;
