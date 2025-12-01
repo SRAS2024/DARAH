@@ -1076,7 +1076,7 @@ body.is-admin-login .main-nav {
     gap: 6px;
   }
 
-  /* No mobile, só as três abas principais aparecem na linha de cima */
+  /* No mobile, só as abas principais (Início e Sobre nós) aparecem na linha de cima */
   .nav-left .nav-link[data-mobile-extra="true"] {
     display: none;
   }
