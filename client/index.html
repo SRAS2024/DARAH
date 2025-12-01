@@ -29,7 +29,7 @@
         </button>
 
         <div class="nav-left">
-          <!-- As três primeiras abas serão as principais no mobile -->
+          <!-- No mobile, apenas estas duas abas aparecem na barra principal -->
           <button
             class="nav-link active"
             data-view="home"
@@ -44,15 +44,15 @@
           >
             Sobre nós
           </button>
+
+          <!-- A partir daqui, todas as abas aparecem apenas no dropdown no mobile -->
           <button
             class="nav-link"
             data-view="specials"
-            data-mobile-priority="true"
+            data-mobile-extra="true"
           >
             Ofertas especiais
           </button>
-
-          <!-- As abas abaixo irão para o dropdown no mobile -->
           <button
             class="nav-link"
             data-view="sets"
