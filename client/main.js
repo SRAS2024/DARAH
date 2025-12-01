@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkoutButton = document.getElementById("checkoutButton");
   const rootEl = document.documentElement;
 
+  // Mobile nav controls
+  const mobileToggle = document.querySelector(".nav-mobile-toggle");
+  const navDropdown = document.getElementById("navDropdown");
+  let mobileMenuOpen = false;
+
   // Views mirror
   const views = {
     home: document.getElementById("view-home"),
@@ -494,15 +499,59 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const grouped = await res.json();
 
-      // New categories
-      renderProductList("specialsList", grouped.specials || [], "specials");
-      renderProductList("setsList", grouped.sets || [], "sets");
+      const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
+      const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
 
-      // Existing categories
-      renderProductList("ringsList", grouped.rings || [], "rings");
-      renderProductList("necklacesList", grouped.necklaces || [], "necklaces");
-      renderProductList("braceletsList", grouped.bracelets || [], "bracelets");
-      renderProductList("earringsList", grouped.earrings || [], "earrings");
+      let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
+      let necklaces = Array.isArray(grouped.necklaces)
+        ? grouped.necklaces.slice()
+        : [];
+      let bracelets = Array.isArray(grouped.bracelets)
+        ? grouped.bracelets.slice()
+        : [];
+      let earrings = Array.isArray(grouped.earrings)
+        ? grouped.earrings.slice()
+        : [];
+
+      function addUniqueById(target, product) {
+        if (!product || product.id == null) return;
+        if (target.some((p) => p && p.id === product.id)) return;
+        target.push(product);
+      }
+
+      // Any product that appears in "specials" is also added to its base category
+      specials.forEach((product) => {
+        const cat = String(product.category || "").toLowerCase();
+        switch (cat) {
+          case "rings":
+            addUniqueById(rings, product);
+            break;
+          case "necklaces":
+            addUniqueById(necklaces, product);
+            break;
+          case "bracelets":
+            addUniqueById(bracelets, product);
+            break;
+          case "earrings":
+            addUniqueById(earrings, product);
+            break;
+          case "sets":
+            addUniqueById(sets, product);
+            break;
+          default:
+            break;
+        }
+      });
+
+      // New categories
+      renderProductList("specialsList", specials, "specials");
+      renderProductList("setsList", sets, "sets");
+
+      // Existing categories, already enriched by specials
+      renderProductList("ringsList", rings, "rings");
+      renderProductList("necklacesList", necklaces, "necklaces");
+      renderProductList("braceletsList", bracelets, "bracelets");
+      renderProductList("earringsList", earrings, "earrings");
     } catch (err) {
       console.error(err);
     }
@@ -711,9 +760,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =========================
-  // Events
+  // Navigation wiring
   // =========================
-  navLinks.forEach((btn) => {
+  function setMobileMenuOpen(open) {
+    mobileMenuOpen = !!open;
+    if (!navDropdown || !mobileToggle) return;
+
+    if (mobileMenuOpen) {
+      navDropdown.classList.add("open");
+      navDropdown.setAttribute("aria-hidden", "false");
+      mobileToggle.setAttribute("aria-expanded", "true");
+    } else {
+      navDropdown.classList.remove("open");
+      navDropdown.setAttribute("aria-hidden", "true");
+      mobileToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function setupNavButton(btn) {
+    if (!btn) return;
     btn.addEventListener("click", () => {
       const key = btn.dataset.view;
       if (!key) return;
@@ -721,9 +786,45 @@ document.addEventListener("DOMContentLoaded", () => {
       if (key === "home" || key === "about") {
         loadHomepage();
       }
+      if (mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
     });
+  }
+
+  // Clone the extra tabs into the dropdown for mobile
+  if (navDropdown) {
+    const extraNavButtons = navLinks.filter(
+      (btn) => btn.dataset.mobileExtra === "true"
+    );
+
+    extraNavButtons.forEach((btn) => {
+      const clone = btn.cloneNode(true);
+      clone.classList.add("nav-dropdown-link");
+      navDropdown.appendChild(clone);
+      setupNavButton(clone);
+    });
+  }
+
+  if (mobileToggle && navDropdown) {
+    mobileToggle.addEventListener("click", () => {
+      setMobileMenuOpen(!mobileMenuOpen);
+    });
+  }
+
+  // Close mobile menu on resize back to desktop
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 640 && mobileMenuOpen) {
+      setMobileMenuOpen(false);
+    }
   });
 
+  // Attach navigation to main nav links
+  navLinks.forEach(setupNavButton);
+
+  // =========================
+  // Events for cart and year
+  // =========================
   if (cartButton) {
     cartButton.addEventListener("click", () => setActiveView("checkout"));
   }
