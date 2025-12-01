@@ -12,6 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
   const MAX_ABOUT_IMAGES = 4;        // até 4 imagens no collage da aba Sobre
 
+  // Basic layout
+  const bodyEl = document.body;
+  const navMobileToggle = document.querySelector(".nav-mobile-toggle");
+  const navDropdown = document.getElementById("navDropdown");
+  const navLeftContainer = document.querySelector(".nav-left");
+
   // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
@@ -133,7 +139,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Helpers
+  // Helpers for layout and mobile nav
+  function setBodyLoginMode(isLogin) {
+    if (!bodyEl) return;
+    if (isLogin) {
+      bodyEl.classList.add("is-admin-login");
+    } else {
+      bodyEl.classList.remove("is-admin-login");
+    }
+  }
+
+  function openMobileMenu() {
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.add("open");
+    navMobileToggle.classList.add("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "true");
+  }
+
+  function closeMobileMenu() {
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.remove("open");
+    navMobileToggle.classList.remove("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "false");
+  }
+
+  // Initially we assume login view until session restore runs
+  setBodyLoginMode(true);
+
+  // Status helpers
   function setLoginError(message) {
     if (!loginErrorEl) return;
     loginErrorEl.textContent = message || "";
@@ -255,6 +288,54 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Mobile nav dropdown setup for Admin
+  function buildMobileDropdown() {
+    if (!navDropdown || !navLeftContainer) return;
+    navDropdown.innerHTML = "";
+
+    const extras = navLeftContainer.querySelectorAll(
+      '.nav-link[data-mobile-extra="true"]'
+    );
+
+    extras.forEach((btn) => {
+      const clone = btn.cloneNode(true);
+      clone.addEventListener("click", () => {
+        const viewId = clone.dataset.view;
+        if (viewId && views[viewId]) {
+          switchView(viewId);
+        }
+        closeMobileMenu();
+      });
+      navDropdown.appendChild(clone);
+    });
+  }
+
+  buildMobileDropdown();
+
+  if (navMobileToggle && navDropdown) {
+    navMobileToggle.addEventListener("click", () => {
+      const isOpen = navDropdown.classList.contains("open");
+      if (isOpen) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || !(target instanceof Node)) return;
+      if (
+        navDropdown &&
+        navMobileToggle &&
+        !navDropdown.contains(target) &&
+        !navMobileToggle.contains(target)
+      ) {
+        closeMobileMenu();
+      }
+    });
+  }
 
   // Theme selector handler
   if (themeSelect) {
@@ -1361,12 +1442,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (passwordInput) passwordInput.value = "";
     setLoginError("");
     updateHeaderUser("");
+    setBodyLoginMode(true);
+    closeMobileMenu();
   }
 
   function showPanelView() {
     if (loginSection) loginSection.style.display = "none";
     if (loadingSection) loadingSection.style.display = "none";
     if (panelSection) panelSection.style.display = "block";
+    setBodyLoginMode(false);
   }
 
   function startAdminSession(username) {
@@ -1375,6 +1459,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     storeAdminUser(username);
     updateHeaderUser(username);
+    setBodyLoginMode(false);
 
     if (loginSection) loginSection.style.display = "none";
 
@@ -1461,6 +1546,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const info = VALID_USERS[parsed.username];
         if (welcomeMessageEl && info) welcomeMessageEl.textContent = info.welcome;
         updateHeaderUser(parsed.username);
+        setBodyLoginMode(false);
         initializeAdminData();
       }
     }
