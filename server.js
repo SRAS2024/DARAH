@@ -86,6 +86,7 @@ const db = {
   homepage: {
     aboutText:
       "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
+    aboutLongText: "",
     heroImages: [],
     notices: [],
     theme: "default",
@@ -225,6 +226,7 @@ app.get("/api/homepage", (_req, res) => {
 
   res.json({
     aboutText: db.homepage.aboutText || "",
+    aboutLongText: db.homepage.aboutLongText || "",
     heroImages,
     aboutImages,
     notices,
@@ -233,9 +235,15 @@ app.get("/api/homepage", (_req, res) => {
 });
 
 app.put("/api/homepage", async (req, res) => {
-  const { aboutText, heroImages, aboutImages, notices, theme } = req.body || {};
+  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } = req.body || {};
 
-  if (typeof aboutText === "string") db.homepage.aboutText = aboutText;
+  if (typeof aboutText === "string") {
+    db.homepage.aboutText = aboutText;
+  }
+
+  if (typeof aboutLongText === "string") {
+    db.homepage.aboutLongText = aboutLongText;
+  }
 
   if (Array.isArray(heroImages)) {
     db.homepage.heroImages = heroImages
