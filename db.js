@@ -1,270 +1,299 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+/**
+ * Simple Postgres persistence layer for DARAH
+ * Uses DATABASE_URL (Railway: ${{ Postgres.DATABASE_URL }})
+ * to persist homepage and products, while the rest
+ * of the app keeps using the same in memory `db` object.
+ */
+
 const { Pool } = require("pg");
 
-const DATA_FILE = path.join(__dirname, "data.json");
+let pool = null;
 
-// Railway, Render and local friendly pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.PGSSLMODE === "require" || process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false
-});
+/**
+ * Lazily create the Pool only if DATABASE_URL is present.
+ * If not present, the app continues to work purely in memory.
+ */
+function getPool() {
+  if (pool) return pool;
 
-/* ------------------------------------------------------------------ */
-/* Init                                                                */
-/* ------------------------------------------------------------------ */
-
-async function initDatabase(initialJson) {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS homepage (
-      id integer primary key default 1,
-      about_text text not null,
-      hero_images text[] not null,
-      about_images text[] not null,
-      product_collage_images text[] not null,
-      pascoa_theme jsonb not null
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS products (
-      id uuid primary key,
-      name text not null,
-      description text,
-      price_cents integer not null,
-      category text not null,
-      images text[] not null default '{}',
-      featured boolean not null default false,
-      created_at timestamptz not null default now(),
-      updated_at timestamptz not null default now()
-    )
-  `);
-
-  const existing = await pool.query("SELECT id FROM homepage WHERE id = 1");
-  if (existing.rowCount === 0) {
-    const homepage = (initialJson && initialJson.homepage) || {};
-
-    const aboutText = homepage.aboutText || "";
-    const heroImages = homepage.heroImages || [];
-    const aboutImages = homepage.aboutImages || [];
-    const productCollageImages = homepage.productCollageImages || [];
-    const pascoaTheme =
-      homepage.pascoaTheme || {
-        enabled: false,
-        heroImages: [],
-        accentColor: "#f4f1ff"
-      };
-
-    await pool.query(
-      `
-      INSERT INTO homepage
-        (id, about_text, hero_images, about_images, product_collage_images, pascoa_theme)
-      VALUES
-        (1, $1, $2, $3, $4, $5)
-    `,
-      [aboutText, heroImages, aboutImages, productCollageImages, pascoaTheme]
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.warn(
+      "[db] DATABASE_URL is not set. Running in memory only, data will NOT persist across restarts."
     );
+    return null;
   }
 
-  // Optional simple product seed from data.json
-  if (initialJson && Array.isArray(initialJson.products)) {
-    for (const prod of initialJson.products) {
-      await upsertProductRaw(prod);
-    }
-  }
-}
+  const useSsl = url.includes("sslmode=require");
 
-/* ------------------------------------------------------------------ */
-/* Internal helpers                                                    */
-/* ------------------------------------------------------------------ */
-
-async function upsertProductRaw(product) {
-  if (!product || !product.id) return;
-
-  const id = product.id;
-  const name = product.name || "";
-  const description = product.description || "";
-  const priceCents = Number(product.priceCents || 0);
-  const category = product.category || "";
-  const images = product.images || [];
-  const featured = !!product.featured;
-
-  await pool.query(
-    `
-    INSERT INTO products (id, name, description, price_cents, category, images, featured)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    ON CONFLICT (id)
-    DO UPDATE SET
-      name = EXCLUDED.name,
-      description = EXCLUDED.description,
-      price_cents = EXCLUDED.price_cents,
-      category = EXCLUDED.category,
-      images = EXCLUDED.images,
-      featured = EXCLUDED.featured,
-      updated_at = now()
-  `,
-    [id, name, description, priceCents, category, images, featured]
-  );
-}
-
-function mirrorToJson(mutator) {
-  try {
-    let data;
-    if (fs.existsSync(DATA_FILE)) {
-      data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    } else {
-      data = { homepage: {}, products: [] };
-    }
-    mutator(data);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error("Failed to mirror to data.json", err);
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* Public helpers used by server.js                                    */
-/* ------------------------------------------------------------------ */
-
-async function loadHomepageAndProducts() {
-  const homepageRes = await pool.query(
-    "SELECT about_text, hero_images, about_images, product_collage_images, pascoa_theme FROM homepage WHERE id = 1"
-  );
-  const productsRes = await pool.query(
-    "SELECT id, name, description, price_cents, category, images, featured, created_at, updated_at FROM products ORDER BY created_at DESC"
-  );
-
-  const hpRow = homepageRes.rows[0] || {};
-
-  const homepage = {
-    aboutText: hpRow.about_text || "",
-    heroImages: hpRow.hero_images || [],
-    aboutImages: hpRow.about_images || [],
-    productCollageImages: hpRow.product_collage_images || [],
-    pascoaTheme:
-      hpRow.pascoa_theme || {
-        enabled: false,
-        heroImages: [],
-        accentColor: "#f4f1ff"
-      }
-  };
-
-  const products = productsRes.rows.map(row => ({
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    priceCents: row.price_cents,
-    category: row.category,
-    images: row.images || [],
-    featured: row.featured,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  }));
-
-  return { homepage, products };
-}
-
-async function persistHomepage(homepage) {
-  const aboutText = homepage.aboutText || "";
-  const heroImages = homepage.heroImages || [];
-  const aboutImages = homepage.aboutImages || [];
-  const productCollageImages = homepage.productCollageImages || [];
-  const pascoaTheme =
-    homepage.pascoaTheme || {
-      enabled: false,
-      heroImages: [],
-      accentColor: "#f4f1ff"
-    };
-
-  await pool.query(
-    `
-    UPDATE homepage
-    SET
-      about_text = $1,
-      hero_images = $2,
-      about_images = $3,
-      product_collage_images = $4,
-      pascoa_theme = $5
-    WHERE id = 1
-  `,
-    [aboutText, heroImages, aboutImages, productCollageImages, pascoaTheme]
-  );
-
-  // Mirror JSON for local dev friendliness
-  mirrorToJson(data => {
-    data.homepage = {
-      aboutText,
-      heroImages,
-      aboutImages,
-      productCollageImages,
-      pascoaTheme
-    };
+  pool = new Pool({
+    connectionString: url,
+    ssl: useSsl ? { rejectUnauthorized: false } : false
   });
+
+  pool.on("error", (err) => {
+    console.error("[db] Unexpected error on idle client", err);
+  });
+
+  return pool;
 }
 
-async function persistProductUpsert(product) {
-  const id = product.id || crypto.randomUUID();
-  const name = product.name || "";
-  const description = product.description || "";
-  const priceCents = Number(product.priceCents || 0);
-  const category = product.category || "";
-  const images = product.images || [];
-  const featured = !!product.featured;
+/**
+ * Create tables if they do not exist and hydrate the in memory `db`
+ * from Postgres on startup.
+ *
+ * `db` is the same object defined in server.js:
+ *   const db = { homepage: {...}, products: [] }
+ */
+async function initDatabase(db) {
+  const pg = getPool();
+  if (!pg) {
+    // No DATABASE_URL, just use in memory
+    return;
+  }
 
-  await pool.query(
-    `
-    INSERT INTO products (id, name, description, price_cents, category, images, featured)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    ON CONFLICT (id)
-    DO UPDATE SET
-      name = EXCLUDED.name,
-      description = EXCLUDED.description,
-      price_cents = EXCLUDED.price_cents,
-      category = EXCLUDED.category,
-      images = EXCLUDED.images,
-      featured = EXCLUDED.featured,
-      updated_at = now()
-  `,
-    [id, name, description, priceCents, category, images, featured]
+  // 1) Ensure tables exist
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS homepage (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      about_text TEXT NOT NULL DEFAULT '',
+      hero_images JSONB NOT NULL DEFAULT '[]'::jsonb,
+      notices JSONB NOT NULL DEFAULT '[]'::jsonb,
+      theme TEXT NOT NULL DEFAULT 'default',
+      about_images JSONB NOT NULL DEFAULT '[]'::jsonb
+    );
+  `);
+
+  // In case the table existed without about_images, add it safely
+  await pg.query(`
+    ALTER TABLE homepage
+      ADD COLUMN IF NOT EXISTS about_images JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      price NUMERIC(10, 2) NOT NULL,
+      stock INTEGER NOT NULL DEFAULT 0,
+      image_url TEXT NOT NULL DEFAULT '',
+      image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+      original_price NUMERIC(10, 2),
+      discount_label TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // In case the products table already existed without the new columns,
+  // add them safely.
+  await pg.query(`
+    ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS original_price NUMERIC(10, 2),
+      ADD COLUMN IF NOT EXISTS discount_label TEXT;
+  `);
+
+  // 2) Hydrate homepage from DB, or seed from current in memory default
+  const homeResult = await pg.query(
+    "SELECT about_text, hero_images, notices, theme, about_images FROM homepage WHERE id = 1"
   );
 
-  // Mirror JSON
-  mirrorToJson(data => {
-    data.products = data.products || [];
-    const idx = data.products.findIndex(p => p.id === id);
-    const jsonProduct = {
+  if (homeResult.rows.length === 0) {
+    // Seed from in memory default
+    const home = db.homepage || {
+      aboutText: "",
+      heroImages: [],
+      notices: [],
+      theme: "default",
+      aboutImages: []
+    };
+
+    await pg.query(
+      `
+      INSERT INTO homepage (id, about_text, hero_images, notices, theme, about_images)
+      VALUES (1, $1, $2::jsonb, $3::jsonb, $4, $5::jsonb)
+      ON CONFLICT (id) DO NOTHING;
+    `,
+      [
+        String(home.aboutText || ""),
+        JSON.stringify(Array.isArray(home.heroImages) ? home.heroImages : []),
+        JSON.stringify(Array.isArray(home.notices) ? home.notices : []),
+        typeof home.theme === "string" ? home.theme : "default",
+        JSON.stringify(Array.isArray(home.aboutImages) ? home.aboutImages : [])
+      ]
+    );
+
+    db.homepage = home;
+  } else {
+    const row = homeResult.rows[0];
+    db.homepage = {
+      aboutText: row.about_text || "",
+      heroImages: Array.isArray(row.hero_images) ? row.hero_images : [],
+      notices: Array.isArray(row.notices) ? row.notices : [],
+      theme: row.theme || "default",
+      aboutImages: Array.isArray(row.about_images) ? row.about_images : []
+    };
+  }
+
+  // 3) Hydrate products from DB, including new fields
+  const prodResult = await pg.query(`
+    SELECT
       id,
+      category,
       name,
       description,
-      priceCents,
-      category,
-      images,
-      featured
-    };
-    if (idx >= 0) data.products[idx] = jsonProduct;
-    else data.products.push(jsonProduct);
-  });
+      price,
+      stock,
+      image_url,
+      image_urls,
+      original_price,
+      discount_label,
+      active,
+      created_at
+    FROM products
+    ORDER BY created_at ASC, name ASC;
+  `);
 
-  return { id };
+  db.products = prodResult.rows.map((row) => {
+    const imageUrls = Array.isArray(row.image_urls) ? row.image_urls : [];
+    const originalPrice =
+      row.original_price != null ? Number(row.original_price) : null;
+    const discountLabel = row.discount_label || "";
+
+    return {
+      id: row.id,
+      category: row.category,
+      name: row.name,
+      description: row.description || "",
+      price: Number(row.price),
+      stock: Number(row.stock),
+      imageUrl: row.image_url || imageUrls[0] || "",
+      imageUrls,
+      originalPrice,
+      discountLabel,
+      active: row.active !== false,
+      createdAt: row.created_at ? row.created_at.toISOString() : undefined
+    };
+  });
 }
 
-async function persistProductDelete(id) {
-  await pool.query("DELETE FROM products WHERE id = $1", [id]);
+/**
+ * Persist the current homepage object into Postgres.
+ * `homepage` shape matches db.homepage in server.js.
+ */
+async function persistHomepage(homepage) {
+  const pg = getPool();
+  if (!pg) return;
 
-  mirrorToJson(data => {
-    data.products = (data.products || []).filter(p => p.id !== id);
-  });
+  const aboutText = String(homepage.aboutText || "");
+  const heroImages = Array.isArray(homepage.heroImages) ? homepage.heroImages : [];
+  const notices = Array.isArray(homepage.notices) ? homepage.notices : [];
+  const aboutImages = Array.isArray(homepage.aboutImages) ? homepage.aboutImages : [];
+  const theme =
+    typeof homepage.theme === "string" && homepage.theme.length
+      ? homepage.theme
+      : "default";
+
+  await pg.query(
+    `
+    INSERT INTO homepage (id, about_text, hero_images, notices, theme, about_images)
+    VALUES (1, $1, $2::jsonb, $3::jsonb, $4, $5::jsonb)
+    ON CONFLICT (id) DO UPDATE SET
+      about_text   = EXCLUDED.about_text,
+      hero_images  = EXCLUDED.hero_images,
+      notices      = EXCLUDED.notices,
+      theme        = EXCLUDED.theme,
+      about_images = EXCLUDED.about_images;
+  `,
+    [
+      aboutText,
+      JSON.stringify(heroImages),
+      JSON.stringify(notices),
+      theme,
+      JSON.stringify(aboutImages)
+    ]
+  );
+}
+
+/**
+ * Upsert a single product into Postgres to mirror the in memory change.
+ * `product` is one element from db.products.
+ */
+async function persistProductUpsert(product) {
+  const pg = getPool();
+  if (!pg) return;
+  if (!product || !product.id) return;
+
+  const imageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+  const originalPrice =
+    typeof product.originalPrice === "number" && !Number.isNaN(product.originalPrice)
+      ? Number(product.originalPrice)
+      : null;
+  const discountLabel =
+    typeof product.discountLabel === "string" ? product.discountLabel : "";
+
+  await pg.query(
+    `
+    INSERT INTO products (
+      id,
+      category,
+      name,
+      description,
+      price,
+      stock,
+      image_url,
+      image_urls,
+      original_price,
+      discount_label,
+      active
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
+    ON CONFLICT (id) DO UPDATE SET
+      category       = EXCLUDED.category,
+      name           = EXCLUDED.name,
+      description    = EXCLUDED.description,
+      price          = EXCLUDED.price,
+      stock          = EXCLUDED.stock,
+      image_url      = EXCLUDED.image_url,
+      image_urls     = EXCLUDED.image_urls,
+      original_price = EXCLUDED.original_price,
+      discount_label = EXCLUDED.discount_label,
+      active         = EXCLUDED.active;
+  `,
+    [
+      String(product.id),
+      String(product.category || ""),
+      String(product.name || ""),
+      String(product.description || ""),
+      Number(product.price || 0),
+      Number(product.stock || 0),
+      String(product.imageUrl || ""),
+      JSON.stringify(imageUrls),
+      originalPrice,
+      discountLabel,
+      product.active !== false
+    ]
+  );
+}
+
+/**
+ * Delete a product from Postgres when it is removed
+ * from the in memory db.products array.
+ */
+async function persistProductDelete(id) {
+  const pg = getPool();
+  if (!pg) return;
+  if (!id) return;
+  await pg.query("DELETE FROM products WHERE id = $1", [String(id)]);
 }
 
 module.exports = {
-  pool,
   initDatabase,
-  loadHomepageAndProducts,
   persistHomepage,
   persistProductUpsert,
   persistProductDelete
