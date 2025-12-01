@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveHomepageBtn = document.getElementById("saveHomepageBtn");
   const homepageStatusEl = document.getElementById("adminHomepageStatus");
 
-  // About page long text (field exists in HTML, can be wired later if needed)
+  // About page long text
   const aboutLongTextEl = document.getElementById("adminAboutLongText");
 
   // Optional site notices
@@ -112,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let allProducts = [];
   let homepageState = {
     aboutText: "",
+    aboutLongText: "",
     heroImages: [],
     notices: [],
     theme: "default",
@@ -218,6 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const value = trimmed || "default";
     if (root) {
       root.dataset.themeVariant = value;
+      root.setAttribute("data-theme-variant", value);
     }
     if (themeSelect && themeSelect.value !== value) {
       const hasOption = Array.from(themeSelect.options).some(
@@ -274,24 +276,32 @@ document.addEventListener("DOMContentLoaded", () => {
       const hp = await res.json();
 
       homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
+      homepageState.aboutLongText =
+        typeof hp.aboutLongText === "string" ? hp.aboutLongText : "";
       homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
       homepageState.notices = normalizeList(hp.notices || [], 10);
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
       homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
 
-      if (aboutTextEl) aboutTextEl.value = homepageState.aboutText;
+      if (aboutTextEl) {
+        aboutTextEl.value = homepageState.aboutText;
+      }
+
+      if (aboutLongTextEl) {
+        if (homepageState.aboutLongText && homepageState.aboutLongText.trim().length) {
+          aboutLongTextEl.value = homepageState.aboutLongText;
+        } else if (typeof hp.aboutText === "string") {
+          aboutLongTextEl.value = hp.aboutText;
+        } else {
+          aboutLongTextEl.value = "";
+        }
+      }
+
       if (heroImagesTextarea) {
         heroImagesTextarea.value = homepageState.heroImages.join("\n");
       }
       if (aboutImagesTextarea) {
         aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
-      }
-
-      // Opcionalmente, podemos pré preencher o texto longo com o mesmo texto curto
-      if (aboutLongTextEl && typeof hp.aboutText === "string") {
-        if (!aboutLongTextEl.value.trim()) {
-          aboutLongTextEl.value = hp.aboutText;
-        }
       }
 
       applyThemeVariant(homepageState.theme);
@@ -650,6 +660,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setAboutStatus("Salvando...", "");
 
       const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
+      const aboutLongText = aboutLongTextEl ? aboutLongTextEl.value.trim() : "";
 
       if (heroImagesTextarea) {
         syncHeroImagesFromTextarea();
@@ -678,22 +689,34 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/homepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aboutText, heroImages, aboutImages, notices, theme })
+        body: JSON.stringify({
+          aboutText,
+          aboutLongText,
+          heroImages,
+          aboutImages,
+          notices,
+          theme
+        })
       });
       if (!res.ok) throw new Error("Falha ao salvar a homepage.");
       await res.json();
+
+      homepageState.aboutText = aboutText;
+      homepageState.aboutLongText = aboutLongText;
       homepageState.heroImages = heroImages;
       homepageState.aboutImages = aboutImages;
       homepageState.notices = notices;
+
       if (heroImagesTextarea) {
         heroImagesTextarea.value = heroImages.join("\n");
       }
       if (aboutImagesTextarea) {
         aboutImagesTextarea.value = aboutImages.join("\n");
       }
+
       setHomepageStatus("Homepage atualizada com sucesso.", "ok");
       setNoticeStatus("Avisos publicados na vitrine.", "ok");
-      setAboutStatus('Colagem da página "Sobre nós" atualizada.', "ok");
+      setAboutStatus('Colagem e texto da página "Sobre nós" atualizados.', "ok");
       await loadHomepageAdmin();
     } catch (err) {
       console.error(err);
