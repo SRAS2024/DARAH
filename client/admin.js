@@ -289,16 +289,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Mobile nav dropdown setup for Admin
+  // Mobile nav dropdown setup for Admin:
+  // put all tabs in the menu so the top bar stays clean on small screens.
   function buildMobileDropdown() {
     if (!navDropdown || !navLeftContainer) return;
     navDropdown.innerHTML = "";
 
-    const extras = navLeftContainer.querySelectorAll(
-      '.nav-link[data-mobile-extra="true"]'
-    );
-
-    extras.forEach((btn) => {
+    const allTabs = navLeftContainer.querySelectorAll(".nav-link");
+    allTabs.forEach((btn) => {
       const clone = btn.cloneNode(true);
       clone.addEventListener("click", () => {
         const viewId = clone.dataset.view;
@@ -855,6 +853,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       setFormStatus("Não foi possível carregar os produtos.", "error");
+      // Ainda garantimos o botão de adicionar produto em cada aba
+      renderAllCategoryGrids();
     }
   }
 
@@ -912,10 +912,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const button = fragment.querySelector(".admin-add-product-button");
     if (button) {
       button.addEventListener("click", () => openProductModal(categoryKey, null));
-      const labelEl = fragment.querySelector(".admin-add-product-label");
-      if (labelEl) {
-        labelEl.textContent = "Adicionar em " + categoryLabel(categoryKey);
-      }
     }
     return fragment;
   }
@@ -1473,11 +1469,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       loadingSection.style.display = "flex";
+      // shorter welcome duration so the panel feels more responsive
       setTimeout(() => {
         loadingSection.style.display = "none";
         if (panelSection) panelSection.style.display = "block";
         initializeAdminData();
-      }, 4000);
+      }, 1800);
     } else {
       if (panelSection) panelSection.style.display = "block";
       initializeAdminData();
@@ -1486,6 +1483,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function initializeAdminData() {
     switchView("home");
+    // Ensure every category shows at least the "add product" card
+    renderAllCategoryGrids();
     loadHomepageAdmin();
     loadProducts();
   }
