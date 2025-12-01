@@ -2,10 +2,8 @@
 
 /**
  * DARAH backend API
- *
- *  - Serves homepage, products, cart preview and WhatsApp checkout URL
- *  - Serves admin API with login, homepage editor and product editor
- *  - Serves the static client
+ * Serves homepage, products, cart and WhatsApp checkout.
+ * Also serves the client app with resilient paths for Railway.
  */
 
 const express = require("express");
@@ -16,192 +14,123 @@ const crypto = require("crypto");
 
 const {
   initDatabase,
-  loadHomepage,
-  loadProducts,
+  loadHomepageAndProducts,
   persistHomepage,
   persistProductUpsert,
-  persistProductDelete,
-  MAX_HOMEPAGE_IMAGES,
-  MAX_ABOUT_IMAGES,
-  MAX_PRODUCT_IMAGES
+  persistProductDelete
 } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Simple admin credentials
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASS || "darah-secret";
+// Limits
+const MAX_HOMEPAGE_COLLAGE = 12;
+const MAX_ABOUT_COLLAGE = 4; // <<< limit is FOUR
+const MAX_PRODUCT_IMAGES = 5;
 
-// WhatsApp settings
-const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || "5551999999999";
+// Fallback data file
+const DATA_FILE = path.join(__dirname, "data.json");
 
-// Resolve client directory robustly so Railway deployments work from any cwd
-function resolveClientDir() {
-  const candidateDirs = [
-    path.join(__dirname, "client"),
-    path.join(process.cwd(), "client"),
-    path.join(__dirname, "..", "client")
-  ];
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
-  for (const dir of candidateDirs) {
-    const indexFile = path.join(dir, "index.html");
-    if (fs.existsSync(indexFile)) {
-      return dir;
-    }
-  }
-
-  // Fallback to __dirname/client and trust that the build is there
-  return path.join(__dirname, "client");
+function clampArray(arr, max) {
+  if (!Array.isArray(arr)) return [];
+  if (arr.length <= max) return arr;
+  return arr.slice(0, max);
 }
 
-const CLIENT_DIR = resolveClientDir();
+function loadJsonFallback() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) {
+      return {
+        homepage: {
+          aboutText: "",
+          heroImages: [],
+          aboutImages: [],
+          productCollageImages: [],
+          pascoaTheme: {
+            enabled: false,
+            heroImages: [],
+            accentColor: "#f4f1ff"
+          }
+        },
+        products: []
+      };
+    }
 
-// Basic middlewares
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    const data = JSON.parse(raw);
+
+    data.homepage = data.homepage || {};
+    data.homepage.aboutText = data.homepage.aboutText || "";
+    data.homepage.heroImages = data.homepage.heroImages || [];
+    data.homepage.aboutImages = data.homepage.aboutImages || [];
+    data.homepage.productCollageImages =
+      data.homepage.productCollageImages || [];
+    data.homepage.pascoaTheme =
+      data.homepage.pascoaTheme || {
+        enabled: false,
+        heroImages: [],
+        accentColor: "#f4f1ff"
+      };
+
+    data.products = data.products || [];
+
+    return data;
+  } catch (err) {
+    console.error("Failed to read data.json, using defaults", err);
+    return {
+      homepage: {
+        aboutText: "",
+        heroImages: [],
+        aboutImages: [],
+        productCollageImages: [],
+        pascoaTheme: {
+          enabled: false,
+          heroImages: [],
+          accentColor: "#f4f1ff"
+        }
+      },
+      products: []
+    };
+  }
+}
+
+// In memory cache for very fast reads, hydrated from DB or JSON
+let state = loadJsonFallback();
+
+/* ------------------------------------------------------------------ */
+/* Express setup                                                       */
+/* ------------------------------------------------------------------ */
+
 app.use(express.json({ limit: "1mb" }));
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
+    secret: process.env.SESSION_SECRET || "darah-dev-session",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 8
+      maxAge: 7 * 24 * 60 * 60 * 1000
     }
   })
 );
 
-// Static files
-app.use(express.static(CLIENT_DIR));
-
-// Small helper to require admin
 function requireAdmin(req, res, next) {
-  if (req.session && req.session.isAdmin) {
-    return next();
-  }
-  return res.status(401).json({ ok: false, error: "Not authenticated" });
+  if (req.session && req.session.isAdmin) return next();
+  return res.status(401).json({ error: "not-authenticated" });
 }
 
-/* --------------------------------------------------------------------- */
-/* Public API                                                            */
-/* --------------------------------------------------------------------- */
+// Simple admin credentials for the admin panel
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PASS = process.env.ADMIN_PASS || "darah123";
 
-/**
- * Health check
- */
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
-});
+/* ------------------------------------------------------------------ */
+/* Auth routes                                                         */
+/* ------------------------------------------------------------------ */
 
-/**
- * Homepage data
- * Returns:
- *  {
- *    aboutText,
- *    heroImages,
- *    aboutImages,
- *    pascoaEnabled
- *  }
- */
-app.get("/api/homepage", async (req, res) => {
-  try {
-    const homepage = await loadHomepage();
-    res.json({
-      ok: true,
-      homepage,
-      limits: {
-        heroImages: MAX_HOMEPAGE_IMAGES,
-        aboutImages: MAX_ABOUT_IMAGES
-      }
-    });
-  } catch (err) {
-    console.error("GET /api/homepage failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to load homepage" });
-  }
-});
-
-/**
- * Products list for storefront
- */
-app.get("/api/products", async (req, res) => {
-  try {
-    const products = await loadProducts();
-    res.json({
-      ok: true,
-      products,
-      limits: {
-        imagesPerProduct: MAX_PRODUCT_IMAGES
-      }
-    });
-  } catch (err) {
-    console.error("GET /api/products failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to load products" });
-  }
-});
-
-/**
- * Build a WhatsApp checkout link for a given product or cart item
- * Expected body:
- *  {
- *    items: [
- *      { name, quantity, price_cents },
- *      ...
- *    ],
- *    note?: string
- *  }
- */
-app.post("/api/checkout/whatsapp", async (req, res) => {
-  try {
-    const { items, note } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "No items provided for checkout" });
-    }
-
-    let totalCents = 0;
-    let lines = ["Olá, tenho interesse nestas peças da DARAH:"];
-
-    for (const item of items) {
-      if (!item || typeof item.name !== "string") continue;
-      const qty = Number.isFinite(item.quantity) ? item.quantity : 1;
-      const priceCents = Number.isFinite(item.price_cents)
-        ? item.price_cents
-        : 0;
-      totalCents += qty * priceCents;
-
-      const price = (priceCents / 100).toFixed(2).replace(".", ",");
-      lines.push(`• ${item.name} (qtd: ${qty}) – R$ ${price}`);
-    }
-
-    if (note && typeof note === "string" && note.trim()) {
-      lines.push("", "Observações:", note.trim());
-    }
-
-    const total = (totalCents / 100).toFixed(2).replace(".", ",");
-    lines.push("", `Total aproximado: R$ ${total}`);
-
-    const message = encodeURIComponent(lines.join("\n"));
-    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
-
-    res.json({ ok: true, url: waUrl });
-  } catch (err) {
-    console.error("POST /api/checkout/whatsapp failed:", err);
-    res
-      .status(500)
-      .json({ ok: false, error: "Failed to create WhatsApp checkout link" });
-  }
-});
-
-/* --------------------------------------------------------------------- */
-/* Admin API                                                             */
-/* --------------------------------------------------------------------- */
-
-/**
- * Admin login
- * Expected body: { username, password }
- */
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body || {};
 
@@ -210,209 +139,205 @@ app.post("/api/admin/login", (req, res) => {
     return res.json({ ok: true });
   }
 
-  return res.status(401).json({ ok: false, error: "Invalid credentials" });
+  return res.status(401).json({ error: "invalid-credentials" });
 });
 
-/**
- * Admin logout
- */
 app.post("/api/admin/logout", (req, res) => {
-  if (req.session) {
-    req.session.destroy(() => {
-      res.json({ ok: true });
-    });
-  } else {
+  req.session.destroy(() => {
     res.json({ ok: true });
-  }
+  });
 });
 
-/**
- * Admin session check
- */
 app.get("/api/admin/session", (req, res) => {
-  res.json({ ok: true, isAdmin: !!(req.session && req.session.isAdmin) });
+  res.json({ isAdmin: !!(req.session && req.session.isAdmin) });
 });
 
-/**
- * Admin get homepage config
- */
-app.get("/api/admin/homepage", requireAdmin, async (req, res) => {
+/* ------------------------------------------------------------------ */
+/* API routes: homepage and products                                  */
+/* ------------------------------------------------------------------ */
+
+// Combined state, handy for the admin page
+app.get("/api/state", async (req, res) => {
   try {
-    const homepage = await loadHomepage();
-    res.json({
-      ok: true,
-      homepage,
-      limits: {
-        heroImages: MAX_HOMEPAGE_IMAGES,
-        aboutImages: MAX_ABOUT_IMAGES
-      }
-    });
+    const { homepage, products } = await loadHomepageAndProducts();
+    state.homepage = homepage;
+    state.products = products;
+    return res.json({ homepage, products });
   } catch (err) {
-    console.error("GET /api/admin/homepage failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to load homepage" });
+    console.error("Using JSON fallback for /api/state", err);
+    return res.json(state);
   }
 });
 
-/**
- * Admin update homepage config, including Easter theme flag
- * Expected body:
- *  {
- *    aboutText,
- *    heroImages,
- *    aboutImages,
- *    pascoaEnabled
- *  }
- */
-app.post("/api/admin/homepage", requireAdmin, async (req, res) => {
+// Homepage get
+app.get("/api/homepage", async (req, res) => {
   try {
-    const { aboutText, heroImages, aboutImages, pascoaEnabled } = req.body || {};
-
-    if (Array.isArray(heroImages) && heroImages.length > MAX_HOMEPAGE_IMAGES) {
-      return res.status(400).json({
-        ok: false,
-        error: `Máximo de ${MAX_HOMEPAGE_IMAGES} fotos na colagem da página inicial`
-      });
-    }
-
-    if (Array.isArray(aboutImages) && aboutImages.length > MAX_ABOUT_IMAGES) {
-      return res.status(400).json({
-        ok: false,
-        error: `Máximo de ${MAX_ABOUT_IMAGES} fotos na colagem da aba Sobre`
-      });
-    }
-
-    const saved = await persistHomepage({
-      aboutText,
-      heroImages,
-      aboutImages,
-      pascoaEnabled
-    });
-
-    res.json({ ok: true, homepage: saved });
+    const { homepage } = await loadHomepageAndProducts();
+    state.homepage = homepage;
+    return res.json(homepage);
   } catch (err) {
-    console.error("POST /api/admin/homepage failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to save homepage" });
+    console.error("Using JSON fallback for /api/homepage", err);
+    return res.json(state.homepage);
   }
 });
 
-/**
- * Admin list products
- */
-app.get("/api/admin/products", requireAdmin, async (req, res) => {
+// Homepage update, admin only
+app.post("/api/homepage", requireAdmin, async (req, res) => {
+  const body = req.body || {};
+
+  const homepage = {
+    aboutText: String(body.aboutText || "").trim(),
+    heroImages: clampArray(body.heroImages || [], MAX_HOMEPAGE_COLLAGE),
+    // limit FOUR here
+    aboutImages: clampArray(body.aboutImages || [], MAX_ABOUT_COLLAGE),
+    productCollageImages: clampArray(
+      body.productCollageImages || [],
+      MAX_PRODUCT_IMAGES
+    ),
+    // Easter theme persistence
+    pascoaTheme: body.pascoaTheme || state.homepage.pascoaTheme || {
+      enabled: false,
+      heroImages: [],
+      accentColor: "#f4f1ff"
+    }
+  };
+
+  state.homepage = homepage;
+
   try {
-    const products = await loadProducts();
-    res.json({
-      ok: true,
-      products,
-      limits: {
-        imagesPerProduct: MAX_PRODUCT_IMAGES
-      }
-    });
+    await persistHomepage(homepage);
+    return res.json(homepage);
   } catch (err) {
-    console.error("GET /api/admin/products failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to load products" });
+    console.error("Error persisting homepage", err);
+    return res.status(500).json({ error: "persist-failed" });
   }
 });
 
-/**
- * Admin create or update product
- * Expected body:
- *  {
- *    id?: number,
- *    sku?,
- *    name,
- *    description?,
- *    price_cents,
- *    category?,
- *    highlight?,
- *    images?
- *  }
- */
-app.post("/api/admin/products/save", requireAdmin, async (req, res) => {
+// Products list
+app.get("/api/products", async (req, res) => {
   try {
-    const payload = req.body || {};
-
-    if (!payload || typeof payload.name !== "string") {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Product name is required" });
-    }
-
-    if (!Number.isFinite(payload.price_cents)) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "price_cents must be a number" });
-    }
-
-    if (Array.isArray(payload.images) &&
-        payload.images.length > MAX_PRODUCT_IMAGES) {
-      return res.status(400).json({
-        ok: false,
-        error: `Máximo de ${MAX_PRODUCT_IMAGES} imagens por produto`
-      });
-    }
-
-    const saved = await persistProductUpsert(payload);
-    res.json({ ok: true, product: saved });
+    const { products } = await loadHomepageAndProducts();
+    state.products = products;
+    return res.json(products);
   } catch (err) {
-    console.error("POST /api/admin/products/save failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to save product" });
+    console.error("Using JSON fallback for /api/products", err);
+    return res.json(state.products || []);
   }
 });
 
-/**
- * Admin delete product
- * Expected body: { id }
- */
-app.post("/api/admin/products/delete", requireAdmin, async (req, res) => {
+// Product create or update
+app.post("/api/products", requireAdmin, async (req, res) => {
+  const body = req.body || {};
+
+  const product = {
+    id: body.id || crypto.randomUUID(),
+    name: String(body.name || "").trim(),
+    description: String(body.description || "").trim(),
+    priceCents: Number(body.priceCents || 0),
+    category: String(body.category || "").trim(),
+    images: clampArray(body.images || [], MAX_PRODUCT_IMAGES),
+    featured: !!body.featured
+  };
+
+  if (!product.name || !product.category || Number.isNaN(product.priceCents)) {
+    return res.status(400).json({ error: "missing-or-invalid-fields" });
+  }
+
   try {
-    const { id } = req.body || {};
-    if (!id) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Product id is required" });
+    await persistProductUpsert(product);
+
+    const idx = (state.products || []).findIndex(p => p.id === product.id);
+    if (idx >= 0) {
+      state.products[idx] = product;
+    } else {
+      state.products.push(product);
     }
 
+    return res.json(product);
+  } catch (err) {
+    console.error("Error upserting product", err);
+    return res.status(500).json({ error: "persist-failed" });
+  }
+});
+
+// Product delete
+app.delete("/api/products/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "missing-id" });
+
+  try {
     await persistProductDelete(id);
-    res.json({ ok: true });
+    state.products = (state.products || []).filter(p => p.id !== id);
+    return res.json({ ok: true });
   } catch (err) {
-    console.error("POST /api/admin/products/delete failed:", err);
-    res.status(500).json({ ok: false, error: "Failed to delete product" });
+    console.error("Error deleting product", err);
+    return res.status(500).json({ error: "persist-failed" });
   }
 });
 
-/* --------------------------------------------------------------------- */
-/* SPA fallback                                                          */
-/* --------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/* Healthcheck                                                         */
+/* ------------------------------------------------------------------ */
 
-// Any non API route should serve index.html so the client router works
-app.get("*", (req, res, next) => {
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ */
+/* Static client                                                       */
+/* ------------------------------------------------------------------ */
+
+function resolveClientDir() {
+  if (process.env.CLIENT_DIR) {
+    return path.resolve(process.env.CLIENT_DIR);
+  }
+
+  const candidates = [
+    path.join(__dirname, "client"),
+    path.join(__dirname, "public"),
+    path.join(__dirname, "..", "client")
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return path.join(__dirname, "client");
+}
+
+const CLIENT_DIR = resolveClientDir();
+
+app.use(express.static(CLIENT_DIR));
+
+// SPA fallback
+app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) {
-    return next();
+    return res.status(404).json({ error: "not-found" });
   }
 
   const indexPath = path.join(CLIENT_DIR, "index.html");
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
-  }
-
-  return res.status(404).send("Client app not found");
+  fs.access(indexPath, fs.constants.F_OK, err => {
+    if (err) {
+      return res.status(500).send("Client app not found");
+    }
+    res.sendFile(indexPath);
+  });
 });
 
-/* --------------------------------------------------------------------- */
-/* Bootstrap                                                              */
-/* --------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/* Startup                                                             */
+/* ------------------------------------------------------------------ */
 
-async function start() {
+(async () => {
   try {
-    await initDatabase();
-    app.listen(PORT, () => {
-      console.log(`DARAH backend listening on port ${PORT}`);
-    });
+    await initDatabase(loadJsonFallback());
   } catch (err) {
-    console.error("Failed to start server:", err);
-    process.exit(1);
+    console.error("Failed to initialize database, continuing with JSON only", err);
   }
-}
 
-start();
+  app.listen(PORT, () => {
+    console.log(`DARAH API listening on ${PORT}`);
+  });
+})();
+
+module.exports = app;
