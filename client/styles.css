@@ -1,16 +1,18 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap");
+
 :root {
-  /* Tema padrão cinza pedra */
-  --banner-bg: #c4c4c4;
+  /* Tema padrão sálvia (sage) */
+  --banner-bg: #a9b9a4;
   --banner-text: #222222;
-  --page-bg: #ededed;
+  --page-bg: #f3f5f1;
   --card-bg: #ffffff;
 
-  --accent: #2b2b2b;
-  --accent-soft: #dadada;
-  --border-soft: #c6c6c6;
+  --accent: #4e6b5a;
+  --accent-soft: #d4e0d5;
+  --border-soft: #c2d0c2;
 
-  --text-main: #242424;
-  --text-muted: #5f5f5f;
+  --text-main: #243127;
+  --text-muted: #637064;
 
   --error: #b3261e;
   --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06);
@@ -79,7 +81,7 @@ body {
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   background: var(--page-bg);
   color: var(--text-main);
   min-height: 100vh;
@@ -105,15 +107,17 @@ body {
 }
 
 .brand-name {
-  font-family: "Georgia", "Times New Roman", serif;
+  font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   font-size: 34px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
+  color: #000000; /* DARAH em preto no tema padrão */
 }
 
 /* Navigation */
 
 .main-nav {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -121,6 +125,54 @@ body {
   border-bottom: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
+}
+
+/* Mobile hamburger toggle, hidden por padrão em telas grandes */
+.nav-mobile-toggle {
+  display: none;
+  border: none;
+  background: transparent;
+  padding: 6px;
+  margin-right: 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.nav-mobile-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.nav-mobile-toggle-box {
+  width: 22px;
+  height: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.nav-mobile-toggle-line {
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+/* Estado animado quando aberto; classe será aplicada via JS */
+.nav-mobile-toggle.is-open .nav-mobile-toggle-line:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.nav-mobile-toggle.is-open .nav-mobile-toggle-line:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-mobile-toggle.is-open .nav-mobile-toggle-line:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
 }
 
 .nav-left {
@@ -151,6 +203,38 @@ body {
 .nav-link.active {
   background: var(--accent);
   color: #ffffff;
+}
+
+/* Dropdown que exibirá as abas extras no mobile */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 8px 14px 10px 14px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transform: translateY(-10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 19;
+}
+
+.nav-dropdown.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.nav-dropdown .nav-link {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 /* Cart button */
@@ -259,7 +343,7 @@ body {
 
 .hero-title {
   margin: 0 0 12px 0;
-  font-family: "Georgia", "Times New Roman", serif;
+  font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   font-size: 26px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -352,7 +436,7 @@ body {
 .section-title {
   font-size: 22px;
   margin: 10px 0 20px 0;
-  font-family: "Georgia", "Times New Roman", serif;
+  font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
@@ -964,15 +1048,26 @@ body {
 @media (max-width: 640px) {
   .main-nav {
     flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
     padding: 8px 12px;
+  }
+
+  .nav-mobile-toggle {
+    display: inline-flex;
   }
 
   .nav-left {
     flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 4px;
+    overflow-x: hidden;
+    padding-bottom: 0;
+    flex: 1;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .cart-button {
+    flex-shrink: 0;
   }
 
   .main-content {
