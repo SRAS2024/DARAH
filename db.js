@@ -1,392 +1,271 @@
 "use strict";
 
-/**
- * PostgreSQL persistence layer for DARAH
- *
- * Stores:
- *  - homepage state (about text, hero collage, about collage, Easter theme)
- *  - product catalog
- *
- * The shape of the stored JSON matches what the API serves to the client and
- * the admin panel.
- */
-
-const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
+const { Pool } = require("pg");
 
-// Limits must mirror server.js and client code
-const MAX_HOMEPAGE_IMAGES = 12;
-const MAX_ABOUT_IMAGES = 4;
-const MAX_PRODUCT_IMAGES = 5;
+const DATA_FILE = path.join(__dirname, "data.json");
 
-// Single pool for the whole app
-let pool;
+// Railway, Render and local friendly pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.PGSSLMODE === "require" || process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false
+});
 
-/**
- * Get or create the shared pg.Pool
- */
-function getPool() {
-  if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
+/* ------------------------------------------------------------------ */
+/* Init                                                                */
+/* ------------------------------------------------------------------ */
 
-    if (!connectionString) {
-      throw new Error(
-        "DATABASE_URL is not set. Railway should provide this automatically. " +
-          "If running locally, set DATABASE_URL in your environment."
-      );
-    }
-
-    pool = new Pool({
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-  return pool;
-}
-
-/**
- * Ensure tables exist and seed from data.json if empty.
- */
-async function initDatabase() {
-  const pool = getPool();
-
-  // Single row table holding homepage state
+async function initDatabase(initialJson) {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS homepage_state (
-      id INTEGER PRIMARY KEY,
-      about_text TEXT,
-      hero_images JSONB NOT NULL DEFAULT '[]'::jsonb,
-      about_images JSONB NOT NULL DEFAULT '[]'::jsonb,
-      pascoa_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    CREATE TABLE IF NOT EXISTS homepage (
+      id integer primary key default 1,
+      about_text text not null,
+      hero_images text[] not null,
+      about_images text[] not null,
+      product_collage_images text[] not null,
+      pascoa_theme jsonb not null
     )
   `);
 
-  // Products table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS products (
-      id SERIAL PRIMARY KEY,
-      sku TEXT UNIQUE,
-      name TEXT NOT NULL,
-      description TEXT,
-      price_cents INTEGER NOT NULL,
-      category TEXT,
-      highlight BOOLEAN NOT NULL DEFAULT FALSE,
-      images JSONB NOT NULL DEFAULT '[]'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      id uuid primary key,
+      name text not null,
+      description text,
+      price_cents integer not null,
+      category text not null,
+      images text[] not null default '{}',
+      featured boolean not null default false,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
     )
   `);
 
-  // Seed homepage from data.json if missing
-  const { rows: homepageRows } = await pool.query(
-    "SELECT id FROM homepage_state WHERE id = 1"
-  );
+  const existing = await pool.query("SELECT id FROM homepage WHERE id = 1");
+  if (existing.rowCount === 0) {
+    const homepage = (initialJson && initialJson.homepage) || {};
 
-  if (homepageRows.length === 0) {
-    const dataPath = path.join(__dirname, "data.json");
-    let seedHomepage = {
-      aboutText:
-        "DARAH é uma joalheria dedicada a peças elegantes e atemporais, criadas para acompanhar você em todos os momentos especiais.",
-      heroImages: [],
-      aboutImages: [],
-      pascoaEnabled: false
-    };
-
-    if (fs.existsSync(dataPath)) {
-      try {
-        const raw = fs.readFileSync(dataPath, "utf8");
-        const json = JSON.parse(raw || "{}");
-
-        if (json && json.homepage) {
-          seedHomepage.aboutText =
-            typeof json.homepage.aboutText === "string"
-              ? json.homepage.aboutText
-              : seedHomepage.aboutText;
-
-          if (Array.isArray(json.homepage.heroImages)) {
-            seedHomepage.heroImages = json.homepage.heroImages.slice(
-              0,
-              MAX_HOMEPAGE_IMAGES
-            );
-          }
-
-          if (Array.isArray(json.homepage.aboutImages)) {
-            seedHomepage.aboutImages = json.homepage.aboutImages.slice(
-              0,
-              MAX_ABOUT_IMAGES
-            );
-          }
-
-          if (typeof json.homepage.pascoaEnabled === "boolean") {
-            seedHomepage.pascoaEnabled = json.homepage.pascoaEnabled;
-          }
-        }
-      } catch (err) {
-        console.error("Failed to read data.json, using defaults:", err);
-      }
-    }
+    const aboutText = homepage.aboutText || "";
+    const heroImages = homepage.heroImages || [];
+    const aboutImages = homepage.aboutImages || [];
+    const productCollageImages = homepage.productCollageImages || [];
+    const pascoaTheme =
+      homepage.pascoaTheme || {
+        enabled: false,
+        heroImages: [],
+        accentColor: "#f4f1ff"
+      };
 
     await pool.query(
       `
-      INSERT INTO homepage_state (id, about_text, hero_images, about_images, pascoa_enabled)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO homepage
+        (id, about_text, hero_images, about_images, product_collage_images, pascoa_theme)
+      VALUES
+        (1, $1, $2, $3, $4, $5)
     `,
-      [
-        1,
-        seedHomepage.aboutText,
-        JSON.stringify(seedHomepage.heroImages),
-        JSON.stringify(seedHomepage.aboutImages),
-        seedHomepage.pascoaEnabled
-      ]
+      [aboutText, heroImages, aboutImages, productCollageImages, pascoaTheme]
     );
   }
 
-  // Seed products from data.json if table empty
-  const { rows: productCountRows } = await pool.query(
-    "SELECT COUNT(*)::int AS count FROM products"
-  );
-  const productCount = productCountRows[0]?.count || 0;
-
-  if (productCount === 0) {
-    const dataPath = path.join(__dirname, "data.json");
-    if (fs.existsSync(dataPath)) {
-      try {
-        const raw = fs.readFileSync(dataPath, "utf8");
-        const json = JSON.parse(raw || "{}");
-        const products = Array.isArray(json.products) ? json.products : [];
-
-        for (const p of products) {
-          // Be generous about shape and just map what exists
-          const images = Array.isArray(p.images) ? p.images : [];
-          await pool.query(
-            `
-            INSERT INTO products (
-              sku, name, description, price_cents, category, highlight, images
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `,
-            [
-              p.sku || null,
-              p.name || "Produto",
-              typeof p.description === "string" ? p.description : null,
-              Number.isFinite(p.price_cents) ? p.price_cents : 0,
-              p.category || null,
-              !!p.highlight,
-              JSON.stringify(images.slice(0, MAX_PRODUCT_IMAGES))
-            ]
-          );
-        }
-      } catch (err) {
-        console.error("Failed to seed products from data.json:", err);
-      }
+  // Optional simple product seed from data.json
+  if (initialJson && Array.isArray(initialJson.products)) {
+    for (const prod of initialJson.products) {
+      await upsertProductRaw(prod);
     }
   }
-
-  return pool;
 }
 
-/**
- * Load homepage state as the API expects.
- */
-async function loadHomepage() {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `
-    SELECT about_text, hero_images, about_images, pascoa_enabled
-    FROM homepage_state
-    WHERE id = 1
-  `
-  );
+/* ------------------------------------------------------------------ */
+/* Internal helpers                                                    */
+/* ------------------------------------------------------------------ */
 
-  if (rows.length === 0) {
-    return {
-      aboutText: "",
-      heroImages: [],
-      aboutImages: [],
-      pascoaEnabled: false
-    };
-  }
+async function upsertProductRaw(product) {
+  if (!product || !product.id) return;
 
-  const row = rows[0];
-  return {
-    aboutText: row.about_text || "",
-    heroImages: Array.isArray(row.hero_images) ? row.hero_images : [],
-    aboutImages: Array.isArray(row.about_images) ? row.about_images : [],
-    pascoaEnabled: !!row.pascoa_enabled
-  };
-}
-
-/**
- * Persist homepage configuration.
- * Expects:
- *  {
- *    aboutText: string,
- *    heroImages: string[],
- *    aboutImages: string[],
- *    pascoaEnabled: boolean
- *  }
- */
-async function persistHomepage(payload) {
-  const pool = getPool();
-
-  const aboutText =
-    typeof payload.aboutText === "string" ? payload.aboutText : "";
-  const heroImages = Array.isArray(payload.heroImages)
-    ? payload.heroImages.slice(0, MAX_HOMEPAGE_IMAGES)
-    : [];
-  const aboutImages = Array.isArray(payload.aboutImages)
-    ? payload.aboutImages.slice(0, MAX_ABOUT_IMAGES)
-    : [];
-  const pascoaEnabled = !!payload.pascoaEnabled;
+  const id = product.id;
+  const name = product.name || "";
+  const description = product.description || "";
+  const priceCents = Number(product.priceCents || 0);
+  const category = product.category || "";
+  const images = product.images || [];
+  const featured = !!product.featured;
 
   await pool.query(
     `
-    UPDATE homepage_state
-    SET about_text = $1,
-        hero_images = $2,
-        about_images = $3,
-        pascoa_enabled = $4
-    WHERE id = 1
+    INSERT INTO products (id, name, description, price_cents, category, images, featured)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (id)
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      price_cents = EXCLUDED.price_cents,
+      category = EXCLUDED.category,
+      images = EXCLUDED.images,
+      featured = EXCLUDED.featured,
+      updated_at = now()
   `,
-    [
-      aboutText,
-      JSON.stringify(heroImages),
-      JSON.stringify(aboutImages),
-      pascoaEnabled
-    ]
+    [id, name, description, priceCents, category, images, featured]
   );
-
-  return {
-    aboutText,
-    heroImages,
-    aboutImages,
-    pascoaEnabled
-  };
 }
 
-/**
- * List all products, ordered by creation date.
- */
-async function loadProducts() {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `
-    SELECT id, sku, name, description, price_cents, category, highlight, images
-    FROM products
-    ORDER BY created_at DESC, id DESC
-  `
-  );
-
-  return rows.map((row) => ({
-    id: row.id,
-    sku: row.sku,
-    name: row.name,
-    description: row.description || "",
-    price_cents: row.price_cents,
-    category: row.category || "",
-    highlight: !!row.highlight,
-    images: Array.isArray(row.images) ? row.images : []
-  }));
-}
-
-/**
- * Upsert a product.
- * If payload.id exists, update.
- * Otherwise insert a new product.
- *
- * Expects at least: { name, price_cents }
- */
-async function persistProductUpsert(payload) {
-  const pool = getPool();
-
-  const images = Array.isArray(payload.images)
-    ? payload.images.slice(0, MAX_PRODUCT_IMAGES)
-    : [];
-
-  const base = {
-    sku: payload.sku || null,
-    name: payload.name || "Produto",
-    description:
-      typeof payload.description === "string" ? payload.description : null,
-    price_cents: Number.isFinite(payload.price_cents)
-      ? payload.price_cents
-      : 0,
-    category: payload.category || null,
-    highlight: !!payload.highlight,
-    images
-  };
-
-  if (payload.id) {
-    const { rows } = await pool.query(
-      `
-      UPDATE products
-      SET sku = $1,
-          name = $2,
-          description = $3,
-          price_cents = $4,
-          category = $5,
-          highlight = $6,
-          images = $7,
-          updated_at = NOW()
-      WHERE id = $8
-      RETURNING id, sku, name, description, price_cents, category, highlight, images
-    `,
-      [
-        base.sku,
-        base.name,
-        base.description,
-        base.price_cents,
-        base.category,
-        base.highlight,
-        JSON.stringify(base.images),
-        payload.id
-      ]
-    );
-
-    return rows[0];
-  } else {
-    const { rows } = await pool.query(
-      `
-      INSERT INTO products (
-        sku, name, description, price_cents, category, highlight, images
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, sku, name, description, price_cents, category, highlight, images
-    `,
-      [
-        base.sku,
-        base.name,
-        base.description,
-        base.price_cents,
-        base.category,
-        base.highlight,
-        JSON.stringify(base.images)
-      ]
-    );
-
-    return rows[0];
+function mirrorToJson(mutator) {
+  try {
+    let data;
+    if (fs.existsSync(DATA_FILE)) {
+      data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    } else {
+      data = { homepage: {}, products: [] };
+    }
+    mutator(data);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("Failed to mirror to data.json", err);
   }
 }
 
-/**
- * Delete a product by id.
- */
-async function persistProductDelete(productId) {
-  const pool = getPool();
-  await pool.query("DELETE FROM products WHERE id = $1", [productId]);
+/* ------------------------------------------------------------------ */
+/* Public helpers used by server.js                                    */
+/* ------------------------------------------------------------------ */
+
+async function loadHomepageAndProducts() {
+  const homepageRes = await pool.query(
+    "SELECT about_text, hero_images, about_images, product_collage_images, pascoa_theme FROM homepage WHERE id = 1"
+  );
+  const productsRes = await pool.query(
+    "SELECT id, name, description, price_cents, category, images, featured, created_at, updated_at FROM products ORDER BY created_at DESC"
+  );
+
+  const hpRow = homepageRes.rows[0] || {};
+
+  const homepage = {
+    aboutText: hpRow.about_text || "",
+    heroImages: hpRow.hero_images || [],
+    aboutImages: hpRow.about_images || [],
+    productCollageImages: hpRow.product_collage_images || [],
+    pascoaTheme:
+      hpRow.pascoa_theme || {
+        enabled: false,
+        heroImages: [],
+        accentColor: "#f4f1ff"
+      }
+  };
+
+  const products = productsRes.rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    priceCents: row.price_cents,
+    category: row.category,
+    images: row.images || [],
+    featured: row.featured,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }));
+
+  return { homepage, products };
+}
+
+async function persistHomepage(homepage) {
+  const aboutText = homepage.aboutText || "";
+  const heroImages = homepage.heroImages || [];
+  const aboutImages = homepage.aboutImages || [];
+  const productCollageImages = homepage.productCollageImages || [];
+  const pascoaTheme =
+    homepage.pascoaTheme || {
+      enabled: false,
+      heroImages: [],
+      accentColor: "#f4f1ff"
+    };
+
+  await pool.query(
+    `
+    UPDATE homepage
+    SET
+      about_text = $1,
+      hero_images = $2,
+      about_images = $3,
+      product_collage_images = $4,
+      pascoa_theme = $5
+    WHERE id = 1
+  `,
+    [aboutText, heroImages, aboutImages, productCollageImages, pascoaTheme]
+  );
+
+  // Mirror JSON for local dev friendliness
+  mirrorToJson(data => {
+    data.homepage = {
+      aboutText,
+      heroImages,
+      aboutImages,
+      productCollageImages,
+      pascoaTheme
+    };
+  });
+}
+
+async function persistProductUpsert(product) {
+  const id = product.id || crypto.randomUUID();
+  const name = product.name || "";
+  const description = product.description || "";
+  const priceCents = Number(product.priceCents || 0);
+  const category = product.category || "";
+  const images = product.images || [];
+  const featured = !!product.featured;
+
+  await pool.query(
+    `
+    INSERT INTO products (id, name, description, price_cents, category, images, featured)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (id)
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      price_cents = EXCLUDED.price_cents,
+      category = EXCLUDED.category,
+      images = EXCLUDED.images,
+      featured = EXCLUDED.featured,
+      updated_at = now()
+  `,
+    [id, name, description, priceCents, category, images, featured]
+  );
+
+  // Mirror JSON
+  mirrorToJson(data => {
+    data.products = data.products || [];
+    const idx = data.products.findIndex(p => p.id === id);
+    const jsonProduct = {
+      id,
+      name,
+      description,
+      priceCents,
+      category,
+      images,
+      featured
+    };
+    if (idx >= 0) data.products[idx] = jsonProduct;
+    else data.products.push(jsonProduct);
+  });
+
+  return { id };
+}
+
+async function persistProductDelete(id) {
+  await pool.query("DELETE FROM products WHERE id = $1", [id]);
+
+  mirrorToJson(data => {
+    data.products = (data.products || []).filter(p => p.id !== id);
+  });
 }
 
 module.exports = {
+  pool,
   initDatabase,
-  loadHomepage,
-  loadProducts,
+  loadHomepageAndProducts,
   persistHomepage,
   persistProductUpsert,
-  persistProductDelete,
-  MAX_HOMEPAGE_IMAGES,
-  MAX_ABOUT_IMAGES,
-  MAX_PRODUCT_IMAGES
+  persistProductDelete
 };
