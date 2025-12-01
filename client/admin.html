@@ -44,6 +44,7 @@
         border-radius: 18px;
         padding: 20px 18px 22px;
         box-shadow: var(--shadow-soft);
+        border: 1px solid var(--border-soft);
       }
       .admin-login-subtitle {
         margin: 0 0 18px;
@@ -95,14 +96,15 @@
         border: 1px solid var(--border-soft);
         padding: 6px 12px;
         font-size: 12px;
-        background: #f4f4f4;
+        background: rgba(255, 255, 255, 0.9);
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-button-secondary:hover {
-        background: #ececec;
+        background: rgba(255, 255, 255, 1);
       }
       .admin-button-ghost {
         border-radius: 999px;
@@ -146,6 +148,7 @@
         background: rgba(255, 255, 255, 0.9);
         font-size: 11px;
         cursor: pointer;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-theme-label {
         font-weight: 500;
@@ -198,6 +201,7 @@
         border-radius: 18px;
         padding: 24px 20px 26px;
         box-shadow: var(--shadow-soft);
+        border: 1px solid var(--border-soft);
       }
       .loading-circle-wrapper {
         display: flex;
@@ -271,14 +275,14 @@
         box-shadow: var(--shadow-soft);
         display: flex;
         flex-direction: column;
-        border: 1px solid rgba(0, 0, 0, 0.02);
+        border: 1px solid var(--border-soft);
         position: relative;
       }
 
       .admin-product-card.add-card {
         border-style: dashed;
         border-color: var(--accent-soft);
-        background: #f7f7f7;
+        background: rgba(255, 255, 255, 0.7);
         color: var(--text-muted);
         align-items: center;
         justify-content: center;
@@ -412,6 +416,7 @@
         max-height: calc(100vh - 40px);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border-soft);
       }
       .admin-modal-header {
         display: flex;
@@ -547,11 +552,20 @@
       }
     </style>
   </head>
-  <body>
+  <body class="admin-page">
     <!-- Cabeçalho igual à vitrine, com seletor de tema -->
     <header class="site-header">
       <div class="brand-bar">
-        <span class="brand-name">DARAH</span>
+        <div class="brand-bar-inner">
+          <div class="brand-mark">
+            <div class="brand-mark-ring"></div>
+            <div class="brand-mark-gem"></div>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">DARAH</span>
+            <span class="brand-subtitle">joias atemporais</span>
+          </div>
+        </div>
       </div>
       <nav class="main-nav">
         <div class="nav-left">
@@ -763,7 +777,8 @@
                       Escolher foto(s)
                     </button>
                     <p class="admin-status" style="margin-top:4px">
-                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem não aparece na vitrine.
+                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem não aparece na
+                      vitrine.
                     </p>
                   </div>
                 </div>
