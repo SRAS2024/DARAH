@@ -32,3 +32,13 @@ npm install
 node server.js
 # or, if you add a script:
 # npm start
+```
+
+By default, the app runs purely in memory. If you do not set `DATABASE_URL`, any edits you make in the admin panel (like homepage content or products) will be lost after a restart.
+
+To persist data, point `DATABASE_URL` to a Postgres instance (matching the connection string format used in `db.js`). For example:
+
+```bash
+export DATABASE_URL="postgres://user:password@hostname:5432/dbname?sslmode=require"
+node server.js
+```
