@@ -65,19 +65,42 @@ if (!fs.existsSync(ADMIN_HTML)) {
 /* ------------------------------------------------------------------ */
 /* Middleware                                                          */
 /* ------------------------------------------------------------------ */
+
+// Trust proxies so Railway or other platforms can handle HTTPS correctly
+app.set("trust proxy", 1);
+
 // Increase limit so multiple mobile photos do not break the request
 app.use(express.json({ limit: "50mb" }));
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "darah-dev-secret",
     resave: false,
     saveUninitialized: true,
-    cookie: { httpOnly: true, sameSite: "lax", maxAge: 1000 * 60 * 60 * 24 * 7 }
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7
+    }
   })
 );
 
-// Static client
-app.use(express.static(CLIENT_DIR, { fallthrough: true }));
+// Cache settings for API: always no store so admin changes reflect instantly
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
+// Static client assets with moderate caching
+// HTML will be served by explicit routes below, so this mainly hits CSS, JS, images
+app.use(
+  express.static(CLIENT_DIR, {
+    fallthrough: true,
+    index: false,
+    maxAge: "7d",
+    etag: true
+  })
+);
 
 /* ------------------------------------------------------------------ */
 /* In memory data (hydrated from DB at startup if DATABASE_URL set)    */
@@ -198,6 +221,7 @@ const newId = () => crypto.randomBytes(8).toString("hex");
 /* ------------------------------------------------------------------ */
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
+
 // health check to verify container quickly
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -575,19 +599,26 @@ app.post("/api/checkout-link", (req, res) => {
 /* ------------------------------------------------------------------ */
 /* Client routes and fallback                                          */
 /* ------------------------------------------------------------------ */
+
+// Helper to avoid caching HTML shells in browser and proxies
+function sendHtmlWithNoCache(res, filePath) {
+  res.setHeader("Cache-Control", "no-store");
+  return res.sendFile(filePath);
+}
+
 app.get("/admin", (_req, res) => {
-  if (fs.existsSync(ADMIN_HTML)) return res.sendFile(ADMIN_HTML);
+  if (fs.existsSync(ADMIN_HTML)) return sendHtmlWithNoCache(res, ADMIN_HTML);
   return res.redirect("/admin.html");
 });
 
 app.get("/", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return res.sendFile(INDEX_HTML);
+  if (fs.existsSync(INDEX_HTML)) return sendHtmlWithNoCache(res, INDEX_HTML);
   return res.status(404).send("index.html não encontrado");
 });
 
 // Single page app fallback
 app.get("*", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return res.sendFile(INDEX_HTML);
+  if (fs.existsSync(INDEX_HTML)) return sendHtmlWithNoCache(res, INDEX_HTML);
   return res.status(404).send("Not Found");
 });
 
