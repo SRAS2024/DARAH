@@ -44,6 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // About tab collage (public site)
   const aboutCollageEl = document.getElementById("aboutCollage");
 
+  // Lightweight client side state
+  let homepageLoadedOnce = false;
+  let cartLoading = false;
+
   // =========================
   // Helpers
   // =========================
@@ -151,6 +155,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Joia DARAH";
+      img.loading = "lazy";
+      img.decoding = "async";
       heroImagesEl.appendChild(img);
     });
   }
@@ -176,11 +182,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Sobre a DARAH";
+      img.loading = "lazy";
+      img.decoding = "async";
       aboutCollageEl.appendChild(img);
     });
   }
 
-  async function loadHomepage() {
+  async function loadHomepage(options) {
+    const force = options && options.force;
+    if (homepageLoadedOnce && !force) return;
+
     try {
       const res = await fetch("/api/homepage");
       if (!res.ok) throw new Error("Erro ao carregar conteúdo da página inicial");
@@ -209,6 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
       renderHeroImages(hp.heroImages);
       renderAboutImages(hp.aboutImages);
       renderNotices(hp.notices);
+
+      homepageLoadedOnce = true;
     } catch (err) {
       console.error(err);
       applyThemeVariant("default");
@@ -247,6 +260,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Produto DARAH";
+      img.loading = "lazy";
+      img.decoding = "async";
       track.appendChild(img);
     });
 
@@ -646,6 +661,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const img = document.createElement("img");
         img.src = item.imageUrl;
         img.alt = item.name || "Produto DARAH";
+        img.loading = "lazy";
+        img.decoding = "async";
         imageWrapper.appendChild(img);
       }
 
@@ -715,6 +732,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadCartView() {
+    if (cartLoading) return;
+    cartLoading = true;
+
     try {
       const res = await fetch("/api/cart");
       if (!res.ok) throw new Error("Erro ao carregar carrinho");
@@ -724,6 +744,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       alert("Erro ao carregar o carrinho.");
+    } finally {
+      cartLoading = false;
     }
   }
 
@@ -808,6 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!key) return;
       setActiveView(key);
       if (key === "home" || key === "about") {
+        // Cached after first successful load
         loadHomepage();
       }
       if (mobileMenuOpen) {
