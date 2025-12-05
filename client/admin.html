@@ -911,7 +911,7 @@
             <form id="productForm">
               <div class="admin-field">
                 <label for="productCategory" class="admin-label">Categoria</label>
-                <select id="productCategory" class="admin-select" required>
+                <select id="productCategory" class="admin-select">
                   <option value="specials">Ofertas especiais</option>
                   <option value="sets">Conjuntos</option>
                   <option value="rings">Anéis</option>
@@ -931,52 +931,8 @@
                 <textarea
                   id="productDescription"
                   class="admin-textarea"
-                  required
+                  placeholder="Opcional, descreva detalhes se desejar"
                 ></textarea>
-              </div>
-
-              <div class="admin-field">
-                <label class="admin-label">Imagens do produto</label>
-                <div class="admin-image-upload-row">
-                  <div class="admin-image-preview">
-                    <div
-                      id="productImagePlaceholder"
-                      class="admin-image-placeholder"
-                    >
-                      +
-                    </div>
-                    <img
-                      id="productImagePreview"
-                      alt="Pré visualização do produto"
-                      style="display:none"
-                    />
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      id="productImageFileButton"
-                      class="admin-button-secondary"
-                    >
-                      Escolher foto(s)
-                    </button>
-                    <p class="admin-status" style="margin-top:4px">
-                      Use câmera, biblioteca de fotos ou arquivos do dispositivo.
-                      Você pode adicionar várias imagens, a primeira será a capa.
-                    </p>
-                  </div>
-                </div>
-                <input
-                  id="productImageFile"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style="display:none"
-                />
-                <input id="productImageUrl" type="text" style="display:none" />
-                <div id="productImageThumbs" class="admin-image-thumbs"></div>
-                <p class="admin-status" style="margin-top:4px">
-                  Toque em uma miniatura para defini-la como capa do produto.
-                </p>
               </div>
 
               <div class="admin-field">
