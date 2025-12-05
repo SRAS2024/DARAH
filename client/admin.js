@@ -139,6 +139,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // Short but visible welcome delay
+  const WELCOME_DELAY_MS = 700;
+
   // Helpers for layout and mobile nav
   function setBodyLoginMode(isLogin) {
     if (!bodyEl) return;
@@ -289,8 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Mobile nav dropdown setup for Admin:
-  // put all tabs in the menu so the top bar stays clean on small screens.
+  // Mobile nav dropdown setup for Admin
   function buildMobileDropdown() {
     if (!navDropdown || !navLeftContainer) return;
     navDropdown.innerHTML = "";
@@ -441,6 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
         img.src = url;
         img.alt = "Imagem da homepage";
         img.loading = "lazy";
+        img.decoding = "async";
 
         const del = document.createElement("button");
         del.type = "button";
@@ -505,6 +508,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aboutImagePreviewEl) {
       aboutImagePreviewEl.src = images[0];
       aboutImagePreviewEl.loading = "lazy";
+      aboutImagePreviewEl.decoding = "async";
       aboutImagePreviewEl.style.display = "block";
     }
     if (aboutImagePlaceholderEl) {
@@ -519,6 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
       img.src = url;
       img.alt = "Imagem da página Sobre";
       img.loading = "lazy";
+      img.decoding = "async";
 
       const del = document.createElement("button");
       del.type = "button";
@@ -960,6 +965,7 @@ document.addEventListener("DOMContentLoaded", () => {
           imgEl.src = images[0];
           imgEl.alt = product.name || "Imagem do produto";
           imgEl.loading = "lazy";
+          imgEl.decoding = "async";
           imgEl.style.display = "block";
         }
       } else {
@@ -977,6 +983,7 @@ document.addEventListener("DOMContentLoaded", () => {
           img.src = src;
           img.alt = product.name || "Imagem do produto";
           img.loading = "lazy";
+          img.decoding = "async";
           track.appendChild(img);
         });
 
@@ -1083,6 +1090,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cover = currentProductImages[0];
     productImagePreview.src = cover;
     productImagePreview.loading = "lazy";
+    productImagePreview.decoding = "async";
     productImagePreview.style.display = "block";
     productImagePlaceholder.style.display = "none";
     if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = cover;
@@ -1097,6 +1105,7 @@ document.addEventListener("DOMContentLoaded", () => {
       img.src = url;
       img.alt = "Imagem " + (idx + 1);
       img.loading = "lazy";
+      img.decoding = "async";
       btn.appendChild(img);
 
       // Small x button to remove this image
@@ -1469,12 +1478,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       loadingSection.style.display = "flex";
-      // shorter welcome duration so the panel feels more responsive
+      // Small welcome duration so the panel feels responsive
       setTimeout(() => {
         loadingSection.style.display = "none";
         if (panelSection) panelSection.style.display = "block";
         initializeAdminData();
-      }, 1800);
+      }, WELCOME_DELAY_MS);
     } else {
       if (panelSection) panelSection.style.display = "block";
       initializeAdminData();
