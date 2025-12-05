@@ -248,6 +248,77 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // High quality client side compression for uploads
+  async function compressImageFile(file) {
+    const MAX_DIMENSION = 1600;
+    const QUALITY = 0.82;
+
+    try {
+      const originalDataUrl = await fileToDataUrl(file);
+
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () =>
+          reject(new Error("Falha ao carregar pré visualização da imagem."));
+        image.src = originalDataUrl;
+      });
+
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+
+      if (!width || !height) {
+        return originalDataUrl;
+      }
+
+      let targetWidth = width;
+      let targetHeight = height;
+
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width >= height) {
+          targetWidth = MAX_DIMENSION;
+          targetHeight = Math.round((height * MAX_DIMENSION) / width);
+        } else {
+          targetHeight = MAX_DIMENSION;
+          targetWidth = Math.round((width * MAX_DIMENSION) / height);
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return originalDataUrl;
+      }
+
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      let output = "";
+      try {
+        output = canvas.toDataURL("image/webp", QUALITY);
+      } catch {
+        output = "";
+      }
+
+      if (!output || output.length >= originalDataUrl.length) {
+        try {
+          output = canvas.toDataURL("image/jpeg", QUALITY);
+        } catch {
+          output = "";
+        }
+      }
+
+      if (!output || output.length >= originalDataUrl.length * 0.95) {
+        return originalDataUrl;
+      }
+
+      return output;
+    } catch {
+      return fileToDataUrl(file);
+    }
+  }
+
   // Make theme variant generic so new options work without extra code
   function applyThemeVariant(variant) {
     const root = document.documentElement;
@@ -688,7 +759,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         setHomepageStatus("Processando imagens selecionadas...", "");
         for (const f of files) {
-          const url = await fileToDataUrl(f);
+          const url = await compressImageFile(f);
           homepageState.heroImages.push(url);
         }
         homepageState.heroImages = normalizeList(
@@ -717,7 +788,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         setAboutStatus("Processando imagens selecionadas...", "");
         for (const f of files) {
-          const url = await fileToDataUrl(f);
+          const url = await compressImageFile(f);
           homepageState.aboutImages.push(url);
         }
         homepageState.aboutImages = normalizeList(
@@ -831,14 +902,12 @@ document.addEventListener("DOMContentLoaded", () => {
       let res = await fetch("/api/admin/products");
       if (!res.ok) {
         if (res.status === 404) {
-          // Fallback if admin route does not exist
           res = await fetch("/api/products");
         }
       }
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const products = await res.json();
 
-      // /api/products returns grouped by category, admin returns flat list
       if (Array.isArray(products)) {
         allProducts = products;
       } else if (products && typeof products === "object") {
@@ -858,7 +927,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       setFormStatus("Não foi possível carregar os produtos.", "error");
-      // Ainda garantimos o botão de adicionar produto em cada aba
       renderAllCategoryGrids();
     }
   }
@@ -969,7 +1037,6 @@ document.addEventListener("DOMContentLoaded", () => {
           imgEl.style.display = "block";
         }
       } else {
-        // Multi image carousel in admin, same style as storefront
         wrapper.innerHTML = "";
 
         const viewport = document.createElement("div");
@@ -1108,7 +1175,6 @@ document.addEventListener("DOMContentLoaded", () => {
       img.decoding = "async";
       btn.appendChild(img);
 
-      // Small x button to remove this image
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.textContent = "×";
@@ -1265,15 +1331,13 @@ document.addEventListener("DOMContentLoaded", () => {
         setFormStatus("Carregando imagens selecionadas...", "");
         const newImages = [];
         for (const file of files) {
-          const url = await fileToDataUrl(file);
+          const url = await compressImageFile(file);
           newImages.push(url);
         }
         if (!Array.isArray(currentProductImages)) {
           currentProductImages = [];
         }
         currentProductImages = currentProductImages.concat(newImages);
-
-        // Deduplicate and cap at MAX_PRODUCT_IMAGES to avoid lag
         currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
 
         renderProductImagesUI();
@@ -1335,7 +1399,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeProductModal();
       } catch {
-        // errors already handled in create or update helpers
       }
     });
   }
@@ -1478,7 +1541,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       loadingSection.style.display = "flex";
-      // Small welcome duration so the panel feels responsive
       setTimeout(() => {
         loadingSection.style.display = "none";
         if (panelSection) panelSection.style.display = "block";
@@ -1492,7 +1554,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function initializeAdminData() {
     switchView("home");
-    // Ensure every category shows at least the "add product" card
     renderAllCategoryGrids();
     loadHomepageAdmin();
     loadProducts();
@@ -1533,7 +1594,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Logout handler
   if (logoutButton) {
     logoutButton.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1542,7 +1602,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Restore prior session
   try {
     const stored = sessionStorage.getItem("darahAdminUser");
     if (stored) {
@@ -1561,7 +1620,6 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {
   }
 
-  // Small utility: debounce (kept in case needed later)
   function debounce(fn, ms) {
     let t = null;
     return (...args) => {
