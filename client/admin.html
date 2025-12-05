@@ -101,7 +101,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--shadow-soft);
       }
       .admin-button-secondary:hover {
         background: rgba(255, 255, 255, 1);
@@ -148,7 +148,7 @@
         background: rgba(255, 255, 255, 0.9);
         font-size: 11px;
         cursor: pointer;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--shadow-soft);
       }
       .admin-theme-label {
         font-weight: 500;
@@ -511,6 +511,7 @@
         background: rgba(0, 0, 0, 0.04);
         cursor: pointer;
         border: 1px solid transparent;
+        position: relative;
       }
       .admin-image-thumb img {
         width: 100%;
@@ -934,6 +935,48 @@
                   placeholder="Opcional, descreva detalhes se desejar"
                 ></textarea>
               </div>
+
+              <!-- NOVO BLOCO DE FOTOS DO PRODUTO -->
+              <div class="admin-field">
+                <label class="admin-label">Fotos do produto</label>
+                <div class="admin-image-upload-row">
+                  <div class="admin-image-preview">
+                    <div
+                      id="productImagePlaceholder"
+                      class="admin-image-placeholder"
+                    >
+                      +
+                    </div>
+                    <img
+                      id="productImagePreview"
+                      alt="Foto principal do produto"
+                      style="display:none"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      id="productImageFileButton"
+                      class="admin-button-secondary"
+                    >
+                      Adicionar foto
+                    </button>
+                    <p class="admin-status" style="margin-top:4px">
+                      A primeira foto será a principal, até 5 fotos por produto.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  id="productImageFile"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display:none"
+                />
+                <input id="productImageUrl" type="hidden" />
+                <div id="productImageThumbs" class="admin-image-thumbs"></div>
+              </div>
+              <!-- FIM DO BLOCO DE FOTOS DO PRODUTO -->
 
               <div class="admin-field">
                 <label for="productPrice" class="admin-label">
