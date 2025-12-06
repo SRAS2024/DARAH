@@ -94,7 +94,9 @@ app.use(
   })
 );
 
-// Cache settings for API: always no store so admin changes reflect instantly
+// Cache settings for API: default no store so admin changes reflect instantly.
+// Public read endpoints like /api/homepage and /api/products will override
+// this header with their own Cache Control.
 app.use("/api", (_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
@@ -250,14 +252,10 @@ function summarizeCart(cart) {
 const newId = () => crypto.randomBytes(8).toString("hex");
 
 /* ------------------------------------------------------------------ */
-/* API                                                                 */
+/* Helpers for public homepage and HTTP caching                        */
 /* ------------------------------------------------------------------ */
 
-// health check to verify container quickly
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
-
-// Homepage
-app.get("/api/homepage", (_req, res) => {
+function buildPublicHomepagePayload() {
   const heroImages = Array.isArray(db.homepage.heroImages)
     ? db.homepage.heroImages
         .map((s) => String(s || "").trim())
@@ -279,14 +277,49 @@ app.get("/api/homepage", (_req, res) => {
         .slice(0, 10)
     : [];
 
-  res.json({
+  return {
     aboutText: db.homepage.aboutText || "",
     aboutLongText: db.homepage.aboutLongText || "",
     heroImages,
     aboutImages,
     notices,
     theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
-  });
+  };
+}
+
+/**
+ * Sends JSON with a strong ETag and short public cache.
+ * Used for read only public endpoints to speed up repeat visits.
+ */
+function sendJsonWithEtag(req, res, payload, cacheKey) {
+  const body = JSON.stringify(payload);
+  const hash = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
+  const etag = `"${cacheKey}-${hash}"`;
+
+  // Short public cache plus stale while revalidate style behavior
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  res.setHeader("ETag", etag);
+
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    return res.status(304).end();
+  }
+
+  res.type("application/json");
+  return res.send(body);
+}
+
+/* ------------------------------------------------------------------ */
+/* API                                                                 */
+/* ------------------------------------------------------------------ */
+
+// health check to verify container quickly
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Homepage
+app.get("/api/homepage", (req, res) => {
+  const payload = buildPublicHomepagePayload();
+  return sendJsonWithEtag(req, res, payload, "homepage");
 });
 
 app.put("/api/homepage", async (req, res) => {
@@ -336,7 +369,10 @@ app.put("/api/homepage", async (req, res) => {
 });
 
 // Products
-app.get("/api/products", (_req, res) => res.json(groupPublicProducts()));
+app.get("/api/products", (req, res) => {
+  const grouped = groupPublicProducts();
+  return sendJsonWithEtag(req, res, grouped, "products");
+});
 
 app.get("/api/admin/products", (_req, res) => {
   const adminProducts = db.products.map((p) => {
