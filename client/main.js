@@ -927,7 +927,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!key) return;
       setActiveView(key);
       if (key === "home" || key === "about") {
-        // Cached after first successful load
+        // Cached after first successful load or bootstrap
         loadHomepage();
       }
       if (mobileMenuOpen) {
@@ -987,13 +987,56 @@ document.addEventListener("DOMContentLoaded", () => {
   const initialVariant = rootEl ? rootEl.getAttribute("data-theme-variant") : null;
   applyThemeVariant(initialVariant || "default");
 
-  // First, try to paint instantly from local cache
-  primeHomepageFromCache();
-  primeProductsFromCache();
+  // Use server injected bootstrap if available for instant paint
+  const bootstrap =
+    typeof window !== "undefined" ? window.__DARAH_BOOTSTRAP__ || null : null;
 
-  // Then wire up the app
+  if (bootstrap && bootstrap.homepage) {
+    renderHomepagePayload(bootstrap.homepage);
+    // Seed local cache for future loads
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(
+          HOMEPAGE_CACHE_KEY,
+          JSON.stringify(bootstrap.homepage)
+        );
+      }
+    } catch {
+      // ignore
+    }
+  } else {
+    // No bootstrap, fall back to local cache and then network
+    primeHomepageFromCache();
+  }
+
+  if (bootstrap && bootstrap.products) {
+    renderGroupedProducts(bootstrap.products);
+    // Seed local cache for future loads
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(
+          PRODUCTS_CACHE_KEY,
+          JSON.stringify(bootstrap.products)
+        );
+      }
+    } catch {
+      // ignore
+    }
+  } else {
+    // No bootstrap, fall back to local cache and then network
+    primeProductsFromCache();
+  }
+
   setActiveView("home");
-  loadHomepage();     // fresh homepage from API, will also refresh cache
-  loadProducts();     // fresh products from API, will also refresh cache
-  refreshCartCount(); // cart count
+
+  // If there was no bootstrap data, fetch from API once
+  if (!bootstrap || !bootstrap.homepage) {
+    loadHomepage();
+  }
+  if (!bootstrap || !bootstrap.products) {
+    loadProducts();
+  }
+
+  // Cart count is tiny, safe to always refresh
+  refreshCartCount();
 });
