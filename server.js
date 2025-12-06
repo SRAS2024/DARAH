@@ -28,6 +28,7 @@ const PORT = process.env.PORT || 5000;
 const MAX_HOMEPAGE_IMAGES = 12;
 const MAX_ABOUT_IMAGES = 4;
 const MAX_PRODUCT_IMAGES = 5;
+const MAX_IMAGE_URL_LENGTH = 2048; // safety limit for image URL strings
 
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
@@ -58,7 +59,7 @@ const ADMIN_EXISTS = fs.existsSync(ADMIN_HTML);
 
 // Read index.html once into memory so we can inject bootstrap data quickly
 let INDEX_HTML_TEMPLATE = null;
-if ( INDEX_EXISTS ) {
+if (INDEX_EXISTS) {
   try {
     INDEX_HTML_TEMPLATE = fs.readFileSync(INDEX_HTML, "utf8");
   } catch (err) {
@@ -122,10 +123,7 @@ app.use(
     setHeaders(res, filePath) {
       if (filePath.match(/\.(js|css|png|jpe?g|webp|svg)$/i)) {
         // 30 days, immutable so repeat visits are instant for assets
-        res.setHeader(
-          "Cache-Control",
-          "public, max-age=2592000, immutable"
-        );
+        res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
       } else if (filePath.match(/\.html$/i)) {
         // Safety for direct /index.html access
         res.setHeader("Cache-Control", "no-store");
@@ -202,12 +200,27 @@ function ensureSessionCart(req) {
   return req.session.cart;
 }
 
-function normalizeImageArray(arr) {
+// General image sanitizer for all server side image lists
+function normalizeImageArray(arr, limit) {
+  const max =
+    typeof limit === "number" && limit > 0 ? limit : MAX_PRODUCT_IMAGES;
+
   if (!Array.isArray(arr)) return [];
+
   const cleaned = arr
     .map((s) => String(s || "").trim())
-    .filter((s, idx, a) => s && a.indexOf(s) === idx);
-  return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+    .filter((s, idx, a) => {
+      if (!s) return false;
+      // Drop duplicates
+      if (a.indexOf(s) !== idx) return false;
+      // Drop base64 and other data URLs
+      if (s.startsWith("data:")) return false;
+      // Drop unreasonably long strings to avoid huge payloads
+      if (s.length > MAX_IMAGE_URL_LENGTH) return false;
+      return true;
+    });
+
+  return cleaned.slice(0, max);
 }
 
 function groupPublicProducts() {
@@ -227,10 +240,9 @@ function groupPublicProducts() {
   db.products.forEach((p) => {
     if (!p || p.active === false) return;
     if (typeof p.stock !== "number" || p.stock <= 0) return;
-
     if (!out[p.category]) return;
 
-    const imageUrls = normalizeImageArray(p.imageUrls || []);
+    const imageUrls = normalizeImageArray(p.imageUrls || [], MAX_PRODUCT_IMAGES);
     const imageUrl = p.imageUrl || imageUrls[0] || "";
 
     const payload = {
@@ -305,19 +317,15 @@ const newId = () => crypto.randomBytes(8).toString("hex");
 /* ------------------------------------------------------------------ */
 
 function buildPublicHomepagePayload() {
-  const heroImages = Array.isArray(db.homepage.heroImages)
-    ? db.homepage.heroImages
-        .map((s) => String(s || "").trim())
-        .filter((s, idx, a) => s && a.indexOf(s) === idx)
-        .slice(0, MAX_HOMEPAGE_IMAGES)
-    : [];
+  const heroImages = normalizeImageArray(
+    db.homepage.heroImages || [],
+    MAX_HOMEPAGE_IMAGES
+  );
 
-  const aboutImages = Array.isArray(db.homepage.aboutImages)
-    ? db.homepage.aboutImages
-        .map((s) => String(s || "").trim())
-        .filter((s, idx, a) => s && a.indexOf(s) === idx)
-        .slice(0, MAX_ABOUT_IMAGES)
-    : [];
+  const aboutImages = normalizeImageArray(
+    db.homepage.aboutImages || [],
+    MAX_ABOUT_IMAGES
+  );
 
   const notices = Array.isArray(db.homepage.notices)
     ? db.homepage.notices
@@ -345,10 +353,8 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
   const hash = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
   const etag = `"${cacheKey}-${hash}"`;
 
-  res.setHeader(
-    "Cache-Control",
-    "public, max-age=60, stale-while-revalidate=300"
-  );
+  // Simplified cache header for compatibility
+  res.setHeader("Cache-Control", "public, max-age=60");
   res.setHeader("ETag", etag);
 
   const ifNoneMatch = req.headers["if-none-match"];
@@ -361,15 +367,15 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
 }
 
 /**
- * Renders index.html with a bootstrap script that contains homepage and
- * products data so the client can render immediately without initial fetches.
+ * Renders index.html with a bootstrap script that contains homepage data
+ * so the client can render immediately without an initial homepage fetch.
+ * Products are loaded via /api/products.
  */
 function renderIndexWithBootstrap() {
   if (!INDEX_HTML_TEMPLATE) return null;
 
   const bootstrap = {
-    homepage: buildPublicHomepagePayload(),
-    products: groupPublicProducts()
+    homepage: buildPublicHomepagePayload()
   };
 
   // Escape "<" so the JSON cannot accidentally break the script tag
@@ -416,17 +422,17 @@ app.put("/api/homepage", async (req, res) => {
   }
 
   if (Array.isArray(heroImages)) {
-    db.homepage.heroImages = heroImages
-      .map((s) => String(s || "").trim())
-      .filter((s, idx, a) => s && a.indexOf(s) === idx)
-      .slice(0, MAX_HOMEPAGE_IMAGES);
+    db.homepage.heroImages = normalizeImageArray(
+      heroImages,
+      MAX_HOMEPAGE_IMAGES
+    );
   }
 
   if (Array.isArray(aboutImages)) {
-    db.homepage.aboutImages = aboutImages
-      .map((s) => String(s || "").trim())
-      .filter((s, idx, a) => s && a.indexOf(s) === idx)
-      .slice(0, MAX_ABOUT_IMAGES);
+    db.homepage.aboutImages = normalizeImageArray(
+      aboutImages,
+      MAX_ABOUT_IMAGES
+    );
   }
 
   if (Array.isArray(notices)) {
@@ -458,7 +464,7 @@ app.get("/api/products", (req, res) => {
 
 app.get("/api/admin/products", (_req, res) => {
   const adminProducts = db.products.map((p) => {
-    const imageUrls = normalizeImageArray(p.imageUrls || []);
+    const imageUrls = normalizeImageArray(p.imageUrls || [], MAX_PRODUCT_IMAGES);
     const imageUrl = p.imageUrl || imageUrls[0] || "";
     return {
       ...p,
@@ -509,7 +515,10 @@ app.post("/api/products", async (req, res) => {
     ? images
     : [];
 
-  const normalizedImages = normalizeImageArray(rawImages);
+  const normalizedImages = normalizeImageArray(
+    rawImages,
+    MAX_PRODUCT_IMAGES
+  );
   const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
   const normalizedOriginalPrice =
@@ -613,7 +622,7 @@ app.put("/api/products/:id", async (req, res) => {
 
     if (k === "imageUrls") {
       const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
-      const cleaned = normalizeImageArray(srcs);
+      const cleaned = normalizeImageArray(srcs, MAX_PRODUCT_IMAGES);
       product.imageUrls = cleaned;
       if (!product.imageUrl && cleaned.length) {
         product.imageUrl = cleaned[0];
