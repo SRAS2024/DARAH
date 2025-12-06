@@ -28,8 +28,11 @@ const PORT = process.env.PORT || 5000;
 const MAX_HOMEPAGE_IMAGES = 12;
 const MAX_ABOUT_IMAGES = 4;
 const MAX_PRODUCT_IMAGES = 5;
-// Allow reasonably sized compressed data URLs and normal URLs
-const MAX_IMAGE_URL_LENGTH = 350000;
+
+// Allow reasonably sized compressed data URLs and normal URLs.
+// New uploads are already pre compressed in the admin panel, so we only
+// enforce a hard length limit for non data URLs.
+const MAX_IMAGE_URL_LENGTH = 900000;
 
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
@@ -214,8 +217,13 @@ function normalizeImageArray(arr, limit) {
       if (!s) return false;
       // Drop duplicates
       if (a.indexOf(s) !== idx) return false;
-      // Allow data URLs but enforce a size limit so huge originals do not slip in
-      if (s.length > MAX_IMAGE_URL_LENGTH) return false;
+
+      // Only enforce size guard for non data URLs.
+      // Data URLs come from the admin compressor and are dimension capped.
+      if (!s.startsWith("data:image") && s.length > MAX_IMAGE_URL_LENGTH) {
+        return false;
+      }
+
       return true;
     });
 
