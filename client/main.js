@@ -6,12 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_ABOUT_IMAGES = 4;
   const MAX_PRODUCT_IMAGES = 5;
 
-  // Simple local cache for fast repeat loads
-  const HOMEPAGE_CACHE_KEY = "darah_homepage_cache_v1";
-  const HOMEPAGE_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
-
-  const PRODUCTS_CACHE_KEY = "darah_products_cache_v1";
-  const PRODUCTS_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
+  // Client side cache keys
+  const HOMEPAGE_CACHE_KEY = "darah-homepage-v1";
 
   // Navigation and common UI
   const navLinks = Array.from(document.querySelectorAll(".nav-link"));
@@ -111,48 +107,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (rootEl) {
       rootEl.setAttribute("data-theme-variant", variant);
       rootEl.dataset.themeVariant = variant;
-    }
-  }
-
-  // Local storage helpers
-  function getSafeStorage() {
-    try {
-      return window.localStorage || null;
-    } catch {
-      return null;
-    }
-  }
-
-  function loadCachedJson(key, maxAgeMs) {
-    const storage = getSafeStorage();
-    if (!storage) return null;
-    const raw = storage.getItem(key);
-    if (!raw) return null;
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return null;
-      const now = Date.now();
-      if (typeof parsed.expiresAt === "number" && parsed.expiresAt < now) {
-        return null;
-      }
-      return parsed.data != null ? parsed.data : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function saveCachedJson(key, data, maxAgeMs) {
-    const storage = getSafeStorage();
-    if (!storage) return;
-    const record = {
-      data,
-      expiresAt: Date.now() + maxAgeMs
-    };
-    try {
-      storage.setItem(key, JSON.stringify(record));
-    } catch {
-      // ignore
     }
   }
 
@@ -264,8 +218,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function applyHomepageData(hp) {
-    if (!hp || typeof hp !== "object") return;
+  // Pure render function for homepage payload
+  function renderHomepagePayload(hp) {
+    if (!hp || typeof hp !== "object") {
+      applyThemeVariant("default");
+      renderHeroImages([]);
+      renderAboutImages([]);
+      renderNotices([]);
+      if (aboutTextEl) aboutTextEl.textContent = "";
+      if (aboutLongTextEl) aboutLongTextEl.textContent = "";
+      return;
+    }
 
     if (aboutTextEl && typeof hp.aboutText === "string") {
       aboutTextEl.textContent = hp.aboutText;
@@ -281,7 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (typeof hp.theme === "string") {
+    if (hp && typeof hp.theme === "string") {
       applyThemeVariant(hp.theme);
     } else {
       applyThemeVariant("default");
@@ -294,41 +257,41 @@ document.addEventListener("DOMContentLoaded", () => {
     homepageLoadedOnce = true;
   }
 
+  // Try to hydrate from localStorage before hitting the network
+  function primeHomepageFromCache() {
+    try {
+      if (!window.localStorage) return;
+      const raw = window.localStorage.getItem(HOMEPAGE_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      renderHomepagePayload(cached);
+    } catch (err) {
+      console.warn("Falha ao carregar homepage do cache local:", err);
+    }
+  }
+
   async function loadHomepage(options) {
     const force = options && options.force;
+    if (homepageLoadedOnce && !force) return;
 
-    // Cache first for instant repeat load
-    if (!force && !homepageLoadedOnce) {
-      const cached = loadCachedJson(HOMEPAGE_CACHE_KEY, HOMEPAGE_CACHE_TTL_MS);
-      if (cached) {
-        try {
-          applyHomepageData(cached);
-        } catch (err) {
-          console.error("Erro ao aplicar homepage do cache:", err);
-        }
-      }
-    }
-
-    // Always refresh from network in background
     try {
       const res = await fetch("/api/homepage");
       if (!res.ok) throw new Error("Erro ao carregar conteúdo da página inicial");
       const hp = await res.json();
 
-      applyHomepageData(hp);
-      saveCachedJson(HOMEPAGE_CACHE_KEY, hp, HOMEPAGE_CACHE_TTL_MS);
+      renderHomepagePayload(hp);
+
+      // Persist into localStorage for instant future reloads
+      try {
+        if (window.localStorage) {
+          window.localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify(hp));
+        }
+      } catch {
+        // Ignore storage errors
+      }
     } catch (err) {
       console.error(err);
-
-      // Only hard reset if nothing was rendered
-      if (!homepageLoadedOnce) {
-        applyThemeVariant("default");
-        renderHeroImages([]);
-        renderAboutImages([]);
-        renderNotices([]);
-        if (aboutTextEl) aboutTextEl.textContent = "";
-        if (aboutLongTextEl) aboutLongTextEl.textContent = "";
-      }
+      renderHomepagePayload(null);
     }
   }
 
@@ -619,103 +582,68 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
-  function applyProductsData(grouped) {
-    if (!grouped || typeof grouped !== "object") {
-      if (Array.isArray(grouped)) {
-        grouped = {
-          specials: [],
-          sets: [],
-          rings: [],
-          necklaces: [],
-          bracelets: [],
-          earrings: []
-        };
-      } else {
-        grouped = {};
-      }
-    }
-
-    const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
-    const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
-
-    let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
-    let necklaces = Array.isArray(grouped.necklaces)
-      ? grouped.necklaces.slice()
-      : [];
-    let bracelets = Array.isArray(grouped.bracelets)
-      ? grouped.bracelets.slice()
-      : [];
-    let earrings = Array.isArray(grouped.earrings)
-      ? grouped.earrings.slice()
-      : [];
-
-    function addUniqueById(target, product) {
-      if (!product || product.id == null) return;
-      if (target.some((p) => p && p.id === product.id)) return;
-      target.push(product);
-    }
-
-    // Any product that appears in "specials" is also added to its base category
-    specials.forEach((product) => {
-      const cat = inferBaseCategory(product);
-
-      switch (cat) {
-        case "rings":
-          addUniqueById(rings, product);
-          break;
-        case "necklaces":
-          addUniqueById(necklaces, product);
-          break;
-        case "bracelets":
-          addUniqueById(bracelets, product);
-          break;
-        case "earrings":
-          addUniqueById(earrings, product);
-          break;
-        case "sets":
-          addUniqueById(sets, product);
-          break;
-        default:
-          break;
-      }
-    });
-
-    // New categories
-    renderProductList("specialsList", specials, "specials");
-    renderProductList("setsList", sets, "sets");
-
-    // Existing categories, already enriched by specials
-    renderProductList("ringsList", rings, "rings");
-    renderProductList("necklacesList", necklaces, "necklaces");
-    renderProductList("braceletsList", bracelets, "bracelets");
-    renderProductList("earringsList", earrings, "earrings");
-  }
-
-  async function loadProducts(options) {
-    const force = options && options.force;
-
-    // Try cache first for instant render
-    if (!force) {
-      const cached = loadCachedJson(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL_MS);
-      if (cached) {
-        try {
-          applyProductsData(cached);
-        } catch (err) {
-          console.error("Erro ao aplicar produtos do cache:", err);
-        }
-      }
-    }
-
+  async function loadProducts() {
     try {
       const res = await fetch("/api/products");
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const grouped = await res.json();
 
-      applyProductsData(grouped);
-      saveCachedJson(PRODUCTS_CACHE_KEY, grouped, PRODUCTS_CACHE_TTL_MS);
+      const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
+      const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
+
+      let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
+      let necklaces = Array.isArray(grouped.necklaces)
+        ? grouped.necklaces.slice()
+        : [];
+      let bracelets = Array.isArray(grouped.bracelets)
+        ? grouped.bracelets.slice()
+        : [];
+      let earrings = Array.isArray(grouped.earrings)
+        ? grouped.earrings.slice()
+        : [];
+
+      function addUniqueById(target, product) {
+        if (!product || product.id == null) return;
+        if (target.some((p) => p && p.id === product.id)) return;
+        target.push(product);
+      }
+
+      // Any product that appears in "specials" is also added to its base category
+      specials.forEach((product) => {
+        const cat = inferBaseCategory(product);
+
+        switch (cat) {
+          case "rings":
+            addUniqueById(rings, product);
+            break;
+          case "necklaces":
+            addUniqueById(necklaces, product);
+            break;
+          case "bracelets":
+            addUniqueById(bracelets, product);
+            break;
+          case "earrings":
+            addUniqueById(earrings, product);
+            break;
+          case "sets":
+            addUniqueById(sets, product);
+            break;
+          default:
+            break;
+        }
+      });
+
+      // New categories
+      renderProductList("specialsList", specials, "specials");
+      renderProductList("setsList", sets, "sets");
+
+      // Existing categories, already enriched by specials
+      renderProductList("ringsList", rings, "rings");
+      renderProductList("necklacesList", necklaces, "necklaces");
+      renderProductList("braceletsList", bracelets, "bracelets");
+      renderProductList("earringsList", earrings, "earrings");
     } catch (err) {
       console.error(err);
-      // If network fails but cache worked, the user still has products on screen
     }
   }
 
@@ -938,10 +866,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (mobileMenuOpen) {
       navDropdown.classList.add("open");
       navDropdown.setAttribute("aria-hidden", "false");
+      mobileToggle.classList.add("is-open");
       mobileToggle.setAttribute("aria-expanded", "true");
     } else {
       navDropdown.classList.remove("open");
       navDropdown.setAttribute("aria-hidden", "true");
+      mobileToggle.classList.remove("is-open");
       mobileToggle.setAttribute("aria-expanded", "false");
     }
   }
@@ -1013,8 +943,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const initialVariant = rootEl ? rootEl.getAttribute("data-theme-variant") : null;
   applyThemeVariant(initialVariant || "default");
 
+  // First, try to paint instantly from local cache
+  primeHomepageFromCache();
+
+  // Then wire up the app
   setActiveView("home");
-  loadHomepage();
-  loadProducts();
-  refreshCartCount();
+  loadHomepage();     // fresh homepage from API, will also refresh cache
+  loadProducts();     // products still come from network
+  refreshCartCount(); // cart count
 });
