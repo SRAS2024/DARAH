@@ -84,6 +84,11 @@ body {
   padding: 0;
 }
 
+/* Pequena melhoria na experiência de navegação */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   background: var(--page-bg);
@@ -308,6 +313,9 @@ body.is-admin-login .main-nav {
   display: none;
   opacity: 0;
   transition: opacity 0.18s ease;
+  /* Dica ao navegador para não renderizar conteúdo fora da tela de forma desnecessária */
+  content-visibility: auto;
+  contain-intrinsic-size: 800px;
 }
 
 .view.active-view {
@@ -471,6 +479,9 @@ body.is-admin-login .main-nav {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
   min-height: 120px;
+  /* Ajuda o navegador a adiar renderização de grids fora da tela */
+  content-visibility: auto;
+  contain-intrinsic-size: 500px;
 }
 
 .product-card {
@@ -723,6 +734,9 @@ body.is-admin-login .main-nav {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+  /* Mesma dica de visibilidade para a grade de produtos no admin */
+  content-visibility: auto;
+  contain-intrinsic-size: 600px;
 }
 
 .admin-product-card {
@@ -886,6 +900,8 @@ body.is-admin-login .main-nav {
   padding: 16px;
   box-shadow: var(--shadow-soft);
   min-height: 120px;
+  content-visibility: auto;
+  contain-intrinsic-size: 400px;
 }
 
 .checkout-empty {
@@ -1192,3 +1208,4 @@ body.is-admin-login .main-nav {
     padding: 0 4px;
   }
 }
+\
