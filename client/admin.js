@@ -12,6 +12,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
   const MAX_ABOUT_IMAGES = 4;        // até 4 imagens no collage da aba Sobre
 
+  // Shared image compression settings
+  const IMAGE_MAX_DIMENSION = 1600;
+  const IMAGE_QUALITY = 0.82;
+
   // Basic layout
   const bodyEl = document.body;
   const navMobileToggle = document.querySelector(".nav-mobile-toggle");
@@ -248,21 +252,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // High quality client side compression for uploads
-  async function compressImageFile(file) {
-    const MAX_DIMENSION = 1600;
-    const QUALITY = 0.82;
+  function loadImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () =>
+        reject(new Error("Falha ao carregar pré visualização da imagem."));
+      image.src = url;
+    });
+  }
+
+  async function compressDataUrl(originalDataUrl) {
+    if (typeof originalDataUrl !== "string" || !originalDataUrl.startsWith("data:image")) {
+      return originalDataUrl;
+    }
 
     try {
-      const originalDataUrl = await fileToDataUrl(file);
-
-      const img = await new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () =>
-          reject(new Error("Falha ao carregar pré visualização da imagem."));
-        image.src = originalDataUrl;
-      });
+      const img = await loadImageFromUrl(originalDataUrl);
 
       const width = img.naturalWidth || img.width;
       const height = img.naturalHeight || img.height;
@@ -274,13 +280,13 @@ document.addEventListener("DOMContentLoaded", () => {
       let targetWidth = width;
       let targetHeight = height;
 
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+      if (width > IMAGE_MAX_DIMENSION || height > IMAGE_MAX_DIMENSION) {
         if (width >= height) {
-          targetWidth = MAX_DIMENSION;
-          targetHeight = Math.round((height * MAX_DIMENSION) / width);
+          targetWidth = IMAGE_MAX_DIMENSION;
+          targetHeight = Math.round((height * IMAGE_MAX_DIMENSION) / width);
         } else {
-          targetHeight = MAX_DIMENSION;
-          targetWidth = Math.round((width * MAX_DIMENSION) / height);
+          targetHeight = IMAGE_MAX_DIMENSION;
+          targetWidth = Math.round((width * IMAGE_MAX_DIMENSION) / height);
         }
       }
 
@@ -296,14 +302,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let output = "";
       try {
-        output = canvas.toDataURL("image/webp", QUALITY);
+        output = canvas.toDataURL("image/webp", IMAGE_QUALITY);
       } catch {
         output = "";
       }
 
       if (!output || output.length >= originalDataUrl.length) {
         try {
-          output = canvas.toDataURL("image/jpeg", QUALITY);
+          output = canvas.toDataURL("image/jpeg", IMAGE_QUALITY);
         } catch {
           output = "";
         }
@@ -315,8 +321,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return output;
     } catch {
+      return originalDataUrl;
+    }
+  }
+
+  // High quality client side compression for new uploads (File objects)
+  async function compressImageFile(file) {
+    try {
+      const originalDataUrl = await fileToDataUrl(file);
+      return await compressDataUrl(originalDataUrl);
+    } catch {
       return fileToDataUrl(file);
     }
+  }
+
+  async function recompressExistingImagesIfNeeded(list, max) {
+    if (!Array.isArray(list)) return [];
+    const cleaned = list
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+
+    const limited = typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
+
+    const result = [];
+    for (const url of limited) {
+      if (typeof url === "string" && url.startsWith("data:image")) {
+        const compressed = await compressDataUrl(url);
+        result.push(compressed);
+      } else {
+        result.push(url);
+      }
+    }
+    return result;
   }
 
   // Make theme variant generic so new options work without extra code
@@ -575,7 +611,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Pequena pré visualização da primeira foto
     if (aboutImagePreviewEl) {
       aboutImagePreviewEl.src = images[0];
       aboutImagePreviewEl.loading = "lazy";
@@ -824,12 +859,13 @@ document.addEventListener("DOMContentLoaded", () => {
         syncAboutImagesFromTextarea();
       }
 
-      const heroImages = normalizeList(
+      // Recompress existing data URLs before saving
+      const heroImages = await recompressExistingImagesIfNeeded(
         homepageState.heroImages,
         MAX_HOMEPAGE_IMAGES
       );
 
-      const aboutImages = normalizeList(
+      const aboutImages = await recompressExistingImagesIfNeeded(
         homepageState.aboutImages,
         MAX_ABOUT_IMAGES
       );
@@ -1354,6 +1390,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (hiddenForm.el) {
     hiddenForm.el.addEventListener("submit", async (event) => {
       event.preventDefault();
+
+      // Recompress existing data URLs before saving product
+      if (Array.isArray(currentProductImages) && currentProductImages.length) {
+        currentProductImages = await recompressExistingImagesIfNeeded(
+          currentProductImages,
+          MAX_PRODUCT_IMAGES
+        );
+      }
 
       const priceRaw = hiddenForm.price ? hiddenForm.price.value : "";
       const stockRaw = hiddenForm.stock ? hiddenForm.stock.value : "";
