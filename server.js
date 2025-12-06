@@ -102,14 +102,26 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
-// Static client assets with moderate caching
-// HTML will be served by explicit routes below, so this mainly hits CSS, JS, images
+// Static client assets with strong caching for CSS, JS, images.
+// HTML is still no store when served via explicit routes below.
+// If someone directly hits /index.html, it will not be aggressively cached.
 app.use(
   express.static(CLIENT_DIR, {
     fallthrough: true,
     index: false,
-    maxAge: "7d",
-    etag: true
+    etag: true,
+    setHeaders(res, filePath) {
+      if (filePath.match(/\.(js|css|png|jpe?g|webp|svg)$/i)) {
+        // 30 days, immutable so repeat visits are instant for assets
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=2592000, immutable"
+        );
+      } else if (filePath.match(/\.html$/i)) {
+        // Safety for direct /index.html access
+        res.setHeader("Cache-Control", "no-store");
+      }
+    }
   })
 );
 
@@ -150,11 +162,29 @@ function bumpProductsVersion() {
   }
 }
 
+// Prebuilt BRL formatter for slightly faster repeated formatting
+let BRL_FORMATTER = null;
+try {
+  BRL_FORMATTER = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+} catch {
+  BRL_FORMATTER = null;
+}
+
 function brl(n) {
+  const value = Number(n || 0);
   try {
-    return Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    if (BRL_FORMATTER) {
+      return BRL_FORMATTER.format(value);
+    }
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    });
   } catch {
-    return "R$ " + Number(n || 0).toFixed(2).replace(".", ",");
+    return "R$ " + value.toFixed(2).replace(".", ",");
   }
 }
 
