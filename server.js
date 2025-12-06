@@ -56,6 +56,17 @@ const ADMIN_HTML = path.join(CLIENT_DIR, "admin.html");
 const INDEX_EXISTS = fs.existsSync(INDEX_HTML);
 const ADMIN_EXISTS = fs.existsSync(ADMIN_HTML);
 
+// Read index.html once into memory so we can inject bootstrap data quickly
+let INDEX_HTML_TEMPLATE = null;
+if (INDEX_EXISTS) {
+  try {
+    INDEX_HTML_TEMPLATE = fs.readFileSync(INDEX_HTML, "utf8");
+  } catch (err) {
+    console.error("[DARAH] Failed to read index.html template:", err);
+    INDEX_HTML_TEMPLATE = null;
+  }
+}
+
 console.log("[DARAH] Serving static files from:", CLIENT_DIR);
 if (!INDEX_EXISTS) {
   console.warn("[DARAH] Warning: index.html not found at", INDEX_HTML);
@@ -337,6 +348,36 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
 
   res.type("application/json");
   return res.send(body);
+}
+
+/**
+ * Renders index.html with a bootstrap script that contains homepage and
+ * products data so the client can render immediately without initial fetches.
+ */
+function renderIndexWithBootstrap() {
+  if (!INDEX_HTML_TEMPLATE) return null;
+
+  const bootstrap = {
+    homepage: buildPublicHomepagePayload(),
+    products: groupPublicProducts()
+  };
+
+  // Escape "<" so the JSON cannot accidentally break the script tag
+  const json = JSON.stringify(bootstrap).replace(/</g, "\\u003c");
+
+  const scriptTag =
+    `<script>` +
+    `window.__DARAH_BOOTSTRAP__ = ${json};` +
+    `</script>`;
+
+  let html = INDEX_HTML_TEMPLATE;
+  if (html.includes("</body>")) {
+    html = html.replace("</body>", scriptTag + "</body>");
+  } else {
+    html += scriptTag;
+  }
+
+  return html;
 }
 
 /* ------------------------------------------------------------------ */
@@ -709,13 +750,34 @@ app.get("/admin", (_req, res) => {
 });
 
 app.get("/", (_req, res) => {
-  if (INDEX_EXISTS) return sendHtmlWithNoCache(res, INDEX_HTML);
-  return res.status(404).send("index.html não encontrado");
+  if (!INDEX_EXISTS) {
+    return res.status(404).send("index.html não encontrado");
+  }
+
+  const html = renderIndexWithBootstrap();
+  if (!html) {
+    // Fallback if template could not be read for some reason
+    return sendHtmlWithNoCache(res, INDEX_HTML);
+  }
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  return res.send(html);
 });
 
 app.get("*", (_req, res) => {
-  if (INDEX_EXISTS) return sendHtmlWithNoCache(res, INDEX_HTML);
-  return res.status(404).send("Not Found");
+  if (!INDEX_EXISTS) {
+    return res.status(404).send("Not Found");
+  }
+
+  const html = renderIndexWithBootstrap();
+  if (!html) {
+    return sendHtmlWithNoCache(res, INDEX_HTML);
+  }
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  return res.send(html);
 });
 
 /* ------------------------------------------------------------------ */
