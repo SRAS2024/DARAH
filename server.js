@@ -28,7 +28,8 @@ const PORT = process.env.PORT || 5000;
 const MAX_HOMEPAGE_IMAGES = 12;
 const MAX_ABOUT_IMAGES = 4;
 const MAX_PRODUCT_IMAGES = 5;
-const MAX_IMAGE_URL_LENGTH = 2048; // safety limit for image URL strings
+// Allow reasonably sized compressed data URLs and normal URLs
+const MAX_IMAGE_URL_LENGTH = 350000;
 
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
@@ -213,9 +214,7 @@ function normalizeImageArray(arr, limit) {
       if (!s) return false;
       // Drop duplicates
       if (a.indexOf(s) !== idx) return false;
-      // Drop base64 and other data URLs
-      if (s.startsWith("data:")) return false;
-      // Drop unreasonably long strings to avoid huge payloads
+      // Allow data URLs but enforce a size limit so huge originals do not slip in
       if (s.length > MAX_IMAGE_URL_LENGTH) return false;
       return true;
     });
