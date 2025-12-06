@@ -11,6 +11,7 @@ const session = require("express-session");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const compression = require("compression");
 
 // Database persistence helpers
 const {
@@ -32,11 +33,9 @@ const MAX_PRODUCT_IMAGES = 5;
 /* Resolve client directory robustly                                   */
 /* ------------------------------------------------------------------ */
 function resolveClientDir() {
-  // 1) env override if you ever need it
   const fromEnv = process.env.STATIC_DIR;
   if (fromEnv && fs.existsSync(fromEnv)) return path.resolve(fromEnv);
 
-  // 2) common layouts
   const candidates = [
     path.resolve(__dirname, "..", "client"),
     path.resolve(__dirname, "client"),
@@ -46,7 +45,6 @@ function resolveClientDir() {
   for (const p of candidates) {
     if (fs.existsSync(path.join(p, "index.html"))) return p;
   }
-  // last resort, still return first candidate to avoid crash
   return candidates[0];
 }
 
@@ -54,11 +52,15 @@ const CLIENT_DIR = resolveClientDir();
 const INDEX_HTML = path.join(CLIENT_DIR, "index.html");
 const ADMIN_HTML = path.join(CLIENT_DIR, "admin.html");
 
+// Compute these once to avoid repeated sync filesystem checks on every request
+const INDEX_EXISTS = fs.existsSync(INDEX_HTML);
+const ADMIN_EXISTS = fs.existsSync(ADMIN_HTML);
+
 console.log("[DARAH] Serving static files from:", CLIENT_DIR);
-if (!fs.existsSync(INDEX_HTML)) {
+if (!INDEX_EXISTS) {
   console.warn("[DARAH] Warning: index.html not found at", INDEX_HTML);
 }
-if (!fs.existsSync(ADMIN_HTML)) {
+if (!ADMIN_EXISTS) {
   console.warn("[DARAH] Warning: admin.html not found at", ADMIN_HTML);
 }
 
@@ -71,6 +73,13 @@ app.set("trust proxy", 1);
 
 // Increase limit so multiple mobile photos do not break the request
 app.use(express.json({ limit: "50mb" }));
+
+// Enable gzip compression for JSON and other text responses
+app.use(
+  compression({
+    threshold: 1024
+  })
+);
 
 app.use(
   session({
@@ -115,7 +124,7 @@ const db = {
     theme: "default",
     aboutImages: []
   },
-  products: [] // sem produtos pré preenchidos
+  products: []
 };
 
 // Simple dedup guard for very fast double submits of the same product
@@ -124,6 +133,20 @@ let lastProductCreate = {
   at: 0,
   id: null
 };
+
+// Simple cache for grouped public products to avoid recomputing on every request
+let productsVersion = 0;
+let productsCache = {
+  version: 0,
+  data: null
+};
+
+function bumpProductsVersion() {
+  productsVersion += 1;
+  if (productsVersion > Number.MAX_SAFE_INTEGER - 1) {
+    productsVersion = 1;
+  }
+}
 
 function brl(n) {
   try {
@@ -147,6 +170,10 @@ function normalizeImageArray(arr) {
 }
 
 function groupPublicProducts() {
+  if (productsCache.data && productsCache.version === productsVersion) {
+    return productsCache.data;
+  }
+
   const out = {
     specials: [],
     sets: [],
@@ -163,7 +190,6 @@ function groupPublicProducts() {
       const imageUrls = normalizeImageArray(p.imageUrls || []);
       const imageUrl = p.imageUrl || imageUrls[0] || "";
 
-      // Clone so we can safely normalize for the public API
       const payload = {
         id: p.id,
         createdAt: p.createdAt,
@@ -175,7 +201,6 @@ function groupPublicProducts() {
         active: p.active !== false,
         imageUrl,
         imageUrls,
-        // alias used by some frontends
         images: imageUrls.slice(),
         originalPrice: p.originalPrice != null ? p.originalPrice : null,
         discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
@@ -184,6 +209,12 @@ function groupPublicProducts() {
       out[p.category].push(payload);
     }
   });
+
+  productsCache = {
+    version: productsVersion,
+    data: out
+  };
+
   return out;
 }
 
@@ -300,7 +331,6 @@ app.put("/api/homepage", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error("[homepage] Error persisting homepage to DB:", err);
-    // In memory state is already updated, but DB failed
     res.status(500).json({ error: "Erro ao salvar homepage." });
   }
 });
@@ -316,7 +346,6 @@ app.get("/api/admin/products", (_req, res) => {
       ...p,
       imageUrl,
       imageUrls,
-      // alias used by admin and storefront code for multi image carousels
       images: imageUrls.slice()
     };
   });
@@ -354,7 +383,6 @@ app.post("/api/products", async (req, res) => {
     return res.status(400).json({ error: "Categoria inválida." });
   }
 
-  // Accept either `imageUrls` or `images` from the client
   const rawImages = Array.isArray(imageUrls)
     ? imageUrls
     : Array.isArray(images)
@@ -362,7 +390,6 @@ app.post("/api/products", async (req, res) => {
     : [];
 
   const normalizedImages = normalizeImageArray(rawImages);
-
   const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
   const normalizedOriginalPrice =
@@ -387,7 +414,6 @@ app.post("/api/products", async (req, res) => {
     discountLabel: normalizedDiscountLabel
   };
 
-  // Guard against very fast duplicate submits of the exact same product data
   const fingerprint = JSON.stringify(normalizedPayload);
   const now = Date.now();
   if (
@@ -414,6 +440,8 @@ app.post("/api/products", async (req, res) => {
   };
 
   db.products.push(product);
+  bumpProductsVersion();
+
   lastProductCreate = {
     fingerprint,
     at: now,
@@ -433,7 +461,6 @@ app.put("/api/products/:id", async (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
 
-  // Normalize `images` to `imageUrls` so the existing logic works
   if (Array.isArray(req.body?.images) && !req.body.imageUrls) {
     req.body.imageUrls = req.body.images;
   }
@@ -498,6 +525,8 @@ app.put("/api/products/:id", async (req, res) => {
     product[k] = req.body[k];
   });
 
+  bumpProductsVersion();
+
   try {
     await persistProductUpsert(product);
     res.json({ ok: true });
@@ -513,6 +542,7 @@ app.delete("/api/products/:id", async (req, res) => {
 
   const productId = db.products[idx].id;
   db.products.splice(idx, 1);
+  bumpProductsVersion();
 
   try {
     await persistProductDelete(productId);
@@ -560,7 +590,9 @@ app.post("/api/cart/update", (req, res) => {
   if (!item) return res.status(404).json({ error: "Item não está no carrinho." });
 
   const q = Number(quantity);
-  if (Number.isNaN(q) || q < 0) return res.status(400).json({ error: "Quantidade inválida." });
+  if (Number.isNaN(q) || q < 0) {
+    return res.status(400).json({ error: "Quantidade inválida." });
+  }
 
   if (q === 0) {
     cart.items = cart.items.filter((it) => it.productId !== productId);
@@ -591,7 +623,7 @@ app.post("/api/checkout-link", (req, res) => {
   lines.push("");
   lines.push(`Total geral: ${brl(summary.total)}`);
 
-  const phone = "5565999883400"; // +55 65 99988-3400
+  const phone = "5565999883400";
   const text = encodeURIComponent(lines.join("\n"));
   res.json({ url: `https://wa.me/${phone}?text=${text}` });
 });
@@ -600,25 +632,23 @@ app.post("/api/checkout-link", (req, res) => {
 /* Client routes and fallback                                          */
 /* ------------------------------------------------------------------ */
 
-// Helper to avoid caching HTML shells in browser and proxies
 function sendHtmlWithNoCache(res, filePath) {
   res.setHeader("Cache-Control", "no-store");
   return res.sendFile(filePath);
 }
 
 app.get("/admin", (_req, res) => {
-  if (fs.existsSync(ADMIN_HTML)) return sendHtmlWithNoCache(res, ADMIN_HTML);
+  if (ADMIN_EXISTS) return sendHtmlWithNoCache(res, ADMIN_HTML);
   return res.redirect("/admin.html");
 });
 
 app.get("/", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return sendHtmlWithNoCache(res, INDEX_HTML);
+  if (INDEX_EXISTS) return sendHtmlWithNoCache(res, INDEX_HTML);
   return res.status(404).send("index.html não encontrado");
 });
 
-// Single page app fallback
 app.get("*", (_req, res) => {
-  if (fs.existsSync(INDEX_HTML)) return sendHtmlWithNoCache(res, INDEX_HTML);
+  if (INDEX_EXISTS) return sendHtmlWithNoCache(res, INDEX_HTML);
   return res.status(404).send("Not Found");
 });
 
