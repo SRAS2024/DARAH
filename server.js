@@ -72,6 +72,10 @@ if (INDEX_EXISTS) {
   }
 }
 
+// Cached HTML with bootstrap so we do not rebuild on every request
+let cachedIndexHtml = null;
+let cachedIndexVersionKey = "";
+
 console.log("[DARAH] Serving static files from:", CLIENT_DIR);
 if (!INDEX_EXISTS) {
   console.warn("[DARAH] Warning: index.html not found at", INDEX_HTML);
@@ -166,11 +170,19 @@ let productsCache = {
   data: null
 };
 
+// Version for homepage so we can cache index.html per content version
+let homepageVersion = 0;
+
 function bumpProductsVersion() {
   productsVersion += 1;
   if (productsVersion > Number.MAX_SAFE_INTEGER - 1) {
     productsVersion = 1;
   }
+  // Invalidate grouped products cache so it will rebuild on next request
+  productsCache = {
+    version: 0,
+    data: null
+  };
 }
 
 // Prebuilt BRL formatter for slightly faster repeated formatting
@@ -377,9 +389,18 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
  * Renders index.html with a bootstrap script that contains homepage data
  * and initial products so the client can render immediately without
  * waiting for the first /api/products fetch.
+ *
+ * Result is cached per homepageVersion and productsVersion so repeated
+ * hits are effectively just a send().
  */
 function renderIndexWithBootstrap() {
   if (!INDEX_HTML_TEMPLATE) return null;
+
+  const versionKey = `${homepageVersion}:${productsVersion}`;
+
+  if (cachedIndexHtml && cachedIndexVersionKey === versionKey) {
+    return cachedIndexHtml;
+  }
 
   const bootstrap = {
     homepage: buildPublicHomepagePayload(),
@@ -387,7 +408,6 @@ function renderIndexWithBootstrap() {
     productsVersion
   };
 
-  // Escape "<" so the JSON cannot accidentally break the script tag
   const json = JSON.stringify(bootstrap).replace(/</g, "\\u003c");
 
   const scriptTag =
@@ -402,6 +422,8 @@ function renderIndexWithBootstrap() {
     html += scriptTag;
   }
 
+  cachedIndexHtml = html;
+  cachedIndexVersionKey = versionKey;
   return html;
 }
 
@@ -409,7 +431,7 @@ function renderIndexWithBootstrap() {
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
 
-// health check to verify container quickly
+// Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Homepage
@@ -455,6 +477,11 @@ app.put("/api/homepage", async (req, res) => {
     const trimmed = theme.trim();
     db.homepage.theme = trimmed || "default";
   }
+
+  // Bump homepage version and invalidate cached HTML so new content appears
+  homepageVersion += 1;
+  cachedIndexHtml = null;
+  cachedIndexVersionKey = "";
 
   try {
     await persistHomepage(db.homepage);
@@ -579,6 +606,8 @@ app.post("/api/products", async (req, res) => {
 
   db.products.push(product);
   bumpProductsVersion();
+  cachedIndexHtml = null;
+  cachedIndexVersionKey = "";
 
   lastProductCreate = {
     fingerprint,
@@ -664,6 +693,8 @@ app.put("/api/products/:id", async (req, res) => {
   });
 
   bumpProductsVersion();
+  cachedIndexHtml = null;
+  cachedIndexVersionKey = "";
 
   try {
     await persistProductUpsert(product);
@@ -681,6 +712,8 @@ app.delete("/api/products/:id", async (req, res) => {
   const productId = db.products[idx].id;
   db.products.splice(idx, 1);
   bumpProductsVersion();
+  cachedIndexHtml = null;
+  cachedIndexVersionKey = "";
 
   try {
     await persistProductDelete(productId);
@@ -832,6 +865,13 @@ app.listen(PORT, () => {
 (async () => {
   try {
     await initDatabase(db);
+
+    // After DB hydration, bump versions so next HTML render uses fresh data
+    homepageVersion += 1;
+    bumpProductsVersion();
+    cachedIndexHtml = null;
+    cachedIndexVersionKey = "";
+
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
   } catch (err) {
     console.error(
