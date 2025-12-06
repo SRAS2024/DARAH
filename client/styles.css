@@ -22,6 +22,10 @@
 
   /* Dourado para o logotipo DARAH no Natal e Páscoa */
   --brand-gold: #ffd700;
+
+  /* Leve base para placeholders visuais */
+  --skeleton-base: #dde3d9;
+  --skeleton-soft: #f3f6f1;
 }
 
 /* Tema de Natal vermelho e dourado */
@@ -87,6 +91,12 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Imagens padrão */
+img {
+  display: block;
+  max-width: 100%;
 }
 
 /* Admin login só mostra o cartão de login, sem as abas */
@@ -296,10 +306,13 @@ body.is-admin-login .main-nav {
 
 .view {
   display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
 }
 
 .view.active-view {
   display: block;
+  opacity: 1;
 }
 
 /* Hero section */
@@ -321,10 +334,11 @@ body.is-admin-login .main-nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
-  background: #e0e0e0;
+  background: var(--skeleton-soft);
   border-radius: 20px;
   padding: 14px;
   box-shadow: var(--shadow-soft);
+  min-height: 180px;
 }
 
 /* Imagens da hero na vitrine e no admin */
@@ -346,6 +360,7 @@ body.is-admin-login .main-nav {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 150px;
 }
 
 .hero-title {
@@ -397,7 +412,7 @@ body.is-admin-login .main-nav {
   margin-top: 10px;
 }
 
-/* Updated so text and collage stack in one column on desktop too */
+/* Updated so text and collage stack in one column on desktop também */
 .about-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -410,6 +425,7 @@ body.is-admin-login .main-nav {
   border-radius: 18px;
   padding: 18px 20px;
   box-shadow: var(--shadow-soft);
+  min-height: 160px;
 }
 
 .about-text {
@@ -428,6 +444,7 @@ body.is-admin-login .main-nav {
   padding: 12px;
   border-radius: 18px;
   box-shadow: var(--shadow-soft);
+  min-height: 120px;
 }
 
 .about-collage img {
@@ -453,6 +470,7 @@ body.is-admin-login .main-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
+  min-height: 120px;
 }
 
 .product-card {
@@ -465,7 +483,7 @@ body.is-admin-login .main-nav {
   border: 1px solid rgba(0, 0, 0, 0.02);
 }
 
-/* Wrapper for product images with carousel */
+/* Wrapper para imagens de produto com carrossel */
 .product-image-wrapper {
   position: relative;
   width: 100%;
@@ -474,7 +492,7 @@ body.is-admin-login .main-nav {
   overflow: hidden;
 }
 
-/* Legacy single image support: only direct child img */
+/* Legacy single image support: somente child img direto */
 .product-image-wrapper > img {
   position: absolute;
   inset: 0;
@@ -483,7 +501,7 @@ body.is-admin-login .main-nav {
   object-fit: cover;
 }
 
-/* Carousel viewport and track fill the wrapper */
+/* Carousel viewport e trilha ocupam a wrapper */
 .product-image-viewport {
   position: absolute;
   inset: 0;
@@ -497,6 +515,7 @@ body.is-admin-login .main-nav {
   width: 100%;
   height: 100%;
   transition: transform 0.35s ease;
+  will-change: transform;
 }
 
 .product-image-track img {
@@ -508,8 +527,7 @@ body.is-admin-login .main-nav {
 
 /* Carousel controls */
 
-/* Default arrow and indicator positioning, used for admin carousel
-   and any layout without the .product-carousel-controls wrapper */
+/* Default arrow e indicador absolutos, usados no admin e layouts sem barra central */
 .product-carousel-arrow {
   position: absolute;
   bottom: 10px;
@@ -557,7 +575,7 @@ body.is-admin-login .main-nav {
   z-index: 2;
 }
 
-/* Centered control bar used on the storefront carousel */
+/* Barra central usada no carrossel da vitrine */
 .product-carousel-controls {
   position: absolute;
   bottom: 8px;
@@ -573,7 +591,7 @@ body.is-admin-login .main-nav {
   z-index: 2;
 }
 
-/* Inside the bar, arrows are inline and not absolutely positioned */
+/* Dentro da barra, setas ficam inline e não absolutas */
 .product-carousel-controls .product-carousel-arrow {
   position: static;
   bottom: auto;
@@ -629,7 +647,7 @@ body.is-admin-login .main-nav {
   margin-top: auto;
 }
 
-/* Price block for offers and standard products */
+/* Price block para ofertas e produtos padrão */
 
 .product-price-block {
   display: inline-flex;
@@ -643,14 +661,14 @@ body.is-admin-login .main-nav {
   font-size: 15px;
 }
 
-/* Old price on specials tab */
+/* Old price na aba de ofertas */
 .product-price-original {
   font-size: 13px;
   text-decoration: line-through;
   color: rgba(0, 0, 0, 0.45);
 }
 
-/* Current price highlight on specials */
+/* Current price highlight em ofertas */
 .product-price-current {
   font-weight: 600;
   font-size: 15px;
@@ -698,7 +716,7 @@ body.is-admin-login .main-nav {
   box-shadow: none;
 }
 
-/* Admin product grid (mirrors storefront cards) */
+/* Admin product grid (espelha cards da vitrine) */
 
 .admin-product-grid {
   margin-top: 18px;
