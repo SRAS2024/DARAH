@@ -63,6 +63,41 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function normalizeImageList(input, max) {
+    if (!Array.isArray(input)) return [];
+    const cleaned = input
+      .map((s) => String(s || "").trim())
+      .filter((s, index, arr) => s.length && arr.indexOf(s) === index);
+    if (typeof max === "number" && max > 0) {
+      return cleaned.slice(0, max);
+    }
+    return cleaned;
+  }
+
+  function normalizeProductImages(product) {
+    if (!product || typeof product !== "object") {
+      return [];
+    }
+
+    const primary =
+      typeof product.imageUrl === "string" ? product.imageUrl.trim() : "";
+
+    const fromImages = Array.isArray(product.images) ? product.images : [];
+    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+
+    const merged = [...fromImages, ...fromImageUrls];
+
+    const cleaned = merged
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+
+    if (primary && !cleaned.includes(primary)) {
+      cleaned.unshift(primary);
+    }
+
+    return normalizeImageList(cleaned, MAX_PRODUCT_IMAGES);
+  }
+
   // Generic theme variants (supports more than only "natal")
   function applyThemeVariant(theme) {
     const variant = (theme && String(theme).trim()) || "default";
@@ -136,11 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!heroImagesEl) return;
     heroImagesEl.innerHTML = "";
 
-    const imgs = Array.isArray(srcs)
-      ? srcs
-          .map((s) => String(s || "").trim())
-          .filter((s) => s.length)
-      : [];
+    const imgs = normalizeImageList(srcs, MAX_HOMEPAGE_IMAGES);
 
     if (!imgs.length) {
       heroImagesEl.style.display = "none";
@@ -151,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
     heroImagesEl.style.display = "grid";
     if (heroEl) heroEl.classList.remove("hero-no-images");
 
-    imgs.slice(0, MAX_HOMEPAGE_IMAGES).forEach((src) => {
+    imgs.forEach((src) => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Joia DARAH";
@@ -165,11 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!aboutCollageEl) return;
     aboutCollageEl.innerHTML = "";
 
-    const imgs = Array.isArray(srcs)
-      ? srcs
-          .map((s) => String(s || "").trim())
-          .filter((s) => s.length)
-      : [];
+    const imgs = normalizeImageList(srcs, MAX_ABOUT_IMAGES);
 
     if (!imgs.length) {
       aboutCollageEl.style.display = "none";
@@ -178,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     aboutCollageEl.style.display = "grid";
 
-    imgs.slice(0, MAX_ABOUT_IMAGES).forEach((src) => {
+    imgs.forEach((src) => {
       const img = document.createElement("img");
       img.src = src;
       img.alt = "Sobre a DARAH";
@@ -237,12 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Product image carousel
   // =========================
   function setupImageCarousel(imageWrapper, images) {
-    const cleanImages = Array.isArray(images)
-      ? images
-          .map((u) => String(u || "").trim())
-          .filter((u, index, arr) => u.length && arr.indexOf(u) === index)
-          .slice(0, MAX_PRODUCT_IMAGES)
-      : [];
+    const cleanImages = normalizeImageList(images, MAX_PRODUCT_IMAGES);
 
     if (!cleanImages.length) {
       return;
@@ -404,14 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const imageWrapper = document.createElement("div");
       imageWrapper.className = "product-image-wrapper";
 
-      // Build image list for carousel, limited to MAX_PRODUCT_IMAGES
-      let images = [];
-      if (Array.isArray(product.images) && product.images.length) {
-        images = product.images;
-      } else if (product.imageUrl) {
-        images = [product.imageUrl];
-      }
-
+      const images = normalizeProductImages(product);
       if (images.length) {
         setupImageCarousel(imageWrapper, images);
       }
@@ -524,8 +539,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (name.includes("colar") || name.includes("gargantilha")) return "necklaces";
     if (name.includes("pulseira") || name.includes("bracelete")) return "bracelets";
     if (name.includes("brinco")) return "earrings";
-    if (name.includes("conjunto") || name.includes("combo") || name.includes("kit"))
+    if (name.includes("conjunto") || name.includes("combo") || name.includes("kit")) {
       return "sets";
+    }
 
     // Fallback: no clear base category
     return "";
