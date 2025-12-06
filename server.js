@@ -719,9 +719,18 @@ app.get("*", (_req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Startup: hydrate from DB then listen                                */
+/* Startup: listen immediately, hydrate from DB in the background      */
 /* ------------------------------------------------------------------ */
-async function start() {
+
+// Start the HTTP server right away so the first request is not blocked
+// by Postgres connection or schema checks.
+app.listen(PORT, () => {
+  console.log(`DARAH API rodando na porta ${PORT}`);
+});
+
+// Then hydrate the in memory cache from Postgres in the background.
+// If this fails, the app keeps working with the in memory store only.
+(async () => {
   try {
     await initDatabase(db);
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
@@ -731,10 +740,4 @@ async function start() {
       err
     );
   }
-
-  app.listen(PORT, () => {
-    console.log(`DARAH API rodando na porta ${PORT}`);
-  });
-}
-
-start();
+})();
