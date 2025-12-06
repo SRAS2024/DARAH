@@ -58,7 +58,7 @@ const ADMIN_EXISTS = fs.existsSync(ADMIN_HTML);
 
 // Read index.html once into memory so we can inject bootstrap data quickly
 let INDEX_HTML_TEMPLATE = null;
-if (INDEX_EXISTS) {
+if ( INDEX_EXISTS ) {
   try {
     INDEX_HTML_TEMPLATE = fs.readFileSync(INDEX_HTML, "utf8");
   } catch (err) {
@@ -114,8 +114,6 @@ app.use("/api", (_req, res, next) => {
 });
 
 // Static client assets with strong caching for CSS, JS, images.
-// HTML is still no store when served via explicit routes below.
-// If someone directly hits /index.html, it will not be aggressively cached.
 app.use(
   express.static(CLIENT_DIR, {
     fallthrough: true,
@@ -227,30 +225,31 @@ function groupPublicProducts() {
   };
 
   db.products.forEach((p) => {
-    if (p.active !== false && typeof p.stock === "number" && p.stock > 0) {
-      if (!out[p.category]) return;
+    if (!p || p.active === false) return;
+    if (typeof p.stock !== "number" || p.stock <= 0) return;
 
-      const imageUrls = normalizeImageArray(p.imageUrls || []);
-      const imageUrl = p.imageUrl || imageUrls[0] || "";
+    if (!out[p.category]) return;
 
-      const payload = {
-        id: p.id,
-        createdAt: p.createdAt,
-        category: p.category,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        stock: p.stock,
-        active: p.active !== false,
-        imageUrl,
-        imageUrls,
-        images: imageUrls.slice(),
-        originalPrice: p.originalPrice != null ? p.originalPrice : null,
-        discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
-      };
+    const imageUrls = normalizeImageArray(p.imageUrls || []);
+    const imageUrl = p.imageUrl || imageUrls[0] || "";
 
-      out[p.category].push(payload);
-    }
+    const payload = {
+      id: p.id,
+      createdAt: p.createdAt,
+      category: p.category,
+      name: p.name,
+      description: p.description,
+      price: Number(p.price || 0),
+      stock: p.stock,
+      active: p.active !== false,
+      imageUrl,
+      imageUrls,
+      images: imageUrls.slice(),
+      originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+      discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
+    };
+
+    out[p.category].push(payload);
   });
 
   productsCache = {
@@ -262,6 +261,10 @@ function groupPublicProducts() {
 }
 
 function summarizeCart(cart) {
+  if (!cart || !Array.isArray(cart.items)) {
+    return { items: [], subtotal: 0, taxes: 0, total: 0 };
+  }
+
   const items = cart.items
     .map((it) => {
       const product = db.products.find((p) => p.id === it.productId);
@@ -269,14 +272,19 @@ function summarizeCart(cart) {
 
       const rawQuantity = Number(it.quantity || 0);
       const maxStock =
-        typeof product.stock === "number" && product.stock > 0 ? product.stock : Infinity;
+        typeof product.stock === "number" && product.stock > 0
+          ? product.stock
+          : 0;
       const quantity = Math.max(0, Math.min(rawQuantity, maxStock));
+      if (!quantity) return null;
 
-      const lineTotal = quantity * Number(product.price || 0);
+      const price = Number(product.price || 0);
+      const lineTotal = quantity * price;
+
       return {
         id: product.id,
         name: product.name,
-        price: Number(product.price || 0),
+        price,
         quantity,
         lineTotal,
         imageUrl: product.imageUrl || ""
@@ -337,12 +345,14 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
   const hash = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
   const etag = `"${cacheKey}-${hash}"`;
 
-  // Short public cache plus stale while revalidate style behavior
-  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=60, stale-while-revalidate=300"
+  );
   res.setHeader("ETag", etag);
 
   const ifNoneMatch = req.headers["if-none-match"];
-  if (ifNoneMatch && ifNoneMatch === etag) {
+  if (ifNoneMatch && ifNoneMatch.split(",").map((v) => v.trim()).includes(etag)) {
     return res.status(304).end();
   }
 
@@ -394,7 +404,8 @@ app.get("/api/homepage", (req, res) => {
 });
 
 app.put("/api/homepage", async (req, res) => {
-  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } = req.body || {};
+  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } =
+    req.body || {};
 
   if (typeof aboutText === "string") {
     db.homepage.aboutText = aboutText;
@@ -474,7 +485,9 @@ app.post("/api/products", async (req, res) => {
   } = req.body || {};
 
   if (!name || typeof price !== "number" || typeof stock !== "number") {
-    return res.status(400).json({ error: "Preencha pelo menos nome, preço e estoque." });
+    return res
+      .status(400)
+      .json({ error: "Preencha pelo menos nome, preço e estoque." });
   }
 
   const allowedCategories = [
@@ -661,7 +674,9 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 // Cart
-app.get("/api/cart", (req, res) => res.json(summarizeCart(ensureSessionCart(req))));
+app.get("/api/cart", (req, res) =>
+  res.json(summarizeCart(ensureSessionCart(req)))
+);
 
 app.post("/api/cart/add", (req, res) => {
   const { productId } = req.body || {};
@@ -677,7 +692,9 @@ app.post("/api/cart/add", (req, res) => {
   if (item) {
     const next = item.quantity + 1;
     if (next > product.stock) {
-      return res.status(400).json({ error: "Quantidade além do estoque disponível." });
+      return res
+        .status(400)
+        .json({ error: "Quantidade além do estoque disponível." });
     }
     item.quantity = next;
   } else {
@@ -723,7 +740,9 @@ app.post("/api/checkout-link", (req, res) => {
 
   summary.items.forEach((it, i) => {
     lines.push(
-      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`
+      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(
+        it.lineTotal
+      )}`
     );
   });
 
