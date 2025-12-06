@@ -375,14 +375,16 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
 
 /**
  * Renders index.html with a bootstrap script that contains homepage data
- * so the client can render immediately without an initial homepage fetch.
- * Products are loaded via /api/products.
+ * and initial products so the client can render immediately without
+ * waiting for the first /api/products fetch.
  */
 function renderIndexWithBootstrap() {
   if (!INDEX_HTML_TEMPLATE) return null;
 
   const bootstrap = {
-    homepage: buildPublicHomepagePayload()
+    homepage: buildPublicHomepagePayload(),
+    products: groupPublicProducts(),
+    productsVersion
   };
 
   // Escape "<" so the JSON cannot accidentally break the script tag
