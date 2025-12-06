@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Client side cache keys
   const HOMEPAGE_CACHE_KEY = "darah-homepage-v1";
+  const PRODUCTS_CACHE_KEY = "darah-products-v1";
 
   // Navigation and common UI
   const navLinks = Array.from(document.querySelectorAll(".nav-link"));
@@ -257,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
     homepageLoadedOnce = true;
   }
 
-  // Try to hydrate from localStorage before hitting the network
+  // Try to hydrate homepage from localStorage before hitting the network
   function primeHomepageFromCache() {
     try {
       if (!window.localStorage) return;
@@ -582,68 +583,111 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
-  async function loadProducts() {
+  // Render grouped product payload into all category grids
+  function renderGroupedProducts(grouped) {
+    if (!grouped || typeof grouped !== "object") {
+      // If something goes wrong, just clear the grids
+      renderProductList("specialsList", [], "specials");
+      renderProductList("setsList", [], "sets");
+      renderProductList("ringsList", [], "rings");
+      renderProductList("necklacesList", [], "necklaces");
+      renderProductList("braceletsList", [], "bracelets");
+      renderProductList("earringsList", [], "earrings");
+      return;
+    }
+
+    const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
+    const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
+
+    let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
+    let necklaces = Array.isArray(grouped.necklaces)
+      ? grouped.necklaces.slice()
+      : [];
+    let bracelets = Array.isArray(grouped.bracelets)
+      ? grouped.bracelets.slice()
+      : [];
+    let earrings = Array.isArray(grouped.earrings)
+      ? grouped.earrings.slice()
+      : [];
+
+    function addUniqueById(target, product) {
+      if (!product || product.id == null) return;
+      if (target.some((p) => p && p.id === product.id)) return;
+      target.push(product);
+    }
+
+    // Any product that appears in "specials" is also added to its base category
+    specials.forEach((product) => {
+      const cat = inferBaseCategory(product);
+
+      switch (cat) {
+        case "rings":
+          addUniqueById(rings, product);
+          break;
+        case "necklaces":
+          addUniqueById(necklaces, product);
+          break;
+        case "bracelets":
+          addUniqueById(bracelets, product);
+          break;
+        case "earrings":
+          addUniqueById(earrings, product);
+          break;
+        case "sets":
+          addUniqueById(sets, product);
+          break;
+        default:
+          break;
+      }
+    });
+
+    // New categories
+    renderProductList("specialsList", specials, "specials");
+    renderProductList("setsList", sets, "sets");
+
+    // Existing categories, enriched by specials
+    renderProductList("ringsList", rings, "rings");
+    renderProductList("necklacesList", necklaces, "necklaces");
+    renderProductList("braceletsList", bracelets, "bracelets");
+    renderProductList("earringsList", earrings, "earrings");
+  }
+
+  // Try to hydrate products from localStorage before hitting the network
+  function primeProductsFromCache() {
     try {
-      const res = await fetch("/api/products");
+      if (!window.localStorage) return;
+      const raw = window.localStorage.getItem(PRODUCTS_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      renderGroupedProducts(cached);
+    } catch (err) {
+      console.warn("Falha ao carregar produtos do cache local:", err);
+    }
+  }
+
+  async function loadProducts(options) {
+    const force = options && options.force;
+
+    try {
+      const res = await fetch("/api/products", {
+        cache: force ? "reload" : "default"
+      });
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       const grouped = await res.json();
 
-      const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
-      const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
+      renderGroupedProducts(grouped);
 
-      let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
-      let necklaces = Array.isArray(grouped.necklaces)
-        ? grouped.necklaces.slice()
-        : [];
-      let bracelets = Array.isArray(grouped.bracelets)
-        ? grouped.bracelets.slice()
-        : [];
-      let earrings = Array.isArray(grouped.earrings)
-        ? grouped.earrings.slice()
-        : [];
-
-      function addUniqueById(target, product) {
-        if (!product || product.id == null) return;
-        if (target.some((p) => p && p.id === product.id)) return;
-        target.push(product);
-      }
-
-      // Any product that appears in "specials" is also added to its base category
-      specials.forEach((product) => {
-        const cat = inferBaseCategory(product);
-
-        switch (cat) {
-          case "rings":
-            addUniqueById(rings, product);
-            break;
-          case "necklaces":
-            addUniqueById(necklaces, product);
-            break;
-          case "bracelets":
-            addUniqueById(bracelets, product);
-            break;
-          case "earrings":
-            addUniqueById(earrings, product);
-            break;
-          case "sets":
-            addUniqueById(sets, product);
-            break;
-          default:
-            break;
+      // Persist into localStorage for instant future reloads
+      try {
+        if (window.localStorage) {
+          window.localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(grouped));
         }
-      });
-
-      // New categories
-      renderProductList("specialsList", specials, "specials");
-      renderProductList("setsList", sets, "sets");
-
-      // Existing categories, already enriched by specials
-      renderProductList("ringsList", rings, "rings");
-      renderProductList("necklacesList", necklaces, "necklaces");
-      renderProductList("braceletsList", bracelets, "bracelets");
-      renderProductList("earringsList", earrings, "earrings");
+      } catch {
+        // ignore storage errors
+      }
     } catch (err) {
       console.error(err);
+      // If network fails, do not clear what may be on screen now
     }
   }
 
@@ -945,10 +989,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // First, try to paint instantly from local cache
   primeHomepageFromCache();
+  primeProductsFromCache();
 
   // Then wire up the app
   setActiveView("home");
   loadHomepage();     // fresh homepage from API, will also refresh cache
-  loadProducts();     // products still come from network
+  loadProducts();     // fresh products from API, will also refresh cache
   refreshCartCount(); // cart count
 });
