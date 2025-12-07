@@ -50,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Lightweight client side state
   let homepageLoadedOnce = false;
-  let productsLoadedOnce = false;
   let cartLoading = false;
 
   // =========================
@@ -156,9 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!siteNoticesEl || !siteNoticesListEl) return;
 
     siteNoticesListEl.innerHTML = "";
-    const list = Array.isArray(notices)
-      ? notices.filter((n) => n && n.trim().length)
-      : [];
+    const list = Array.isArray(notices) ? notices.filter((n) => n && n.trim().length) : [];
     if (!list.length) {
       siteNoticesEl.style.display = "none";
       return;
@@ -276,10 +273,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadHomepage(options) {
     const force = options && options.force;
-    const attempt = options && typeof options.attempt === "number"
-      ? options.attempt
-      : 1;
-
     if (homepageLoadedOnce && !force) return;
 
     try {
@@ -296,18 +289,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } catch {
         // Ignore storage errors
-      }
-
-      // If there are still no images, it may mean the database was not ready yet.
-      const noHeroImages =
-        !Array.isArray(hp.heroImages) || hp.heroImages.length === 0;
-      const noAboutImages =
-        !Array.isArray(hp.aboutImages) || hp.aboutImages.length === 0;
-
-      if (noHeroImages && noAboutImages && attempt < 5) {
-        setTimeout(() => {
-          loadHomepage({ force: true, attempt: attempt + 1 });
-        }, 3000);
       }
     } catch (err) {
       console.error(err);
@@ -669,8 +650,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderProductList("necklacesList", necklaces, "necklaces");
     renderProductList("braceletsList", bracelets, "bracelets");
     renderProductList("earringsList", earrings, "earrings");
-
-    productsLoadedOnce = true;
   }
 
   // Try to hydrate products from localStorage before hitting the network
@@ -688,11 +667,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadProducts(options) {
     const force = options && options.force;
-    const attempt = options && typeof options.attempt === "number"
-      ? options.attempt
-      : 1;
-
-    if (productsLoadedOnce && !force) return;
 
     try {
       const res = await fetch("/api/products", {
@@ -706,24 +680,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Persist into localStorage for instant future reloads
       try {
         if (window.localStorage) {
-          window.localStorage.setItem(
-            PRODUCTS_CACHE_KEY,
-            JSON.stringify(grouped)
-          );
+          window.localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(grouped));
         }
       } catch {
         // ignore storage errors
-      }
-
-      // If there are still no products in any category, retry a few times.
-      const hasAnyProduct = Object.values(grouped).some(
-        (value) => Array.isArray(value) && value.length > 0
-      );
-
-      if (!hasAnyProduct && attempt < 5) {
-        setTimeout(() => {
-          loadProducts({ force: true, attempt: attempt + 1 });
-        }, 3000);
       }
     } catch (err) {
       console.error(err);
