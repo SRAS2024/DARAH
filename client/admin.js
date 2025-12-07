@@ -14,23 +14,26 @@ document.addEventListener("DOMContentLoaded", () => {
     typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
   // =========================
-  // Admin users and login
+  // Admin users, login and welcome
   // =========================
   const ADMIN_USERS = [
     {
       username: "Maria Eduarda",
       password: "Maria123@",
-      displayName: "Maria Eduarda"
+      displayName: "Maria Eduarda",
+      gender: "f"
     },
     {
       username: "Danielle Almeida",
       password: "Dani123@",
-      displayName: "Danielle Almeida"
+      displayName: "Danielle Almeida",
+      gender: "f"
     },
     {
       username: "Ryan Simonds",
       password: "Minhalinda",
-      displayName: "Ryan Simonds"
+      displayName: "Ryan",
+      gender: "m"
     }
   ];
 
@@ -41,68 +44,144 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  const loginForm = document.getElementById("adminLoginForm");
-  const usernameInput = document.getElementById("adminUsername");
-  const passwordInput = document.getElementById("adminPassword");
-  const loginErrorEl = document.getElementById("adminLoginError");
-  const welcomeModal = document.getElementById("welcomeModal");
-  const welcomeModalText = document.getElementById("welcomeModalText");
+  const adminLoginSection = document.getElementById("adminLoginSection");
+  const adminLoadingSection = document.getElementById("adminLoadingSection");
+  const adminPanelSection = document.getElementById("adminPanelSection");
+
+  const adminLoginButton = document.getElementById("adminLoginButton");
+  const adminUsernameInput = document.getElementById("adminUsername");
+  const adminPasswordInput = document.getElementById("adminPassword");
+  const adminLoginError = document.getElementById("adminLoginError");
+  const adminWelcomeMessage = document.getElementById("adminWelcomeMessage");
+
+  const adminUserNameLabel = document.getElementById("adminUserNameLabel");
+  const adminLogoutButton = document.getElementById("adminLogoutButton");
+
+  const adminThemeSelect = document.getElementById("adminThemeSelect");
+
+  let currentAdminUser = null;
 
   function showLoginError(message) {
-    if (!loginErrorEl) return;
-    loginErrorEl.textContent = message || "Usuário ou senha inválidos.";
-    loginErrorEl.style.display = "block";
+    if (!adminLoginError) return;
+    adminLoginError.textContent = message || "Usuário ou senha inválidos.";
+    adminLoginError.classList.add("error");
+    adminLoginError.style.display = "block";
   }
 
   function clearLoginError() {
-    if (!loginErrorEl) return;
-    loginErrorEl.textContent = "";
-    loginErrorEl.style.display = "none";
+    if (!adminLoginError) return;
+    adminLoginError.textContent = "";
+    adminLoginError.style.display = "none";
   }
 
-  function showWelcomeModal(user) {
-    if (!welcomeModal || !welcomeModalText) return;
+  function setLoggedInUserLabel(user) {
+    if (!adminUserNameLabel) return;
+    if (!user) {
+      adminUserNameLabel.textContent = "";
+      return;
+    }
+    adminUserNameLabel.textContent = user.displayName;
+  }
 
-    if (user.displayName === "Ryan Simonds" || user.username === "Ryan Simonds") {
-      // Special text for you
-      welcomeModalText.textContent = "Bem vindo, Ryan!";
-    } else {
-      // Generic welcome in Portuguese
-      const feminineNames = ["Maria Eduarda", "Danielle Almeida"];
-      if (feminineNames.includes(user.displayName)) {
-        welcomeModalText.textContent = "Bem vinda, " + user.displayName + "!";
-      } else {
-        welcomeModalText.textContent = "Bem vindo, " + user.displayName + "!";
-      }
+  function setWelcomeMessageForUser(user) {
+    if (!adminWelcomeMessage || !user) return;
+
+    if (user.displayName === "Ryan" || user.username === "Ryan Simonds") {
+      adminWelcomeMessage.textContent = "Bem-vindo, Ryan!";
+      return;
     }
 
-    welcomeModal.classList.add("is-open");
+    if (user.gender === "f") {
+      adminWelcomeMessage.textContent = "Bem-vinda, " + user.displayName + "!";
+    } else {
+      adminWelcomeMessage.textContent = "Bem-vindo, " + user.displayName + "!";
+    }
   }
 
-  function handleSuccessfulLogin(user) {
-    // Mark admin UI as unlocked
-    document.body.classList.add("admin-logged-in");
-    // You can also hide the login card here if you want, for example:
-    // const loginCard = document.getElementById("adminLoginCard");
-    // if (loginCard) loginCard.style.display = "none";
+  function showAdminLoading(user) {
+    if (adminLoginSection) {
+      adminLoginSection.style.display = "none";
+    }
+    if (adminPanelSection) {
+      adminPanelSection.style.display = "none";
+    }
+    if (adminLoadingSection) {
+      adminLoadingSection.style.display = "flex";
+      setWelcomeMessageForUser(user);
+    }
+    setLoggedInUserLabel(user);
 
-    showWelcomeModal(user);
-  }
-
-  if (loginForm && usernameInput && passwordInput) {
-    loginForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
-
-      const user = findAdminUser(username, password);
-      if (!user) {
-        showLoginError("Usuário ou senha inválidos.");
-        return;
+    setTimeout(() => {
+      if (adminLoadingSection) {
+        adminLoadingSection.style.display = "none";
       }
+      if (adminPanelSection) {
+        adminPanelSection.style.display = "block";
+      }
+    }, 4000);
+  }
 
-      clearLoginError();
-      handleSuccessfulLogin(user);
+  function resetAdminToLoggedOut() {
+    currentAdminUser = null;
+    if (adminPanelSection) {
+      adminPanelSection.style.display = "none";
+    }
+    if (adminLoadingSection) {
+      adminLoadingSection.style.display = "none";
+    }
+    if (adminLoginSection) {
+      adminLoginSection.style.display = "block";
+    }
+    if (adminUserNameLabel) {
+      adminUserNameLabel.textContent = "";
+    }
+    if (adminUsernameInput) {
+      adminUsernameInput.value = "";
+    }
+    if (adminPasswordInput) {
+      adminPasswordInput.value = "";
+    }
+    clearLoginError();
+  }
+
+  function handleAdminLogin() {
+    if (!adminUsernameInput || !adminPasswordInput) return;
+
+    const username = adminUsernameInput.value.trim();
+    const password = adminPasswordInput.value;
+
+    const user = findAdminUser(username, password);
+    if (!user) {
+      showLoginError("Usuário ou senha inválidos.");
+      return;
+    }
+
+    clearLoginError();
+    currentAdminUser = user;
+    showAdminLoading(user);
+  }
+
+  if (adminLoginButton && adminUsernameInput && adminPasswordInput) {
+    adminLoginButton.addEventListener("click", handleAdminLogin);
+
+    adminPasswordInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleAdminLogin();
+      }
+    });
+
+    adminUsernameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleAdminLogin();
+      }
+    });
+  }
+
+  if (adminLogoutButton) {
+    adminLogoutButton.addEventListener("click", () => {
+      resetAdminToLoggedOut();
     });
   }
 
@@ -205,6 +284,16 @@ document.addEventListener("DOMContentLoaded", () => {
       rootEl.setAttribute("data-theme-variant", variant);
       rootEl.dataset.themeVariant = variant;
     }
+    if (adminThemeSelect) {
+      adminThemeSelect.value = variant;
+    }
+  }
+
+  if (adminThemeSelect) {
+    adminThemeSelect.addEventListener("change", () => {
+      const newVariant = adminThemeSelect.value || "default";
+      applyThemeVariant(newVariant);
+    });
   }
 
   function setActiveView(key) {
@@ -251,7 +340,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!siteNoticesEl || !siteNoticesListEl) return;
 
     siteNoticesListEl.innerHTML = "";
-    const list = Array.isArray(notices) ? notices.filter((n) => n && n.trim().length) : [];
+    const list = Array.isArray(notices)
+      ? notices.filter((n) => n && n.trim().length)
+      : [];
     if (!list.length) {
       siteNoticesEl.style.display = "none";
       return;
