@@ -24,9 +24,6 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Hardening: do not send X-Powered-By header
-app.disable("x-powered-by");
-
 // Limits
 const MAX_HOMEPAGE_IMAGES = 12;
 const MAX_ABOUT_IMAGES = 4;
@@ -874,10 +871,6 @@ app.listen(PORT, () => {
     bumpProductsVersion();
     cachedIndexHtml = null;
     cachedIndexVersionKey = "";
-
-    // Warm the cached HTML once so the first real user request
-    // can reuse the prebuilt version instead of building it on demand.
-    renderIndexWithBootstrap();
 
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
   } catch (err) {
