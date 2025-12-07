@@ -13,6 +13,99 @@ document.addEventListener("DOMContentLoaded", () => {
   const HAS_LOCAL_STORAGE =
     typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
+  // =========================
+  // Admin users and login
+  // =========================
+  const ADMIN_USERS = [
+    {
+      username: "Maria Eduarda",
+      password: "Maria123@",
+      displayName: "Maria Eduarda"
+    },
+    {
+      username: "Danielle Almeida",
+      password: "Dani123@",
+      displayName: "Danielle Almeida"
+    },
+    {
+      username: "Ryan Simonds",
+      password: "Minhalinda",
+      displayName: "Ryan Simonds"
+    }
+  ];
+
+  function findAdminUser(username, password) {
+    if (!username || !password) return null;
+    return ADMIN_USERS.find(
+      (u) => u.username === username && u.password === password
+    );
+  }
+
+  const loginForm = document.getElementById("adminLoginForm");
+  const usernameInput = document.getElementById("adminUsername");
+  const passwordInput = document.getElementById("adminPassword");
+  const loginErrorEl = document.getElementById("adminLoginError");
+  const welcomeModal = document.getElementById("welcomeModal");
+  const welcomeModalText = document.getElementById("welcomeModalText");
+
+  function showLoginError(message) {
+    if (!loginErrorEl) return;
+    loginErrorEl.textContent = message || "Usuário ou senha inválidos.";
+    loginErrorEl.style.display = "block";
+  }
+
+  function clearLoginError() {
+    if (!loginErrorEl) return;
+    loginErrorEl.textContent = "";
+    loginErrorEl.style.display = "none";
+  }
+
+  function showWelcomeModal(user) {
+    if (!welcomeModal || !welcomeModalText) return;
+
+    if (user.displayName === "Ryan Simonds" || user.username === "Ryan Simonds") {
+      // Special text for you
+      welcomeModalText.textContent = "Bem vindo, Ryan!";
+    } else {
+      // Generic welcome in Portuguese
+      const feminineNames = ["Maria Eduarda", "Danielle Almeida"];
+      if (feminineNames.includes(user.displayName)) {
+        welcomeModalText.textContent = "Bem vinda, " + user.displayName + "!";
+      } else {
+        welcomeModalText.textContent = "Bem vindo, " + user.displayName + "!";
+      }
+    }
+
+    welcomeModal.classList.add("is-open");
+  }
+
+  function handleSuccessfulLogin(user) {
+    // Mark admin UI as unlocked
+    document.body.classList.add("admin-logged-in");
+    // You can also hide the login card here if you want, for example:
+    // const loginCard = document.getElementById("adminLoginCard");
+    // if (loginCard) loginCard.style.display = "none";
+
+    showWelcomeModal(user);
+  }
+
+  if (loginForm && usernameInput && passwordInput) {
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+
+      const user = findAdminUser(username, password);
+      if (!user) {
+        showLoginError("Usuário ou senha inválidos.");
+        return;
+      }
+
+      clearLoginError();
+      handleSuccessfulLogin(user);
+    });
+  }
+
   // Navigation and common UI
   const navLinks = Array.from(document.querySelectorAll(".nav-link"));
   const cartButton = document.getElementById("cartButton");
