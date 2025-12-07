@@ -101,7 +101,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        box-shadow: var(--shadow-soft);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-button-secondary:hover {
         background: rgba(255, 255, 255, 1);
@@ -148,7 +148,7 @@
         background: rgba(255, 255, 255, 0.9);
         font-size: 11px;
         cursor: pointer;
-        box-shadow: var(--shadow-soft);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-theme-label {
         font-weight: 500;
@@ -511,7 +511,6 @@
         background: rgba(0, 0, 0, 0.04);
         cursor: pointer;
         border: 1px solid transparent;
-        position: relative;
       }
       .admin-image-thumb img {
         width: 100%;
@@ -589,28 +588,28 @@
         </button>
 
         <div class="nav-left">
-          <button class="nav-link active" data-view="home" type="button">
+          <button class="nav-link active" data-view="home">
             Início
           </button>
-          <button class="nav-link" data-view="about" type="button">
+          <button class="nav-link" data-view="about">
             Sobre nós
           </button>
-          <button class="nav-link" data-view="specials" type="button">
+          <button class="nav-link" data-view="specials">
             Ofertas especiais
           </button>
-          <button class="nav-link" data-view="sets" type="button">
+          <button class="nav-link" data-view="sets">
             Conjuntos
           </button>
-          <button class="nav-link" data-view="rings" type="button">
+          <button class="nav-link" data-view="rings">
             Anéis
           </button>
-          <button class="nav-link" data-view="necklaces" type="button">
+          <button class="nav-link" data-view="necklaces">
             Colares
           </button>
-          <button class="nav-link" data-view="bracelets" type="button">
+          <button class="nav-link" data-view="bracelets">
             Pulseiras
           </button>
-          <button class="nav-link" data-view="earrings" type="button">
+          <button class="nav-link" data-view="earrings">
             Brincos
           </button>
         </div>
@@ -675,7 +674,6 @@
             id="adminLoginButton"
             class="primary-button"
             style="width:100%;margin-top:4px"
-            type="button"
           >
             Entrar
           </button>
@@ -745,7 +743,6 @@
                   id="saveHomepageBtn"
                   class="primary-button"
                   style="margin-left:8px"
-                  type="button"
                 >
                   Salvar página inicial
                 </button>
@@ -854,7 +851,7 @@
             </div>
           </div>
           <div style="margin-top:14px">
-            <button id="saveAboutPageBtn" class="primary-button" type="button">
+            <button id="saveAboutPageBtn" class="primary-button">
               Salvar página "Sobre nós"
             </button>
             <p id="adminAboutSaveStatus" class="admin-status"></p>
@@ -938,48 +935,6 @@
                 ></textarea>
               </div>
 
-              <!-- NOVO BLOCO DE FOTOS DO PRODUTO -->
-              <div class="admin-field">
-                <label class="admin-label">Fotos do produto</label>
-                <div class="admin-image-upload-row">
-                  <div class="admin-image-preview">
-                    <div
-                      id="productImagePlaceholder"
-                      class="admin-image-placeholder"
-                    >
-                      +
-                    </div>
-                    <img
-                      id="productImagePreview"
-                      alt="Foto principal do produto"
-                      style="display:none"
-                    />
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      id="productImageFileButton"
-                      class="admin-button-secondary"
-                    >
-                      Adicionar foto
-                    </button>
-                    <p class="admin-status" style="margin-top:4px">
-                      A primeira foto será a principal, até 5 fotos por produto.
-                    </p>
-                  </div>
-                </div>
-                <input
-                  id="productImageFile"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style="display:none"
-                />
-                <input id="productImageUrl" type="hidden" />
-                <div id="productImageThumbs" class="admin-image-thumbs"></div>
-              </div>
-              <!-- FIM DO BLOCO DE FOTOS DO PRODUTO -->
-
               <div class="admin-field">
                 <label for="productPrice" class="admin-label">
                   Preço atual
@@ -1029,6 +984,50 @@
                   type="text"
                   placeholder="Ex.: 20% off, Frete grátis, Leve 2 e pague 1"
                 />
+              </div>
+
+              <div class="admin-field">
+                <label class="admin-label">Imagens do produto</label>
+                <div class="admin-image-upload-row">
+                  <div class="admin-image-preview">
+                    <div
+                      id="productImagePlaceholder"
+                      class="admin-image-placeholder"
+                    >
+                      +
+                    </div>
+                    <img
+                      id="productImagePreview"
+                      alt="Pré visualização do produto"
+                      style="display:none"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      id="productImageFileButton"
+                      class="admin-button-secondary"
+                    >
+                      Escolher foto(s)
+                    </button>
+                    <p class="admin-status" style="margin-top:4px">
+                      Use câmera, biblioteca de fotos ou arquivos do dispositivo.
+                      Você pode adicionar várias imagens, a primeira será a capa.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  id="productImageFile"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display:none"
+                />
+                <input id="productImageUrl" type="text" style="display:none" />
+                <div id="productImageThumbs" class="admin-image-thumbs"></div>
+                <p class="admin-status" style="margin-top:4px">
+                  Toque em uma miniatura para defini-la como capa do produto.
+                </p>
               </div>
 
               <div class="admin-field">
