@@ -1039,4 +1039,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Cart count is tiny, safe to always refresh
   refreshCartCount();
+
+  // =========================
+  // Lightweight live listener
+  // =========================
+  function startLivePing() {
+    const intervalMs = 4 * 60 * 1000; // every 4 minutes
+    setInterval(() => {
+      fetch("/api/health", { cache: "no-store" }).catch(() => {
+        // ignore errors
+      });
+    }, intervalMs);
+  }
+
+  startLivePing();
 });
