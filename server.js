@@ -12,6 +12,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const compression = require("compression");
+const http = require("http"); // <--- added
 
 // Database persistence helpers
 const {
@@ -599,9 +600,9 @@ app.post("/api/products", async (req, res) => {
     stock: normalizedPayload.stock,
     active: true,
     imageUrl: normalizedPayload.imageUrl,
-    imageUrls: normalizedImages,
+    imageUrls: normalizedPayload.imageUrls,
     originalPrice: normalizedPayload.originalPrice,
-    discountLabel: normalizedDiscountLabel
+    discountLabel: normalizedPayload.discountLabel
   };
 
   db.products.push(product);
@@ -856,8 +857,23 @@ app.get("*", (_req, res) => {
 
 // Start the HTTP server right away so the first request is not blocked
 // by Postgres connection or schema checks.
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`DARAH API rodando na porta ${PORT}`);
+  
+  // Simple internal keep alive ping so the process keeps touching /api/health
+  // at a steady interval.
+  const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
+  setInterval(() => {
+    http
+      .get(keepAliveUrl, (res) => {
+        // Drain the response to free sockets
+        res.on("data", () => {});
+        res.on("end", () => {});
+      })
+      .on("error", (err) => {
+        console.error("[DARAH] keep alive ping failed:", err.message);
+      });
+  }, 5 * 60 * 1000); // every 5 minutes
 });
 
 // Then hydrate the in memory cache from Postgres in the background.
