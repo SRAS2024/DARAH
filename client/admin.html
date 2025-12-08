@@ -549,10 +549,6 @@
           max-height: calc(100vh - 32px);
           border-radius: 14px;
         }
-        /* Admin mobile nav: hide inline tabs so everything lives in the menu */
-        .admin-page .main-nav .nav-left {
-          display: none;
-        }
       }
     </style>
   </head>
@@ -588,28 +584,63 @@
         </button>
 
         <div class="nav-left">
-          <button class="nav-link active" data-view="home">
+          <!-- Igual à vitrine: estas duas abas ficam visíveis no mobile -->
+          <button
+            class="nav-link active"
+            data-view="home"
+            data-mobile-priority="true"
+          >
             Início
           </button>
-          <button class="nav-link" data-view="about">
+          <button
+            class="nav-link"
+            data-view="about"
+            data-mobile-priority="true"
+          >
             Sobre nós
           </button>
-          <button class="nav-link" data-view="specials">
+
+          <!-- Abas extras, que vão para o dropdown no mobile -->
+          <button
+            class="nav-link"
+            data-view="specials"
+            data-mobile-extra="true"
+          >
             Ofertas especiais
           </button>
-          <button class="nav-link" data-view="sets">
+          <button
+            class="nav-link"
+            data-view="sets"
+            data-mobile-extra="true"
+          >
             Conjuntos
           </button>
-          <button class="nav-link" data-view="rings">
+          <button
+            class="nav-link"
+            data-view="rings"
+            data-mobile-extra="true"
+          >
             Anéis
           </button>
-          <button class="nav-link" data-view="necklaces">
+          <button
+            class="nav-link"
+            data-view="necklaces"
+            data-mobile-extra="true"
+          >
             Colares
           </button>
-          <button class="nav-link" data-view="bracelets">
+          <button
+            class="nav-link"
+            data-view="bracelets"
+            data-mobile-extra="true"
+          >
             Pulseiras
           </button>
-          <button class="nav-link" data-view="earrings">
+          <button
+            class="nav-link"
+            data-view="earrings"
+            data-mobile-extra="true"
+          >
             Brincos
           </button>
         </div>
