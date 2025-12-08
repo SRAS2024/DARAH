@@ -19,13 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const navLeftContainer = document.querySelector(".nav-left");
 
   // Top navigation inside Admin (mirrors storefront)
-  const navLinks = Array.from(
-    document.querySelectorAll(".main-nav .nav-left .nav-link")
-  );
-
-  // Track whether the mobile menu is open
-  let mobileMenuOpen = false;
-
+  const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
     home: document.getElementById("view-home"),
     about: document.getElementById("view-about"),
@@ -73,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const noticeStatusEl = document.getElementById("adminNoticeStatus");
   const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
-  // About page collage controls
+  // About page collage controls (matching admin.html)
   const aboutCollageEl = document.getElementById("adminAboutCollagePreview");
   const aboutImagePreviewEl = document.getElementById("adminAboutImagePreview");
   const aboutImagePlaceholderEl = document.getElementById("adminAboutImagePlaceholder");
@@ -155,29 +149,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function setMobileMenuOpen(open) {
-    mobileMenuOpen = !!open;
-    if (!navDropdown || !navMobileToggle) return;
-
-    if (mobileMenuOpen) {
-      navDropdown.classList.add("open");
-      navDropdown.setAttribute("aria-hidden", "false");
-      navMobileToggle.classList.add("is-open");
-      navMobileToggle.setAttribute("aria-expanded", "true");
-    } else {
-      navDropdown.classList.remove("open");
-      navDropdown.setAttribute("aria-hidden", "true");
-      navMobileToggle.classList.remove("is-open");
-      navMobileToggle.setAttribute("aria-expanded", "false");
-    }
-  }
-
   function openMobileMenu() {
-    setMobileMenuOpen(true);
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.add("open");
+    navMobileToggle.classList.add("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "true");
   }
 
   function closeMobileMenu() {
-    setMobileMenuOpen(false);
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.remove("open");
+    navMobileToggle.classList.remove("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "false");
   }
 
   // Initially we assume login view until session restore runs
@@ -303,28 +286,34 @@ document.addEventListener("DOMContentLoaded", () => {
       if (id && views[id]) {
         switchView(id);
       }
-      if (mobileMenuOpen) {
-        closeMobileMenu();
-      }
     });
   });
 
   // Mobile nav dropdown setup for Admin
   function buildMobileDropdown() {
-    if (!navDropdown) return;
+    if (!navDropdown || !navLeftContainer) return;
     navDropdown.innerHTML = "";
 
-    // Use the same navLinks that power the desktop tabs
-    navLinks.forEach((btn) => {
-      const viewId = btn.dataset.view;
+    const allTabs = navLeftContainer.querySelectorAll(".nav-link");
+    allTabs.forEach((btn) => {
+      const viewId = btn.getAttribute("data-view");
       if (!viewId || !views[viewId]) return;
 
       const clone = btn.cloneNode(true);
-      clone.classList.add("nav-dropdown-link");
+      clone.classList.remove("active");
+      clone.dataset.view = viewId;
+
       clone.addEventListener("click", () => {
         switchView(viewId);
+
+        const dropdownLinks = navDropdown.querySelectorAll(".nav-link");
+        dropdownLinks.forEach((linkEl) => {
+          linkEl.classList.toggle("active", linkEl === clone);
+        });
+
         closeMobileMenu();
       });
+
       navDropdown.appendChild(clone);
     });
   }
@@ -333,7 +322,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (navMobileToggle && navDropdown) {
     navMobileToggle.addEventListener("click", () => {
-      setMobileMenuOpen(!mobileMenuOpen);
+      const isOpen = navDropdown.classList.contains("open");
+      if (isOpen) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
     });
 
     document.addEventListener("click", (event) => {
@@ -349,13 +343,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
-  // Close the mobile menu when returning to desktop width
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 640 && mobileMenuOpen) {
-      closeMobileMenu();
-    }
-  });
 
   // Theme selector handler
   if (themeSelect) {
@@ -448,6 +435,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderHeroGallery() {
     if (!heroGalleryEl) return;
     heroGalleryEl.innerHTML = "";
+
+    // Force a visible, responsive layout on all devices
+    heroGalleryEl.style.display = "grid";
+    heroGalleryEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(140px, 1fr))";
+    heroGalleryEl.style.gap = "10px";
+
     if (!homepageState.heroImages.length) {
       const ph = document.createElement("div");
       ph.style.borderRadius = "14px";
@@ -458,11 +451,12 @@ document.addEventListener("DOMContentLoaded", () => {
       homepageState.heroImages.forEach((url, idx) => {
         const wrap = document.createElement("div");
         wrap.style.position = "relative";
+        wrap.style.overflow = "hidden";
+        wrap.style.borderRadius = "14px";
 
         const img = document.createElement("img");
         img.src = url;
         img.alt = "Imagem da homepage";
-        img.loading = "lazy";
 
         const del = document.createElement("button");
         del.type = "button";
@@ -502,6 +496,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     aboutCollageEl.innerHTML = "";
 
+    // Force a visible, responsive layout on all devices
+    aboutCollageEl.style.display = "grid";
+    aboutCollageEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(120px, 1fr))";
+    aboutCollageEl.style.gap = "8px";
+
     const images = Array.isArray(homepageState.aboutImages)
       ? homepageState.aboutImages
       : [];
@@ -526,7 +525,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Pequena pré visualização da primeira foto
     if (aboutImagePreviewEl) {
       aboutImagePreviewEl.src = images[0];
-      aboutImagePreviewEl.loading = "lazy";
       aboutImagePreviewEl.style.display = "block";
     }
     if (aboutImagePlaceholderEl) {
@@ -536,11 +534,12 @@ document.addEventListener("DOMContentLoaded", () => {
     images.forEach((url, idx) => {
       const wrap = document.createElement("div");
       wrap.style.position = "relative";
+      wrap.style.overflow = "hidden";
+      wrap.style.borderRadius = "14px";
 
       const img = document.createElement("img");
       img.src = url;
       img.alt = "Imagem da página Sobre";
-      img.loading = "lazy";
 
       const del = document.createElement("button");
       del.type = "button";
