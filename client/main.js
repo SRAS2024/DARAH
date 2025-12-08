@@ -1,29 +1,27 @@
 "use strict";
 
+/**
+ * DARAH · Admin
+ * Mirrors the storefront layout with per tab editing and multi image products.
+ * All UI copy in pt BR. Two allowed logins with a welcome loader.
+ */
+
 document.addEventListener("DOMContentLoaded", () => {
-  // Limits (mirror admin)
-  const MAX_HOMEPAGE_IMAGES = 12;
-  const MAX_ABOUT_IMAGES = 4;
-  const MAX_PRODUCT_IMAGES = 5;
+  // Limits
+  const MAX_PRODUCT_IMAGES = 5; // até 5 imagens por produto
+  const MAX_HOMEPAGE_IMAGES = 12; // até 12 imagens no collage da página inicial
+  const MAX_ABOUT_IMAGES = 4; // até 4 imagens no collage da aba Sobre
 
-  // Client side cache keys
-  const HOMEPAGE_CACHE_KEY = "darah-homepage-v1";
-  const PRODUCTS_CACHE_KEY = "darah-products-v1";
-
-  // Navigation and common UI
-  const navLinks = Array.from(document.querySelectorAll(".nav-link"));
-  const cartButton = document.getElementById("cartButton");
-  const cartCountEl = document.getElementById("cartCount");
-  const yearEl = document.getElementById("year");
-  const checkoutButton = document.getElementById("checkoutButton");
-  const rootEl = document.documentElement;
-
-  // Mobile nav controls
-  const mobileToggle = document.querySelector(".nav-mobile-toggle");
+  // Basic layout
+  const bodyEl = document.body;
+  const navMobileToggle = document.querySelector(".nav-mobile-toggle");
   const navDropdown = document.getElementById("navDropdown");
-  let mobileMenuOpen = false;
+  const navLeftContainer = document.querySelector(".nav-left");
 
-  // Views mirror
+  // Top navigation inside Admin (mirrors storefront)
+  const navLinks = Array.from(
+    document.querySelectorAll(".main-nav .nav-link")
+  );
   const views = {
     home: document.getElementById("view-home"),
     about: document.getElementById("view-about"),
@@ -32,29 +30,203 @@ document.addEventListener("DOMContentLoaded", () => {
     rings: document.getElementById("view-rings"),
     necklaces: document.getElementById("view-necklaces"),
     bracelets: document.getElementById("view-bracelets"),
-    earrings: document.getElementById("view-earrings"),
-    checkout: document.getElementById("view-checkout")
+    earrings: document.getElementById("view-earrings")
   };
 
-  // Homepage elements
-  const aboutTextEl = document.getElementById("aboutText");
-  const aboutLongTextEl = document.getElementById("aboutLongText");
-  const heroImagesEl = document.getElementById("heroImages");
-  const heroEl =
-    document.querySelector("#view-home .hero") || document.querySelector(".hero");
-  const siteNoticesEl = document.getElementById("siteNotices");
-  const siteNoticesListEl = document.getElementById("siteNoticesList");
+  // Auth and panel sections
+  const loginSection = document.getElementById("adminLoginSection");
+  const loginButton = document.getElementById("adminLoginButton");
+  const usernameInput = document.getElementById("adminUsername");
+  const passwordInput = document.getElementById("adminPassword");
+  const loginErrorEl = document.getElementById("adminLoginError");
+  const loadingSection = document.getElementById("adminLoadingSection");
+  const welcomeMessageEl = document.getElementById("adminWelcomeMessage");
+  const panelSection = document.getElementById("adminPanelSection");
 
-  // About tab collage (public site)
-  const aboutCollageEl = document.getElementById("aboutCollage");
+  // Header user info and logout
+  const logoutButton = document.getElementById("adminLogoutButton");
+  const userNameLabel = document.getElementById("adminUserNameLabel");
 
-  // Lightweight client side state
-  let homepageLoadedOnce = false;
-  let cartLoading = false;
+  // Theme
+  const themeSelect = document.getElementById("adminThemeSelect");
 
-  // =========================
-  // Helpers
-  // =========================
+  // Homepage admin controls (Início)
+  const aboutTextEl = document.getElementById("adminAboutText");
+  const heroGalleryEl = document.getElementById("adminHeroGallery");
+  const heroImagesTextarea = document.getElementById("adminHeroImages");
+  const heroImagesFileInput = document.getElementById("adminHeroImagesFile");
+  const heroImagesFileButton = document.getElementById(
+    "adminHeroImagesFileButton"
+  );
+  const saveHomepageBtn = document.getElementById("saveHomepageBtn");
+  const homepageStatusEl = document.getElementById("adminHomepageStatus");
+
+  // About page long text
+  const aboutLongTextEl = document.getElementById("adminAboutLongText");
+
+  // Optional site notices
+  const addNoticeBtn = document.getElementById("adminAddNoticeBtn");
+  const noticeListEl = document.getElementById("adminNoticeList");
+  const noticeStatusEl = document.getElementById("adminNoticeStatus");
+  const noticeItemTemplate = document.getElementById("noticeItemTemplate");
+
+  // About page collage controls (matching admin.html)
+  const aboutCollageEl = document.getElementById("adminAboutCollagePreview");
+  const aboutImagePreviewEl = document.getElementById("adminAboutImagePreview");
+  const aboutImagePlaceholderEl = document.getElementById(
+    "adminAboutImagePlaceholder"
+  );
+  const aboutImagesTextarea = document.getElementById("adminAboutImages");
+  const aboutImagesFileInput = document.getElementById("adminAboutImagesFile");
+  const aboutImagesFileButton = document.getElementById(
+    "adminAboutImagesFileButton"
+  );
+  const aboutSaveStatusEl = document.getElementById("adminAboutSaveStatus");
+  const saveAboutPageBtn = document.getElementById("saveAboutPageBtn");
+
+  // Product modal and templates
+  const productModalBackdrop = document.getElementById(
+    "adminProductModalBackdrop"
+  );
+  const productModalTitle = document.getElementById("adminProductModalTitle");
+  const productModalClose = document.getElementById("adminProductModalClose");
+  const productDeleteButton = document.getElementById("productDeleteButton");
+  const addCardTemplate = document.getElementById("adminAddCardTemplate");
+  const productCardTemplate = document.getElementById(
+    "adminProductCardTemplate"
+  );
+  const productImagePreview = document.getElementById("productImagePreview");
+  const productImagePlaceholder = document.getElementById(
+    "productImagePlaceholder"
+  );
+  const productImageFileButton = document.getElementById(
+    "productImageFileButton"
+  );
+  const productImageThumbs = document.getElementById("productImageThumbs");
+
+  // Product form (in modal)
+  const hiddenForm = {
+    el: document.getElementById("productForm"),
+    category: document.getElementById("productCategory"),
+    name: document.getElementById("productName"),
+    description: document.getElementById("productDescription"),
+    price: document.getElementById("productPrice"),
+    originalPrice: document.getElementById("productOriginalPrice"),
+    discountLabel: document.getElementById("productDiscountLabel"),
+    stock: document.getElementById("productStock"),
+    imageUrl: document.getElementById("productImageUrl"),
+    imageFile: document.getElementById("productImageFile"),
+    status: document.getElementById("adminProductFormStatus")
+  };
+
+  // Category grids (mirror storefront)
+  const grids = {
+    specials: document.getElementById("grid-specials"),
+    sets: document.getElementById("grid-sets"),
+    rings: document.getElementById("grid-rings"),
+    necklaces: document.getElementById("grid-necklaces"),
+    bracelets: document.getElementById("grid-bracelets"),
+    earrings: document.getElementById("grid-earrings")
+  };
+
+  // State
+  let allProducts = [];
+  let homepageState = {
+    aboutText: "",
+    aboutLongText: "",
+    heroImages: [],
+    notices: [],
+    theme: "default",
+    aboutImages: [] // colagem da página "Sobre nós"
+  };
+  let currentProductEditing = null;
+  let currentProductImages = []; // data URLs, first is cover
+
+  // Allowed users and welcome messages
+  const VALID_USERS = {
+    "Maria Eduarda": {
+      password: "Maria123@",
+      welcome: "Bem vinda, Maria Eduarda!"
+    },
+    "Danielle Almeida": {
+      password: "Dani123@",
+      welcome: "Bem vinda, Danielle!"
+    }
+  };
+
+  // Helpers for layout and mobile nav
+  function setBodyLoginMode(isLogin) {
+    if (!bodyEl) return;
+    if (isLogin) {
+      bodyEl.classList.add("is-admin-login");
+    } else {
+      bodyEl.classList.remove("is-admin-login");
+    }
+  }
+
+  function openMobileMenu() {
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.add("open");
+    navMobileToggle.classList.add("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "true");
+  }
+
+  function closeMobileMenu() {
+    if (!navDropdown || !navMobileToggle) return;
+    navDropdown.classList.remove("open");
+    navMobileToggle.classList.remove("is-open");
+    navMobileToggle.setAttribute("aria-expanded", "false");
+  }
+
+  // Initially we assume login view until session restore runs
+  setBodyLoginMode(true);
+
+  // Status helpers
+  function setLoginError(message) {
+    if (!loginErrorEl) return;
+    loginErrorEl.textContent = message || "";
+    if (!message) {
+      loginErrorEl.style.display = "none";
+      loginErrorEl.classList.remove("error");
+    } else {
+      loginErrorEl.style.display = "block";
+      loginErrorEl.classList.add("error");
+    }
+  }
+
+  function setHomepageStatus(message, type) {
+    if (!homepageStatusEl) return;
+    homepageStatusEl.textContent = message || "";
+    homepageStatusEl.classList.remove("ok", "error");
+    if (type === "ok") homepageStatusEl.classList.add("ok");
+    if (type === "error") homepageStatusEl.classList.add("error");
+  }
+
+  function setNoticeStatus(message, type) {
+    if (!noticeStatusEl) return;
+    noticeStatusEl.textContent = message || "";
+    noticeStatusEl.classList.remove("ok", "error");
+    if (type === "ok") noticeStatusEl.classList.add("ok");
+    if (type === "error") noticeStatusEl.classList.add("error");
+  }
+
+  function setAboutStatus(message, type) {
+    if (!aboutSaveStatusEl) return;
+    aboutSaveStatusEl.textContent = message || "";
+    aboutSaveStatusEl.classList.remove("ok", "error");
+    if (type === "ok") aboutSaveStatusEl.classList.add("ok");
+    if (type === "error") aboutSaveStatusEl.classList.add("error");
+  }
+
+  function setFormStatus(message, type) {
+    const el = hiddenForm.status;
+    if (!el) return;
+    el.textContent = message || "";
+    el.classList.remove("ok", "error");
+    if (type === "ok") el.classList.add("ok");
+    if (type === "error") el.classList.add("error");
+  }
+
   function formatBRL(value) {
     if (value == null || Number.isNaN(Number(value))) return "R$ 0,00";
     try {
@@ -63,994 +235,1643 @@ document.addEventListener("DOMContentLoaded", () => {
         currency: "BRL"
       });
     } catch {
-      return "R$ " + Number(value).toFixed(2).replace(".", ",");
+      return (
+        "R$ " + Number(value || 0).toFixed(2).replace(".", ",")
+      );
     }
   }
 
-  function normalizeImageList(input, max) {
-    if (!Array.isArray(input)) return [];
-    const cleaned = input
-      .map((s) => String(s || "").trim())
-      .filter((s, index, arr) => s.length && arr.indexOf(s) === index);
-    if (typeof max === "number" && max > 0) {
-      return cleaned.slice(0, max);
-    }
-    return cleaned;
+  function categoryLabel(key) {
+    return (
+      {
+        specials: "Ofertas especiais",
+        sets: "Conjuntos",
+        rings: "Anéis",
+        necklaces: "Colares",
+        bracelets: "Pulseiras",
+        earrings: "Brincos"
+      }[key] || key
+    );
   }
 
-  function normalizeProductImages(product) {
-    if (!product || typeof product !== "object") {
-      return [];
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(
+          typeof reader.result === "string"
+            ? reader.result
+            : String(reader.result)
+        );
+      reader.onerror = () =>
+        reject(
+          reader.error || new Error("Falha ao ler arquivo de imagem.")
+        );
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Make theme variant generic so new options work without extra code
+  function applyThemeVariant(variant) {
+    const root = document.documentElement;
+    const trimmed = typeof variant === "string" ? variant.trim() : "";
+    const value = trimmed || "default";
+    if (root) {
+      root.dataset.themeVariant = value;
+      root.setAttribute("data-theme-variant", value);
     }
+    if (themeSelect && themeSelect.value !== value) {
+      const hasOption = Array.from(themeSelect.options).some(
+        (opt) => opt.value === value
+      );
+      if (hasOption) {
+        themeSelect.value = value;
+      }
+    }
+  }
 
-    const primary =
-      typeof product.imageUrl === "string" ? product.imageUrl.trim() : "";
-
-    const fromImages = Array.isArray(product.images) ? product.images : [];
-    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
-
-    const merged = [...fromImages, ...fromImageUrls];
-
-    const cleaned = merged
+  function normalizeList(list, max) {
+    if (!Array.isArray(list)) return [];
+    const cleaned = list
       .map((u) => String(u || "").trim())
       .filter((u, index, arr) => u && arr.indexOf(u) === index);
-
-    if (primary && !cleaned.includes(primary)) {
-      cleaned.unshift(primary);
-    }
-
-    return normalizeImageList(cleaned, MAX_PRODUCT_IMAGES);
+    return typeof max === "number" && max > 0
+      ? cleaned.slice(0, max)
+      : cleaned;
   }
 
-  // Generic theme variants (supports more than only "natal")
-  function applyThemeVariant(theme) {
-    const variant = (theme && String(theme).trim()) || "default";
-    if (rootEl) {
-      rootEl.setAttribute("data-theme-variant", variant);
-      rootEl.dataset.themeVariant = variant;
-    }
+  // View switching inside admin
+  function switchView(id) {
+    Object.values(views).forEach((v) =>
+      v && v.classList.remove("active-view")
+    );
+    const el = views[id];
+    if (el) el.classList.add("active-view");
+    navLinks.forEach((b) =>
+      b.classList.toggle("active", b.dataset.view === id)
+    );
   }
 
-  function setActiveView(key) {
-    Object.entries(views).forEach(([name, el]) => {
-      if (!el) return;
-      if (name === key) el.classList.add("active-view");
-      else el.classList.remove("active-view");
+  navLinks.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.view;
+      if (id && views[id]) {
+        switchView(id);
+      }
+    });
+  });
+
+  // Mobile nav dropdown setup for Admin
+  function buildMobileDropdown() {
+    if (!navDropdown || !navLeftContainer) return;
+    navDropdown.innerHTML = "";
+    const allTabs = navLeftContainer.querySelectorAll(".nav-link");
+    allTabs.forEach((btn) => {
+      const viewId = btn.getAttribute("data-view");
+      if (!viewId || !views[viewId]) return;
+      const clone = btn.cloneNode(true);
+      clone.classList.remove("active");
+      clone.dataset.view = viewId;
+      clone.addEventListener("click", () => {
+        switchView(viewId);
+        const dropdownLinks =
+          navDropdown.querySelectorAll(".nav-link");
+        dropdownLinks.forEach((linkEl) => {
+          linkEl.classList.toggle("active", linkEl === clone);
+        });
+        closeMobileMenu();
+      });
+      navDropdown.appendChild(clone);
+    });
+  }
+
+  buildMobileDropdown();
+
+  if (navMobileToggle && navDropdown) {
+    navMobileToggle.addEventListener("click", () => {
+      const isOpen = navDropdown.classList.contains("open");
+      if (isOpen) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
     });
 
-    // Highlight nav except on checkout
-    navLinks.forEach((btn) => {
-      const viewKey = btn.dataset.view;
-      btn.classList.toggle("active", key !== "checkout" && viewKey === key);
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || !(target instanceof Node)) return;
+      if (
+        navDropdown &&
+        navMobileToggle &&
+        !navDropdown.contains(target) &&
+        !navMobileToggle.contains(target)
+      ) {
+        closeMobileMenu();
+      }
     });
-
-    // Lazy load when we switch to checkout
-    if (key === "checkout") loadCartView();
   }
 
-  function updateCartCountFromCartData(cartData) {
-    if (!cartData || !Array.isArray(cartData.items)) {
-      if (cartCountEl) cartCountEl.textContent = "0";
-      return;
-    }
-    const total = cartData.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
-    if (cartCountEl) cartCountEl.textContent = String(total);
+  // Theme selector handler
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      const value =
+        (themeSelect.value || "default").trim() || "default";
+      homepageState.theme = value;
+      applyThemeVariant(value);
+      setHomepageStatus(
+        "Tema atualizado. Clique em salvar para aplicar no site.",
+        "ok"
+      );
+    });
   }
 
-  async function refreshCartCount() {
+  // =========================
+  // Homepage load and save
+  // =========================
+
+  async function loadHomepageAdmin() {
     try {
-      const res = await fetch("/api/cart");
-      if (!res.ok) throw new Error();
-      const cartData = await res.json();
-      updateCartCountFromCartData(cartData);
-    } catch {
-      if (cartCountEl) cartCountEl.textContent = "0";
+      const res = await fetch("/api/homepage");
+      if (!res.ok) {
+        throw new Error("Erro ao carregar conteúdo da homepage");
+      }
+      const hp = await res.json();
+
+      homepageState.aboutText =
+        typeof hp.aboutText === "string" ? hp.aboutText : "";
+      homepageState.aboutLongText =
+        typeof hp.aboutLongText === "string"
+          ? hp.aboutLongText
+          : "";
+      homepageState.heroImages = normalizeList(
+        hp.heroImages || [],
+        MAX_HOMEPAGE_IMAGES
+      );
+      homepageState.notices = normalizeList(
+        hp.notices || [],
+        10
+      );
+      homepageState.theme =
+        typeof hp.theme === "string" ? hp.theme : "default";
+      homepageState.aboutImages = normalizeList(
+        hp.aboutImages || [],
+        MAX_ABOUT_IMAGES
+      );
+
+      if (aboutTextEl) {
+        aboutTextEl.value = homepageState.aboutText;
+      }
+
+      if (aboutLongTextEl) {
+        if (
+          homepageState.aboutLongText &&
+          homepageState.aboutLongText.trim().length
+        ) {
+          aboutLongTextEl.value = homepageState.aboutLongText;
+        } else if (typeof hp.aboutText === "string") {
+          aboutLongTextEl.value = hp.aboutText;
+        } else {
+          aboutLongTextEl.value = "";
+        }
+      }
+
+      if (heroImagesTextarea) {
+        heroImagesTextarea.value =
+          homepageState.heroImages.join("\n");
+      }
+
+      if (aboutImagesTextarea) {
+        aboutImagesTextarea.value =
+          homepageState.aboutImages.join("\n");
+      }
+
+      applyThemeVariant(homepageState.theme);
+      renderHeroGallery();
+      renderAboutGallery();
+      renderNotices();
+      setHomepageStatus(
+        "Conteúdo carregado com sucesso.",
+        "ok"
+      );
+    } catch (err) {
+      console.error(err);
+      setHomepageStatus(
+        "Não foi possível carregar a homepage.",
+        "error"
+      );
     }
   }
 
-  // =========================
-  // Homepage
-  // =========================
-  function renderNotices(notices) {
-    if (!siteNoticesEl || !siteNoticesListEl) return;
-
-    siteNoticesListEl.innerHTML = "";
-    const list = Array.isArray(notices) ? notices.filter((n) => n && n.trim().length) : [];
-    if (!list.length) {
-      siteNoticesEl.style.display = "none";
-      return;
-    }
-
-    siteNoticesEl.style.display = "block";
-
-    list.forEach((text) => {
-      const p = document.createElement("p");
-      p.className = "home-highlight-text";
-      p.textContent = text;
-      siteNoticesListEl.appendChild(p);
-    });
+  function syncHeroImagesFromTextarea() {
+    if (!heroImagesTextarea) return;
+    const raw = heroImagesTextarea.value || "";
+    const fromTextarea = raw
+      .split(/\r?\n/)
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, MAX_HOMEPAGE_IMAGES);
+    homepageState.heroImages = fromTextarea;
+    heroImagesTextarea.value = homepageState.heroImages.join("\n");
+    renderHeroGallery();
   }
 
-  function renderHeroImages(srcs) {
-    if (!heroImagesEl) return;
-    heroImagesEl.innerHTML = "";
-
-    const imgs = normalizeImageList(srcs, MAX_HOMEPAGE_IMAGES);
-
-    if (!imgs.length) {
-      heroImagesEl.style.display = "none";
-      if (heroEl) heroEl.classList.add("hero-no-images");
-      return;
-    }
-
-    heroImagesEl.style.display = "grid";
-    if (heroEl) heroEl.classList.remove("hero-no-images");
-
-    imgs.forEach((src) => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.alt = "Joia DARAH";
-      img.loading = "lazy";
-      img.decoding = "async";
-      heroImagesEl.appendChild(img);
-    });
+  function syncAboutImagesFromTextarea() {
+    if (!aboutImagesTextarea) return;
+    const raw = aboutImagesTextarea.value || "";
+    const fromTextarea = raw
+      .split(/\r?\n/)
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index)
+      .slice(0, MAX_ABOUT_IMAGES);
+    homepageState.aboutImages = fromTextarea;
+    aboutImagesTextarea.value =
+      homepageState.aboutImages.join("\n");
+    renderAboutGallery();
   }
 
-  function renderAboutImages(srcs) {
+  function renderHeroGallery() {
+    if (!heroGalleryEl) return;
+    heroGalleryEl.innerHTML = "";
+
+    // Ensure visible area on all devices
+    heroGalleryEl.style.display = "grid";
+    heroGalleryEl.style.gridTemplateColumns =
+      "repeat(auto-fit, minmax(140px, 1fr))";
+    heroGalleryEl.style.gap = "10px";
+    heroGalleryEl.style.minHeight = "140px";
+
+    if (!homepageState.heroImages.length) {
+      const ph = document.createElement("div");
+      ph.style.borderRadius = "14px";
+      ph.style.background = "#dcdcdc";
+      ph.style.minHeight = "150px";
+      heroGalleryEl.appendChild(ph);
+    } else {
+      homepageState.heroImages.forEach((url, idx) => {
+        const wrap = document.createElement("div");
+        wrap.style.position = "relative";
+        wrap.style.overflow = "hidden";
+        wrap.style.borderRadius = "14px";
+
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Imagem da homepage";
+        img.loading = "lazy";
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+        img.style.display = "block";
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "×";
+        del.title = "Remover";
+        del.style.position = "absolute";
+        del.style.top = "6px";
+        del.style.right = "6px";
+        del.style.border = "none";
+        del.style.borderRadius = "999px";
+        del.style.width = "28px";
+        del.style.height = "28px";
+        del.style.cursor = "pointer";
+        del.style.background = "rgba(0,0,0,0.55)";
+        del.style.color = "#fff";
+        del.addEventListener("click", () => {
+          homepageState.heroImages.splice(idx, 1);
+          homepageState.heroImages = normalizeList(
+            homepageState.heroImages,
+            MAX_HOMEPAGE_IMAGES
+          );
+          if (heroImagesTextarea) {
+            heroImagesTextarea.value =
+              homepageState.heroImages.join("\n");
+          }
+          renderHeroGallery();
+        });
+
+        wrap.appendChild(img);
+        wrap.appendChild(del);
+        heroGalleryEl.appendChild(wrap);
+      });
+    }
+  }
+
+  function renderAboutGallery() {
     if (!aboutCollageEl) return;
     aboutCollageEl.innerHTML = "";
 
-    const imgs = normalizeImageList(srcs, MAX_ABOUT_IMAGES);
+    // Ensure visible area on all devices
+    aboutCollageEl.style.display = "grid";
+    aboutCollageEl.style.gridTemplateColumns =
+      "repeat(auto-fit, minmax(120px, 1fr))";
+    aboutCollageEl.style.gap = "8px";
+    aboutCollageEl.style.minHeight = "120px";
 
-    if (!imgs.length) {
-      aboutCollageEl.style.display = "none";
+    const images = Array.isArray(homepageState.aboutImages)
+      ? homepageState.aboutImages
+      : [];
+
+    if (!images.length) {
+      const ph = document.createElement("div");
+      ph.style.borderRadius = "14px";
+      ph.style.background = "#dcdcdc";
+      ph.style.minHeight = "120px";
+      aboutCollageEl.appendChild(ph);
+
+      if (aboutImagePreviewEl) {
+        aboutImagePreviewEl.src = "";
+        aboutImagePreviewEl.style.display = "none";
+      }
+      if (aboutImagePlaceholderEl) {
+        aboutImagePlaceholderEl.style.display = "flex";
+      }
       return;
     }
 
-    aboutCollageEl.style.display = "grid";
+    // Pequena pré visualização da primeira foto
+    if (aboutImagePreviewEl) {
+      aboutImagePreviewEl.src = images[0];
+      aboutImagePreviewEl.loading = "lazy";
+      aboutImagePreviewEl.style.display = "block";
+      aboutImagePreviewEl.style.width = "100%";
+      aboutImagePreviewEl.style.height = "100%";
+      aboutImagePreviewEl.style.objectFit = "cover";
+    }
+    if (aboutImagePlaceholderEl) {
+      aboutImagePlaceholderEl.style.display = "none";
+    }
 
-    imgs.forEach((src) => {
+    images.forEach((url, idx) => {
+      const wrap = document.createElement("div");
+      wrap.style.position = "relative";
+      wrap.style.overflow = "hidden";
+      wrap.style.borderRadius = "14px";
+
       const img = document.createElement("img");
-      img.src = src;
-      img.alt = "Sobre a DARAH";
+      img.src = url;
+      img.alt = "Imagem da página Sobre";
       img.loading = "lazy";
-      img.decoding = "async";
-      aboutCollageEl.appendChild(img);
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "cover";
+      img.style.display = "block";
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "×";
+      del.title = "Remover";
+      del.style.position = "absolute";
+      del.style.top = "6px";
+      del.style.right = "6px";
+      del.style.border = "none";
+      del.style.borderRadius = "999px";
+      del.style.width = "24px";
+      del.style.height = "24px";
+      del.style.cursor = "pointer";
+      del.style.background = "rgba(0,0,0,0.55)";
+      del.style.color = "#fff";
+      del.addEventListener("click", () => {
+        homepageState.aboutImages.splice(idx, 1);
+        homepageState.aboutImages = normalizeList(
+          homepageState.aboutImages,
+          MAX_ABOUT_IMAGES
+        );
+        if (aboutImagesTextarea) {
+          aboutImagesTextarea.value =
+            homepageState.aboutImages.join("\n");
+        }
+        renderAboutGallery();
+      });
+
+      wrap.appendChild(img);
+      wrap.appendChild(del);
+      aboutCollageEl.appendChild(wrap);
     });
   }
 
-  // Pure render function for homepage payload
-  function renderHomepagePayload(hp) {
-    if (!hp || typeof hp !== "object") {
-      applyThemeVariant("default");
-      renderHeroImages([]);
-      renderAboutImages([]);
-      renderNotices([]);
-      if (aboutTextEl) aboutTextEl.textContent = "";
-      if (aboutLongTextEl) aboutLongTextEl.textContent = "";
+  if (heroImagesTextarea) {
+    heroImagesTextarea.addEventListener("blur", () => {
+      syncHeroImagesFromTextarea();
+    });
+  }
+
+  if (aboutImagesTextarea) {
+    aboutImagesTextarea.addEventListener("blur", () => {
+      syncAboutImagesFromTextarea();
+    });
+  }
+
+  function renderNotices() {
+    if (!noticeListEl) return;
+    noticeListEl.innerHTML = "";
+    setNoticeStatus("", "");
+
+    if (!homepageState.notices || !homepageState.notices.length) {
+      const p = document.createElement("p");
+      p.className = "home-highlight-text";
+      p.textContent = "Nenhum aviso no momento.";
+      noticeListEl.appendChild(p);
       return;
     }
 
-    if (aboutTextEl && typeof hp.aboutText === "string") {
-      aboutTextEl.textContent = hp.aboutText;
-    }
+    homepageState.notices.forEach((text, idx) => {
+      const value = typeof text === "string" ? text : "";
 
-    if (aboutLongTextEl) {
-      if (typeof hp.aboutLongText === "string" && hp.aboutLongText.trim().length) {
-        aboutLongTextEl.textContent = hp.aboutLongText;
-      } else if (typeof hp.aboutText === "string") {
-        aboutLongTextEl.textContent = hp.aboutText;
-      } else {
-        aboutLongTextEl.textContent = "";
-      }
-    }
+      if (noticeItemTemplate && "content" in noticeItemTemplate) {
+        const fragment = document.importNode(
+          noticeItemTemplate.content,
+          true
+        );
+        const itemEl = fragment.querySelector(".admin-notice-item");
+        const textSpan = fragment.querySelector(".admin-notice-text");
+        const editBtn = fragment.querySelector(".admin-notice-edit");
+        const deleteBtn = fragment.querySelector(
+          ".admin-notice-delete"
+        );
 
-    if (hp && typeof hp.theme === "string") {
-      applyThemeVariant(hp.theme);
-    } else {
-      applyThemeVariant("default");
-    }
+        if (!itemEl) return;
 
-    renderHeroImages(hp.heroImages);
-    renderAboutImages(hp.aboutImages);
-    renderNotices(hp.notices);
+        if (textSpan) textSpan.textContent = value;
 
-    homepageLoadedOnce = true;
-  }
-
-  // Try to hydrate homepage from localStorage before hitting the network
-  function primeHomepageFromCache() {
-    try {
-      if (!window.localStorage) return;
-      const raw = window.localStorage.getItem(HOMEPAGE_CACHE_KEY);
-      if (!raw) return;
-      const cached = JSON.parse(raw);
-      renderHomepagePayload(cached);
-    } catch (err) {
-      console.warn("Falha ao carregar homepage do cache local:", err);
-    }
-  }
-
-  async function loadHomepage(options) {
-    const force = options && options.force;
-    if (homepageLoadedOnce && !force) return;
-
-    try {
-      const res = await fetch("/api/homepage");
-      if (!res.ok) throw new Error("Erro ao carregar conteúdo da página inicial");
-      const hp = await res.json();
-
-      renderHomepagePayload(hp);
-
-      // Persist into localStorage for instant future reloads
-      try {
-        if (window.localStorage) {
-          window.localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify(hp));
+        if (editBtn) {
+          editBtn.addEventListener("click", () => {
+            const current = homepageState.notices[idx] || "";
+            const updated = window.prompt("Editar aviso", current);
+            if (updated == null) return;
+            const trimmed = updated.trim();
+            if (!trimmed) {
+              homepageState.notices.splice(idx, 1);
+              renderNotices();
+              setNoticeStatus(
+                "Aviso removido. Clique em salvar para atualizar o site.",
+                "ok"
+              );
+              return;
+            }
+            homepageState.notices[idx] = trimmed;
+            renderNotices();
+            setNoticeStatus(
+              "Aviso atualizado. Clique em salvar para publicar.",
+              "ok"
+            );
+          });
         }
-      } catch {
-        // Ignore storage errors
+
+        if (deleteBtn) {
+          deleteBtn.addEventListener("click", () => {
+            if (!window.confirm("Remover este aviso?")) return;
+            homepageState.notices.splice(idx, 1);
+            renderNotices();
+            setNoticeStatus(
+              "Aviso removido. Clique em salvar para atualizar o site.",
+              "ok"
+            );
+          });
+        }
+
+        noticeListEl.appendChild(fragment);
+      } else {
+        const row = document.createElement("div");
+        row.className = "admin-notice-item";
+
+        const textSpan = document.createElement("span");
+        textSpan.className = "admin-notice-text";
+        textSpan.textContent = value;
+
+        const btnBox = document.createElement("div");
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "admin-button-ghost";
+        editBtn.textContent = "Editar";
+        editBtn.addEventListener("click", () => {
+          const current = homepageState.notices[idx] || "";
+          const updated = window.prompt("Editar aviso", current);
+          if (updated == null) return;
+          const trimmed = updated.trim();
+          if (!trimmed) {
+            homepageState.notices.splice(idx, 1);
+            renderNotices();
+            setNoticeStatus(
+              "Aviso removido. Clique em salvar para atualizar o site.",
+              "ok"
+            );
+            return;
+          }
+          homepageState.notices[idx] = trimmed;
+          textSpan.textContent = trimmed;
+          setNoticeStatus(
+            "Aviso atualizado. Clique em salvar para publicar.",
+            "ok"
+          );
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "admin-button-ghost";
+        deleteBtn.textContent = "Excluir";
+        deleteBtn.addEventListener("click", () => {
+          if (!window.confirm("Remover este aviso?")) return;
+          homepageState.notices.splice(idx, 1);
+          renderNotices();
+          setNoticeStatus(
+            "Aviso removido. Clique em salvar para atualizar o site.",
+            "ok"
+          );
+        });
+
+        btnBox.appendChild(editBtn);
+        btnBox.appendChild(deleteBtn);
+        row.appendChild(textSpan);
+        row.appendChild(btnBox);
+        noticeListEl.appendChild(row);
       }
+    });
+  }
+
+  if (addNoticeBtn) {
+    addNoticeBtn.addEventListener("click", () => {
+      const text = window.prompt("Novo aviso");
+      if (!text || !text.trim()) return;
+      homepageState.notices.push(text.trim());
+      homepageState.notices = normalizeList(homepageState.notices, 10);
+      renderNotices();
+      setNoticeStatus(
+        "Aviso adicionado. Clique em salvar para publicar no site.",
+        "ok"
+      );
+    });
+  }
+
+  if (heroImagesFileButton && heroImagesFileInput) {
+    heroImagesFileButton.addEventListener("click", () =>
+      heroImagesFileInput.click()
+    );
+    heroImagesFileInput.addEventListener("change", async () => {
+      const files = Array.from(heroImagesFileInput.files || []);
+      if (!files.length) return;
+      try {
+        setHomepageStatus(
+          "Processando imagens selecionadas...",
+          ""
+        );
+        for (const f of files) {
+          const url = await fileToDataUrl(f);
+          homepageState.heroImages.push(url);
+        }
+        homepageState.heroImages = normalizeList(
+          homepageState.heroImages,
+          MAX_HOMEPAGE_IMAGES
+        );
+        if (heroImagesTextarea) {
+          heroImagesTextarea.value =
+            homepageState.heroImages.join("\n");
+        }
+        renderHeroGallery();
+        setHomepageStatus(
+          "Imagens adicionadas. Clique em salvar.",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setHomepageStatus(
+          "Não foi possível processar as imagens.",
+          "error"
+        );
+      } finally {
+        heroImagesFileInput.value = "";
+      }
+    });
+  }
+
+  if (aboutImagesFileButton && aboutImagesFileInput) {
+    aboutImagesFileButton.addEventListener("click", () =>
+      aboutImagesFileInput.click()
+    );
+    aboutImagesFileInput.addEventListener("change", async () => {
+      const files = Array.from(aboutImagesFileInput.files || []);
+      if (!files.length) return;
+      try {
+        setAboutStatus(
+          "Processando imagens selecionadas...",
+          ""
+        );
+        for (const f of files) {
+          const url = await fileToDataUrl(f);
+          homepageState.aboutImages.push(url);
+        }
+        homepageState.aboutImages = normalizeList(
+          homepageState.aboutImages,
+          MAX_ABOUT_IMAGES
+        );
+        if (aboutImagesTextarea) {
+          aboutImagesTextarea.value =
+            homepageState.aboutImages.join("\n");
+        }
+        renderAboutGallery();
+        setAboutStatus(
+          "Imagens adicionadas. Clique em salvar.",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setAboutStatus(
+          "Não foi possível processar as imagens.",
+          "error"
+        );
+      } finally {
+        aboutImagesFileInput.value = "";
+      }
+    });
+  }
+
+  async function saveHomepage() {
+    try {
+      setHomepageStatus("Salvando...", "");
+      setAboutStatus("Salvando...", "");
+
+      const aboutText = aboutTextEl
+        ? aboutTextEl.value.trim()
+        : "";
+      const aboutLongText = aboutLongTextEl
+        ? aboutLongTextEl.value.trim()
+        : "";
+
+      if (heroImagesTextarea) {
+        syncHeroImagesFromTextarea();
+      }
+      if (aboutImagesTextarea) {
+        syncAboutImagesFromTextarea();
+      }
+
+      const heroImages = normalizeList(
+        homepageState.heroImages,
+        MAX_HOMEPAGE_IMAGES
+      );
+      const aboutImages = normalizeList(
+        homepageState.aboutImages,
+        MAX_ABOUT_IMAGES
+      );
+      const notices = normalizeList(
+        homepageState.notices.filter((n) => n && n.trim().length),
+        10
+      );
+      const theme = homepageState.theme || "default";
+
+      const res = await fetch("/api/homepage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aboutText,
+          aboutLongText,
+          heroImages,
+          aboutImages,
+          notices,
+          theme
+        })
+      });
+      if (!res.ok) {
+        throw new Error("Falha ao salvar a homepage.");
+      }
+      await res.json();
+
+      homepageState.aboutText = aboutText;
+      homepageState.aboutLongText = aboutLongText;
+      homepageState.heroImages = heroImages;
+      homepageState.aboutImages = aboutImages;
+      homepageState.notices = notices;
+
+      if (heroImagesTextarea) {
+        heroImagesTextarea.value = heroImages.join("\n");
+      }
+      if (aboutImagesTextarea) {
+        aboutImagesTextarea.value = aboutImages.join("\n");
+      }
+
+      setHomepageStatus(
+        "Homepage atualizada com sucesso.",
+        "ok"
+      );
+      setNoticeStatus(
+        "Avisos publicados na vitrine.",
+        "ok"
+      );
+      setAboutStatus(
+        'Colagem e texto da página "Sobre nós" atualizados.',
+        "ok"
+      );
+
+      await loadHomepageAdmin();
     } catch (err) {
       console.error(err);
-      renderHomepagePayload(null);
+      setHomepageStatus(
+        "Não foi possível salvar a homepage.",
+        "error"
+      );
+      setAboutStatus(
+        'Não foi possível salvar a página "Sobre nós".',
+        "error"
+      );
     }
   }
 
+  if (saveHomepageBtn) {
+    saveHomepageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveHomepage();
+    });
+  }
+
+  if (saveAboutPageBtn) {
+    saveAboutPageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveHomepage();
+    });
+  }
+
   // =========================
-  // Product image carousel
+  // Products
   // =========================
-  function setupImageCarousel(imageWrapper, images) {
-    const cleanImages = normalizeImageList(images, MAX_PRODUCT_IMAGES);
 
-    if (!cleanImages.length) {
-      return;
-    }
-
-    imageWrapper.innerHTML = "";
-
-    const viewport = document.createElement("div");
-    viewport.className = "product-image-viewport";
-
-    const track = document.createElement("div");
-    track.className = "product-image-track";
-
-    cleanImages.forEach((src) => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.alt = "Produto DARAH";
-      img.loading = "lazy";
-      img.decoding = "async";
-      track.appendChild(img);
-    });
-
-    viewport.appendChild(track);
-    imageWrapper.appendChild(viewport);
-
-    if (cleanImages.length === 1) {
-      return;
-    }
-
-    let currentIndex = 0;
-    const total = cleanImages.length;
-
-    const controls = document.createElement("div");
-    controls.className = "product-carousel-controls";
-
-    const leftArrow = document.createElement("button");
-    leftArrow.type = "button";
-    leftArrow.textContent = "‹";
-    leftArrow.className = "product-carousel-arrow product-carousel-arrow-left";
-
-    const rightArrow = document.createElement("button");
-    rightArrow.type = "button";
-    rightArrow.textContent = "›";
-    rightArrow.className = "product-carousel-arrow product-carousel-arrow-right";
-
-    const indicator = document.createElement("div");
-    indicator.className = "product-carousel-indicator";
-
-    controls.appendChild(leftArrow);
-    controls.appendChild(indicator);
-    controls.appendChild(rightArrow);
-    viewport.appendChild(controls);
-
-    function updateCarousel() {
-      const offsetPercent = currentIndex * 100;
-      track.style.transform = "translateX(-" + offsetPercent + "%)";
-      indicator.textContent = String(currentIndex + 1) + "/" + String(total);
-
-      if (currentIndex === 0) {
-        leftArrow.disabled = true;
-      } else {
-        leftArrow.disabled = false;
-      }
-
-      if (currentIndex === total - 1) {
-        rightArrow.disabled = true;
-      } else {
-        rightArrow.disabled = false;
-      }
-    }
-
-    function goToNext() {
-      if (currentIndex < total - 1) {
-        currentIndex += 1;
-        updateCarousel();
-      }
-    }
-
-    function goToPrev() {
-      if (currentIndex > 0) {
-        currentIndex -= 1;
-        updateCarousel();
-      }
-    }
-
-    leftArrow.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goToPrev();
-    });
-    rightArrow.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goToNext();
-    });
-
-    // Touch swipe for mobile
-    let touchStartX = null;
-    let touchEndX = null;
-
-    viewport.addEventListener(
-      "touchstart",
-      (e) => {
-        if (!e.touches || !e.touches.length) return;
-        touchStartX = e.touches[0].clientX;
-        touchEndX = null;
-      },
-      { passive: true }
-    );
-
-    viewport.addEventListener(
-      "touchmove",
-      (e) => {
-        if (!e.touches || !e.touches.length) return;
-        touchEndX = e.touches[0].clientX;
-      },
-      { passive: true }
-    );
-
-    viewport.addEventListener(
-      "touchend",
-      () => {
-        if (touchStartX == null || touchEndX == null) return;
-        const deltaX = touchEndX - touchStartX;
-        const threshold = 40;
-        if (deltaX > threshold) {
-          goToPrev();
-        } else if (deltaX < -threshold) {
-          goToNext();
+  async function loadProducts() {
+    try {
+      let res = await fetch("/api/admin/products");
+      if (!res.ok) {
+        if (res.status === 404) {
+          res = await fetch("/api/products");
         }
-        touchStartX = null;
-        touchEndX = null;
-      },
-      { passive: true }
-    );
+      }
+      if (!res.ok) {
+        throw new Error("Erro ao carregar produtos");
+      }
+      const products = await res.json();
 
-    updateCarousel();
+      if (Array.isArray(products)) {
+        allProducts = products;
+      } else if (products && typeof products === "object") {
+        const flat = [];
+        [
+          "specials",
+          "sets",
+          "rings",
+          "necklaces",
+          "bracelets",
+          "earrings"
+        ].forEach((key) => {
+          if (Array.isArray(products[key])) {
+            products[key].forEach((p) => flat.push(p));
+          }
+        });
+        allProducts = flat;
+      } else {
+        allProducts = [];
+      }
+
+      renderAllCategoryGrids();
+      setFormStatus("", "");
+    } catch (err) {
+      console.error(err);
+      setFormStatus(
+        "Não foi possível carregar os produtos.",
+        "error"
+      );
+      renderAllCategoryGrids();
+    }
   }
 
-  // =========================
-  // Products and categories
-  // =========================
-  function renderProductList(containerId, products, categoryKey) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+  function renderAllCategoryGrids() {
+    Object.keys(grids).forEach((catKey) => {
+      renderCategoryGrid(catKey);
+    });
+  }
 
+  function renderCategoryGrid(categoryKey) {
+    const container = grids[categoryKey];
+    if (!container) return;
     container.innerHTML = "";
 
-    if (!Array.isArray(products) || !products.length) {
-      const empty = document.createElement("p");
-      empty.className = "checkout-empty";
-      empty.textContent = "Ainda não há produtos nesta categoria.";
-      container.appendChild(empty);
-      return;
-    }
-
-    products.forEach((product) => {
-      const card = document.createElement("article");
-      card.className = "product-card";
-
-      const imageWrapper = document.createElement("div");
-      imageWrapper.className = "product-image-wrapper";
-
-      const images = normalizeProductImages(product);
-      if (images.length) {
-        setupImageCarousel(imageWrapper, images);
+    const items = allProducts.filter(
+      (p) => p.category === categoryKey
+    );
+    items.sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        const ad = new Date(a.createdAt).getTime();
+        const bd = new Date(b.createdAt).getTime();
+        return bd - ad;
       }
-
-      const content = document.createElement("div");
-      content.className = "product-content";
-
-      const headerLine = document.createElement("div");
-      headerLine.className = "product-meta";
-
-      const nameEl = document.createElement("h3");
-      nameEl.className = "product-name";
-      nameEl.textContent = product.name || "Produto";
-      headerLine.appendChild(nameEl);
-
-      const descEl = document.createElement("p");
-      descEl.className = "product-description";
-      descEl.textContent = product.description || "Joia exclusiva DARAH.";
-
-      const metaLine = document.createElement("div");
-      metaLine.className = "product-meta";
-
-      const priceBlock = document.createElement("div");
-      priceBlock.className = "product-price-block";
-
-      const currentPriceEl = document.createElement("span");
-      currentPriceEl.className = "product-price";
-      currentPriceEl.textContent = formatBRL(product.price);
-
-      const stockEl = document.createElement("span");
-      stockEl.className = "product-stock";
-      stockEl.textContent =
-        typeof product.stock === "number" ? "Estoque: " + product.stock : "";
-
-      const isSpecialsCategory =
-        categoryKey === "specials" || product.category === "specials";
-
-      const hasOriginal =
-        typeof product.originalPrice === "number" &&
-        !Number.isNaN(product.originalPrice) &&
-        product.originalPrice > product.price;
-
-      if (isSpecialsCategory && hasOriginal) {
-        const oldPriceEl = document.createElement("span");
-        oldPriceEl.className = "product-price-original";
-        oldPriceEl.textContent = formatBRL(product.originalPrice);
-
-        const currentEl = document.createElement("span");
-        currentEl.className = "product-price-current";
-        currentEl.textContent = formatBRL(product.price);
-
-        priceBlock.appendChild(oldPriceEl);
-        priceBlock.appendChild(currentEl);
-
-        if (product.discountLabel && String(product.discountLabel).trim().length) {
-          const discountEl = document.createElement("span");
-          discountEl.className = "product-discount-label";
-          discountEl.textContent = String(product.discountLabel).trim();
-          priceBlock.appendChild(discountEl);
-        }
-      } else {
-        priceBlock.appendChild(currentPriceEl);
+      if (a.id && b.id) {
+        return String(b.id).localeCompare(String(a.id));
       }
-
-      metaLine.appendChild(priceBlock);
-      metaLine.appendChild(stockEl);
-
-      const actionsRow = document.createElement("div");
-      actionsRow.style.marginTop = "8px";
-
-      const button = document.createElement("button");
-      button.className = "primary-button";
-      const available = typeof product.stock === "number" && product.stock > 0;
-
-      if (!available) {
-        button.disabled = true;
-        button.textContent = "Esgotado";
-      } else {
-        button.textContent = "Adicionar ao carrinho";
-        button.addEventListener("click", () => addToCart(product.id));
-      }
-
-      actionsRow.appendChild(button);
-
-      content.appendChild(headerLine);
-      content.appendChild(descEl);
-      content.appendChild(metaLine);
-      content.appendChild(actionsRow);
-
-      card.appendChild(imageWrapper);
-      card.appendChild(content);
-
-      container.appendChild(card);
-    });
-  }
-
-  // Helper to infer the base category for specials
-  function inferBaseCategory(product) {
-    const raw = String(product.category || "").toLowerCase().trim();
-
-    // If already a known base category, just use it
-    if (["rings", "necklaces", "bracelets", "earrings", "sets"].includes(raw)) {
-      return raw;
-    }
-
-    // If the category is "specials" or empty, try to guess from the name
-    const name = String(product.name || "").toLowerCase();
-
-    if (name.includes("anel") || name.includes("aliança")) return "rings";
-    if (name.includes("colar") || name.includes("gargantilha")) return "necklaces";
-    if (name.includes("pulseira") || name.includes("bracelete")) return "bracelets";
-    if (name.includes("brinco")) return "earrings";
-    if (name.includes("conjunto") || name.includes("combo") || name.includes("kit")) {
-      return "sets";
-    }
-
-    // Fallback: no clear base category
-    return "";
-  }
-
-  // Render grouped product payload into all category grids
-  function renderGroupedProducts(grouped) {
-    if (!grouped || typeof grouped !== "object") {
-      // If something goes wrong, just clear the grids
-      renderProductList("specialsList", [], "specials");
-      renderProductList("setsList", [], "sets");
-      renderProductList("ringsList", [], "rings");
-      renderProductList("necklacesList", [], "necklaces");
-      renderProductList("braceletsList", [], "bracelets");
-      renderProductList("earringsList", [], "earrings");
-      return;
-    }
-
-    const specials = Array.isArray(grouped.specials) ? grouped.specials : [];
-    const sets = Array.isArray(grouped.sets) ? grouped.sets.slice() : [];
-
-    let rings = Array.isArray(grouped.rings) ? grouped.rings.slice() : [];
-    let necklaces = Array.isArray(grouped.necklaces)
-      ? grouped.necklaces.slice()
-      : [];
-    let bracelets = Array.isArray(grouped.bracelets)
-      ? grouped.bracelets.slice()
-      : [];
-    let earrings = Array.isArray(grouped.earrings)
-      ? grouped.earrings.slice()
-      : [];
-
-    function addUniqueById(target, product) {
-      if (!product || product.id == null) return;
-      if (target.some((p) => p && p.id === product.id)) return;
-      target.push(product);
-    }
-
-    // Any product that appears in "specials" is also added to its base category
-    specials.forEach((product) => {
-      const cat = inferBaseCategory(product);
-
-      switch (cat) {
-        case "rings":
-          addUniqueById(rings, product);
-          break;
-        case "necklaces":
-          addUniqueById(necklaces, product);
-          break;
-        case "bracelets":
-          addUniqueById(bracelets, product);
-          break;
-        case "earrings":
-          addUniqueById(earrings, product);
-          break;
-        case "sets":
-          addUniqueById(sets, product);
-          break;
-        default:
-          break;
-      }
+      return 0;
     });
 
-    // New categories
-    renderProductList("specialsList", specials, "specials");
-    renderProductList("setsList", sets, "sets");
+    const hasProducts = items.length > 0;
+    const fragment = document.createDocumentFragment();
 
-    // Existing categories, enriched by specials
-    renderProductList("ringsList", rings, "rings");
-    renderProductList("necklacesList", necklaces, "necklaces");
-    renderProductList("braceletsList", bracelets, "bracelets");
-    renderProductList("earringsList", earrings, "earrings");
-  }
-
-  // Try to hydrate products from localStorage before hitting the network
-  function primeProductsFromCache() {
-    try {
-      if (!window.localStorage) return;
-      const raw = window.localStorage.getItem(PRODUCTS_CACHE_KEY);
-      if (!raw) return;
-      const cached = JSON.parse(raw);
-      renderGroupedProducts(cached);
-    } catch (err) {
-      console.warn("Falha ao carregar produtos do cache local:", err);
-    }
-  }
-
-  async function loadProducts(options) {
-    const force = options && options.force;
-
-    try {
-      const res = await fetch("/api/products", {
-        cache: force ? "reload" : "default"
-      });
-      if (!res.ok) throw new Error("Erro ao carregar produtos");
-      const grouped = await res.json();
-
-      renderGroupedProducts(grouped);
-
-      // Persist into localStorage for instant future reloads
-      try {
-        if (window.localStorage) {
-          window.localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(grouped));
-        }
-      } catch {
-        // ignore storage errors
-      }
-    } catch (err) {
-      console.error(err);
-      // If network fails, do not clear what may be on screen now
-    }
-  }
-
-  async function addToCart(productId) {
-    try {
-      const res = await fetch("/api/cart/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId })
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const msg =
-          body && body.error
-            ? body.error
-            : "Não foi possível adicionar o produto ao carrinho.";
-        alert(msg);
-        return;
-      }
-
-      const cartData = await res.json();
-      updateCartCountFromCartData(cartData);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao adicionar produto ao carrinho.");
-    }
-  }
-
-  // =========================
-  // Checkout view and cart
-  // =========================
-  function renderCart(cartData) {
-    const itemsContainer = document.getElementById("checkoutItems");
-    const subtotalEl = document.getElementById("summarySubtotal");
-    const taxesEl = document.getElementById("summaryTaxes");
-    const totalEl = document.getElementById("summaryTotal");
-
-    if (!itemsContainer) return;
-
-    itemsContainer.innerHTML = "";
-
-    const emptyAndReset = () => {
-      const empty = document.createElement("div");
-      empty.className = "checkout-empty";
-      empty.textContent = "Seu carrinho está vazio no momento.";
-      itemsContainer.appendChild(empty);
-      if (subtotalEl) subtotalEl.textContent = "R$ 0,00";
-      if (taxesEl) taxesEl.textContent = "R$ 0,00";
-      if (totalEl) totalEl.textContent = "R$ 0,00";
-      if (checkoutButton) checkoutButton.disabled = true;
-    };
-
-    if (!cartData || !Array.isArray(cartData.items) || !cartData.items.length) {
-      emptyAndReset();
-      return;
-    }
-
-    cartData.items.forEach((item) => {
-      const row = document.createElement("article");
-      row.className = "checkout-item";
-
-      const imageWrapper = document.createElement("div");
-      imageWrapper.className = "checkout-item-image";
-      if (item.imageUrl) {
-        const img = document.createElement("img");
-        img.src = item.imageUrl;
-        img.alt = item.name || "Produto DARAH";
-        img.loading = "lazy";
-        img.decoding = "async";
-        imageWrapper.appendChild(img);
-      }
-
-      const info = document.createElement("div");
-      info.className = "checkout-item-info";
-
-      const nameEl = document.createElement("div");
-      nameEl.className = "checkout-item-name";
-      nameEl.textContent = item.name || "Produto";
-
-      const unitEl = document.createElement("div");
-      unitEl.className = "checkout-item-unit";
-      unitEl.textContent = `${formatBRL(item.price)} por unidade`;
-
-      const totalElItem = document.createElement("div");
-      totalElItem.className = "checkout-item-total";
-      totalElItem.textContent = `Total: ${formatBRL(item.lineTotal)}`;
-
-      info.appendChild(nameEl);
-      info.appendChild(unitEl);
-      info.appendChild(totalElItem);
-
-      const controls = document.createElement("div");
-      controls.className = "checkout-item-controls";
-
-      const qtyControls = document.createElement("div");
-      qtyControls.className = "quantity-controls";
-
-      const minusBtn = document.createElement("button");
-      minusBtn.className = "quantity-button";
-      minusBtn.textContent = "−";
-
-      const qtyValue = document.createElement("span");
-      qtyValue.className = "quantity-value";
-      qtyValue.textContent = String(item.quantity);
-
-      const plusBtn = document.createElement("button");
-      plusBtn.className = "quantity-button";
-      plusBtn.textContent = "+";
-
-      minusBtn.addEventListener("click", () => {
-        const newQty = item.quantity - 1;
-        updateCartItem(item.id, newQty);
-      });
-
-      plusBtn.addEventListener("click", () => {
-        const newQty = item.quantity + 1;
-        updateCartItem(item.id, newQty);
-      });
-
-      qtyControls.appendChild(minusBtn);
-      qtyControls.appendChild(qtyValue);
-      qtyControls.appendChild(plusBtn);
-      controls.appendChild(qtyControls);
-
-      row.appendChild(imageWrapper);
-      row.appendChild(info);
-      row.appendChild(controls);
-
-      itemsContainer.appendChild(row);
-    });
-
-    if (subtotalEl) subtotalEl.textContent = formatBRL(cartData.subtotal);
-    if (taxesEl) taxesEl.textContent = formatBRL(cartData.taxes);
-    if (totalEl) totalEl.textContent = formatBRL(cartData.total);
-    if (checkoutButton) checkoutButton.disabled = false;
-  }
-
-  async function loadCartView() {
-    if (cartLoading) return;
-    cartLoading = true;
-
-    try {
-      const res = await fetch("/api/cart");
-      if (!res.ok) throw new Error("Erro ao carregar carrinho");
-      const cartData = await res.json();
-      renderCart(cartData);
-      updateCartCountFromCartData(cartData);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao carregar o carrinho.");
-    } finally {
-      cartLoading = false;
-    }
-  }
-
-  async function updateCartItem(productId, quantity) {
-    try {
-      const res = await fetch("/api/cart/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity })
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const msg =
-          body && body.error
-            ? body.error
-            : "Não foi possível atualizar a quantidade do item.";
-        alert(msg);
-        return;
-      }
-
-      const cartData = await res.json();
-      renderCart(cartData);
-      updateCartCountFromCartData(cartData);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao atualizar item do carrinho.");
-    }
-  }
-
-  async function handleCheckout() {
-    try {
-      const res = await fetch("/api/checkout-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const msg =
-          body && body.error
-            ? body.error
-            : "Não foi possível gerar o link de checkout.";
-        alert(msg);
-        return;
-      }
-
-      const { url } = await res.json();
-      if (url) {
-        window.location.href = url;
-      } else {
-        alert("Não foi possível abrir o WhatsApp.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao finalizar o pedido.");
-    }
-  }
-
-  // =========================
-  // Navigation wiring
-  // =========================
-  function setMobileMenuOpen(open) {
-    mobileMenuOpen = !!open;
-    if (!navDropdown || !mobileToggle) return;
-
-    if (mobileMenuOpen) {
-      navDropdown.classList.add("open");
-      navDropdown.setAttribute("aria-hidden", "false");
-      mobileToggle.classList.add("is-open");
-      mobileToggle.setAttribute("aria-expanded", "true");
-    } else {
-      navDropdown.classList.remove("open");
-      navDropdown.setAttribute("aria-hidden", "true");
-      mobileToggle.classList.remove("is-open");
-      mobileToggle.setAttribute("aria-expanded", "false");
-    }
-  }
-
-  function setupNavButton(btn) {
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      const key = btn.dataset.view;
-      if (!key) return;
-      setActiveView(key);
-      if (key === "home" || key === "about") {
-        // Cached after first successful load or bootstrap
-        loadHomepage();
-      }
-      if (mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-    });
-  }
-
-  // Clone the extra tabs into the dropdown for mobile
-  if (navDropdown) {
-    const extraNavButtons = navLinks.filter(
-      (btn) => btn.dataset.mobileExtra === "true"
+    const addCardFragment = createAddProductCardFragment(
+      categoryKey
     );
 
-    extraNavButtons.forEach((btn) => {
-      const clone = btn.cloneNode(true);
-      clone.classList.add("nav-dropdown-link");
-      navDropdown.appendChild(clone);
-      setupNavButton(clone);
+    if (hasProducts) {
+      const first = items[0];
+      const firstCard = createProductCardFragment(first);
+      if (firstCard) fragment.appendChild(firstCard);
+
+      if (addCardFragment) fragment.appendChild(addCardFragment);
+
+      for (let i = 1; i < items.length; i += 1) {
+        const card = createProductCardFragment(items[i]);
+        if (card) fragment.appendChild(card);
+      }
+    } else if (addCardFragment) {
+      fragment.appendChild(addCardFragment);
+    }
+
+    container.appendChild(fragment);
+  }
+
+  function createAddProductCardFragment(categoryKey) {
+    if (!addCardTemplate || !("content" in addCardTemplate)) {
+      return null;
+    }
+    const fragment = document.importNode(
+      addCardTemplate.content,
+      true
+    );
+    const button = fragment.querySelector(
+      ".admin-add-product-button"
+    );
+    if (button) {
+      button.addEventListener("click", () =>
+        openProductModal(categoryKey, null)
+      );
+    }
+    return fragment;
+  }
+
+  function normalizeProductImages(product) {
+    const primary =
+      typeof product.imageUrl === "string"
+        ? product.imageUrl
+        : "";
+    const fromImageUrls = Array.isArray(product.imageUrls)
+      ? product.imageUrls
+      : [];
+    const fromImages = Array.isArray(product.images)
+      ? product.images
+      : [];
+    const merged = [...fromImageUrls, ...fromImages];
+    const cleaned = merged
+      .map((u) => String(u || "").trim())
+      .filter((u, index, arr) => u && arr.indexOf(u) === index);
+    if (primary && !cleaned.includes(primary)) {
+      cleaned.unshift(primary);
+    }
+    return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+  }
+
+  function createProductCardFragment(product) {
+    if (
+      !productCardTemplate ||
+      !("content" in productCardTemplate)
+    ) {
+      return null;
+    }
+    const fragment = document.importNode(
+      productCardTemplate.content,
+      true
+    );
+    const article = fragment.querySelector("article");
+    if (!article) return null;
+    article.dataset.productId = product.id || "";
+
+    const wrapper = fragment.querySelector(
+      ".admin-product-image-wrapper"
+    );
+    const imgEl = fragment.querySelector(".admin-product-image");
+    const images = normalizeProductImages(product);
+
+    if (wrapper) {
+      if (!images.length) {
+        if (imgEl) {
+          imgEl.alt = product.name || "Imagem do produto";
+          imgEl.style.display = "none";
+        }
+      } else if (images.length === 1) {
+        if (imgEl) {
+          imgEl.src = images[0];
+          imgEl.alt = product.name || "Imagem do produto";
+          imgEl.loading = "lazy";
+          imgEl.style.display = "block";
+        }
+      } else {
+        wrapper.innerHTML = "";
+
+        const viewport = document.createElement("div");
+        viewport.className = "product-image-viewport";
+
+        const track = document.createElement("div");
+        track.className = "product-image-track";
+
+        images.forEach((src) => {
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = product.name || "Imagem do produto";
+          img.loading = "lazy";
+          track.appendChild(img);
+        });
+
+        viewport.appendChild(track);
+        wrapper.appendChild(viewport);
+
+        const controls = document.createElement("div");
+        controls.className = "product-carousel-controls";
+
+        const leftBtn = document.createElement("button");
+        leftBtn.type = "button";
+        leftBtn.className =
+          "product-carousel-arrow product-carousel-arrow-left";
+        leftBtn.textContent = "‹";
+
+        const indicator = document.createElement("div");
+        indicator.className = "product-carousel-indicator";
+
+        const rightBtn = document.createElement("button");
+        rightBtn.type = "button";
+        rightBtn.className =
+          "product-carousel-arrow product-carousel-arrow-right";
+        rightBtn.textContent = "›";
+
+        controls.appendChild(leftBtn);
+        controls.appendChild(indicator);
+        controls.appendChild(rightBtn);
+        viewport.appendChild(controls);
+
+        let currentIndex = 0;
+        function updateCarousel() {
+          const index = Math.max(
+            0,
+            Math.min(images.length - 1, currentIndex)
+          );
+          currentIndex = index;
+          track.style.transform =
+            "translateX(" + String(-index * 100) + "%)";
+          indicator.textContent =
+            String(index + 1) + "/" + String(images.length);
+          leftBtn.disabled = index === 0;
+          rightBtn.disabled = index === images.length - 1;
+        }
+
+        leftBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (currentIndex > 0) {
+            currentIndex -= 1;
+            updateCarousel();
+          }
+        });
+
+        rightBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (currentIndex < images.length - 1) {
+            currentIndex += 1;
+            updateCarousel();
+          }
+        });
+
+        updateCarousel();
+      }
+    }
+
+    const titleEl = fragment.querySelector(".admin-product-title");
+    if (titleEl) {
+      titleEl.textContent = product.name || "Produto";
+    }
+
+    const descEl = fragment.querySelector(
+      ".admin-product-description"
+    );
+    if (descEl) {
+      descEl.textContent =
+        product.description || "Peça da coleção DARAH.";
+    }
+
+    const priceEl = fragment.querySelector(".admin-product-price");
+    if (priceEl) {
+      priceEl.textContent = formatBRL(product.price);
+    }
+
+    const stockEl = fragment.querySelector(".admin-product-stock");
+    if (stockEl) {
+      if (typeof product.stock === "number") {
+        stockEl.textContent = "Estoque: " + product.stock;
+      } else {
+        stockEl.textContent = "Estoque: -";
+      }
+    }
+
+    const editBtn = fragment.querySelector(
+      ".admin-edit-product-button"
+    );
+    if (editBtn) {
+      editBtn.addEventListener("click", () =>
+        openProductModal(product.category, product)
+      );
+    }
+
+    return fragment;
+  }
+
+  function renderProductImagesUI() {
+    if (
+      !productImagePreview ||
+      !productImagePlaceholder ||
+      !productImageThumbs
+    ) {
+      return;
+    }
+    productImageThumbs.innerHTML = "";
+
+    if (
+      !Array.isArray(currentProductImages) ||
+      !currentProductImages.length
+    ) {
+      productImagePreview.src = "";
+      productImagePreview.style.display = "none";
+      productImagePlaceholder.style.display = "flex";
+      if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = "";
+      return;
+    }
+
+    const cover = currentProductImages[0];
+    productImagePreview.src = cover;
+    productImagePreview.loading = "lazy";
+    productImagePreview.style.display = "block";
+    productImagePlaceholder.style.display = "none";
+
+    if (hiddenForm.imageUrl) hiddenForm.imageUrl.value = cover;
+
+    currentProductImages.forEach((url, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "admin-image-thumb" + (idx === 0 ? " active" : "");
+      btn.style.position = "relative";
+
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Imagem " + (idx + 1);
+      img.loading = "lazy";
+      btn.appendChild(img);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "×";
+      removeBtn.style.position = "absolute";
+      removeBtn.style.top = "0";
+      removeBtn.style.right = "0";
+      removeBtn.style.width = "16px";
+      removeBtn.style.height = "16px";
+      removeBtn.style.border = "none";
+      removeBtn.style.borderRadius = "999px";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.style.fontSize = "11px";
+      removeBtn.style.lineHeight = "1";
+      removeBtn.style.background = "rgba(0,0,0,0.65)";
+      removeBtn.style.color = "#fff";
+      removeBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        currentProductImages.splice(idx, 1);
+        currentProductImages = normalizeList(
+          currentProductImages,
+          MAX_PRODUCT_IMAGES
+        );
+        renderProductImagesUI();
+      });
+
+      btn.addEventListener("click", () => {
+        if (idx === 0) return;
+        const copy = currentProductImages.slice();
+        const tmp = copy[0];
+        copy[0] = copy[idx];
+        copy[idx] = tmp;
+        currentProductImages = copy;
+        renderProductImagesUI();
+      });
+
+      btn.appendChild(removeBtn);
+      productImageThumbs.appendChild(btn);
     });
   }
 
-  if (mobileToggle && navDropdown) {
-    mobileToggle.addEventListener("click", () => {
-      setMobileMenuOpen(!mobileMenuOpen);
+  function openProductModal(categoryKey, productOrNull) {
+    if (!hiddenForm.el || !productModalBackdrop) return;
+
+    currentProductEditing = productOrNull || null;
+    if (productOrNull) {
+      currentProductImages = normalizeProductImages(productOrNull);
+    } else {
+      currentProductImages = [];
+    }
+
+    hiddenForm.el.reset();
+    setFormStatus("", "");
+
+    if (hiddenForm.category) {
+      hiddenForm.category.value =
+        productOrNull && productOrNull.category
+          ? productOrNull.category
+          : categoryKey;
+    }
+    if (hiddenForm.name) {
+      hiddenForm.name.value =
+        productOrNull && productOrNull.name
+          ? productOrNull.name
+          : "";
+    }
+    if (hiddenForm.description) {
+      hiddenForm.description.value =
+        productOrNull && productOrNull.description
+          ? productOrNull.description
+          : "";
+    }
+    if (hiddenForm.price) {
+      const priceValue =
+        productOrNull && typeof productOrNull.price === "number"
+          ? String(productOrNull.price)
+          : "";
+      hiddenForm.price.value = priceValue;
+    }
+    if (hiddenForm.originalPrice) {
+      const originalPriceValue =
+        productOrNull &&
+        typeof productOrNull.originalPrice === "number"
+          ? String(productOrNull.originalPrice)
+          : "";
+      hiddenForm.originalPrice.value = originalPriceValue;
+    }
+    if (hiddenForm.discountLabel) {
+      hiddenForm.discountLabel.value =
+        productOrNull &&
+        typeof productOrNull.discountLabel === "string"
+          ? productOrNull.discountLabel
+          : "";
+    }
+    if (hiddenForm.stock) {
+      const stockValue =
+        productOrNull && typeof productOrNull.stock === "number"
+          ? String(productOrNull.stock)
+          : "";
+      hiddenForm.stock.value = stockValue;
+    }
+
+    renderProductImagesUI();
+
+    if (productDeleteButton) {
+      if (productOrNull && productOrNull.id) {
+        productDeleteButton.style.display = "inline-flex";
+      } else {
+        productDeleteButton.style.display = "none";
+      }
+    }
+
+    if (productModalTitle) {
+      productModalTitle.textContent = productOrNull
+        ? "Editar produto"
+        : "Novo produto";
+    }
+
+    productModalBackdrop.style.display = "flex";
+  }
+
+  function closeProductModal() {
+    if (productModalBackdrop) {
+      productModalBackdrop.style.display = "none";
+    }
+    currentProductEditing = null;
+    currentProductImages = [];
+    setFormStatus("", "");
+    if (hiddenForm.el) {
+      hiddenForm.el.reset();
+    }
+    if (
+      productImagePreview &&
+      productImagePlaceholder &&
+      productImageThumbs
+    ) {
+      productImagePreview.src = "";
+      productImagePreview.style.display = "none";
+      productImagePlaceholder.style.display = "flex";
+      productImageThumbs.innerHTML = "";
+    }
+    if (hiddenForm.imageUrl) {
+      hiddenForm.imageUrl.value = "";
+    }
+  }
+
+  if (productModalClose && productModalBackdrop) {
+    productModalClose.addEventListener("click", () => {
+      closeProductModal();
+    });
+    productModalBackdrop.addEventListener("click", (event) => {
+      if (event.target === productModalBackdrop) {
+        closeProductModal();
+      }
     });
   }
 
-  // Close mobile menu on resize back to desktop
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 640 && mobileMenuOpen) {
-      setMobileMenuOpen(false);
-    }
-  });
+  if (productImageFileButton && hiddenForm.imageFile) {
+    productImageFileButton.addEventListener("click", () => {
+      hiddenForm.imageFile.click();
+    });
 
-  // Attach navigation to main nav links
-  navLinks.forEach(setupNavButton);
-
-  // =========================
-  // Events for cart and year
-  // =========================
-  if (cartButton) {
-    cartButton.addEventListener("click", () => setActiveView("checkout"));
+    hiddenForm.imageFile.addEventListener("change", async () => {
+      const files = Array.from(hiddenForm.imageFile.files || []);
+      if (!files.length) return;
+      try {
+        setFormStatus(
+          "Carregando imagens selecionadas...",
+          ""
+        );
+        const newImages = [];
+        for (const file of files) {
+          const url = await fileToDataUrl(file);
+          newImages.push(url);
+        }
+        if (!Array.isArray(currentProductImages)) {
+          currentProductImages = [];
+        }
+        currentProductImages =
+          currentProductImages.concat(newImages);
+        currentProductImages = normalizeList(
+          currentProductImages,
+          MAX_PRODUCT_IMAGES
+        );
+        renderProductImagesUI();
+        setFormStatus(
+          "Imagens adicionadas. Salve para aplicar.",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setFormStatus(
+          "Não foi possível processar a imagem selecionada.",
+          "error"
+        );
+      } finally {
+        hiddenForm.imageFile.value = "";
+      }
+    });
   }
 
-  if (checkoutButton) {
-    checkoutButton.addEventListener("click", handleCheckout);
+  if (hiddenForm.el) {
+    hiddenForm.el.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const priceRaw = hiddenForm.price
+        ? hiddenForm.price.value
+        : "";
+      const stockRaw = hiddenForm.stock
+        ? hiddenForm.stock.value
+        : "";
+      const originalPriceRaw = hiddenForm.originalPrice
+        ? hiddenForm.originalPrice.value
+        : "";
+      const discountLabelRaw = hiddenForm.discountLabel
+        ? hiddenForm.discountLabel.value.trim()
+        : "";
+
+      const price = priceRaw ? parseFloat(priceRaw) : NaN;
+      const stock = stockRaw ? parseInt(stockRaw, 10) : NaN;
+      const originalPriceParsed = originalPriceRaw
+        ? parseFloat(originalPriceRaw)
+        : NaN;
+      const originalPrice = Number.isNaN(originalPriceParsed)
+        ? null
+        : originalPriceParsed;
+      const discountLabel = discountLabelRaw.length
+        ? discountLabelRaw
+        : null;
+
+      const payload = {
+        category: hiddenForm.category
+          ? hiddenForm.category.value
+          : "",
+        name: hiddenForm.name
+          ? hiddenForm.name.value.trim()
+          : "",
+        description: hiddenForm.description
+          ? hiddenForm.description.value.trim()
+          : "",
+        price,
+        stock,
+        imageUrl:
+          Array.isArray(currentProductImages) &&
+          currentProductImages.length
+            ? currentProductImages[0]
+            : "",
+        images: Array.isArray(currentProductImages)
+          ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
+          : [],
+        originalPrice,
+        discountLabel
+      };
+
+      if (
+        !payload.name ||
+        Number.isNaN(payload.price) ||
+        Number.isNaN(payload.stock)
+      ) {
+        setFormStatus(
+          "Preencha pelo menos nome, preço e quantidade em estoque.",
+          "error"
+        );
+        return;
+      }
+
+      try {
+        setFormStatus("Salvando produto...", "");
+        if (currentProductEditing && currentProductEditing.id) {
+          await updateProduct(currentProductEditing.id, payload);
+        } else {
+          await createProduct(payload);
+        }
+        closeProductModal();
+      } catch {
+        // error já tratado
+      }
+    });
   }
 
-  if (yearEl) {
-    yearEl.textContent = String(new Date().getFullYear());
+  if (productDeleteButton) {
+    productDeleteButton.addEventListener("click", async () => {
+      if (!currentProductEditing || !currentProductEditing.id) {
+        return;
+      }
+      if (!window.confirm("Excluir este produto?")) return;
+      try {
+        await deleteProduct(currentProductEditing.id);
+        closeProductModal();
+      } catch {
+        // error já tratado
+      }
+    });
   }
 
-  // =========================
-  // Initial load
-  // =========================
-  const initialVariant = rootEl ? rootEl.getAttribute("data-theme-variant") : null;
-  applyThemeVariant(initialVariant || "default");
-
-  // Use server injected bootstrap if available for instant paint
-  const bootstrap =
-    typeof window !== "undefined" ? window.__DARAH_BOOTSTRAP__ || null : null;
-
-  if (bootstrap && bootstrap.homepage) {
-    renderHomepagePayload(bootstrap.homepage);
-    // Seed local cache for future loads
+  // API actions
+  async function createProduct(payload) {
     try {
-      if (window.localStorage) {
-        window.localStorage.setItem(
-          HOMEPAGE_CACHE_KEY,
-          JSON.stringify(bootstrap.homepage)
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body && body.error
+            ? body.error
+            : "Não foi possível criar o produto."
         );
       }
+      await res.json();
+      setFormStatus("Produto criado com sucesso.", "ok");
+      await loadProducts();
+    } catch (err) {
+      console.error(err);
+      setFormStatus(err.message, "error");
+      throw err;
+    }
+  }
+
+  async function updateProduct(id, payload) {
+    try {
+      const res = await fetch(
+        "/api/products/" + encodeURIComponent(id),
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body && body.error
+            ? body.error
+            : "Não foi possível atualizar o produto."
+        );
+      }
+      await res.json();
+      setFormStatus(
+        "Produto atualizado com sucesso.",
+        "ok"
+      );
+      await loadProducts();
+    } catch (err) {
+      console.error(err);
+      setFormStatus(err.message, "error");
+      throw err;
+    }
+  }
+
+  async function deleteProduct(id) {
+    try {
+      const res = await fetch(
+        "/api/products/" + encodeURIComponent(id),
+        {
+          method: "DELETE"
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body && body.error
+            ? body.error
+            : "Não foi possível excluir o produto."
+        );
+      }
+      await res.json();
+      setFormStatus("Produto excluído.", "ok");
+      await loadProducts();
+    } catch (err) {
+      console.error(err);
+      setFormStatus(err.message, "error");
+      throw err;
+    }
+  }
+
+  // =========================
+  // Auth flow
+  // =========================
+
+  function storeAdminUser(username) {
+    try {
+      sessionStorage.setItem(
+        "darahAdminUser",
+        JSON.stringify({ username })
+      );
+    } catch {
+      // storage falhou
+    }
+  }
+
+  function clearAdminUser() {
+    try {
+      sessionStorage.removeItem("darahAdminUser");
     } catch {
       // ignore
     }
-  } else {
-    // No bootstrap, fall back to local cache and then network
-    primeHomepageFromCache();
   }
 
-  if (bootstrap && bootstrap.products) {
-    renderGroupedProducts(bootstrap.products);
-    // Seed local cache for future loads
-    try {
-      if (window.localStorage) {
-        window.localStorage.setItem(
-          PRODUCTS_CACHE_KEY,
-          JSON.stringify(bootstrap.products)
-        );
-      }
-    } catch {
-      // ignore
+  function updateHeaderUser(username) {
+    if (userNameLabel) {
+      userNameLabel.textContent = username || "";
     }
-  } else {
-    // No bootstrap, fall back to local cache and then network
-    primeProductsFromCache();
   }
 
-  setActiveView("home");
-
-  // If there was no bootstrap data, fetch from API once
-  if (!bootstrap || !bootstrap.homepage) {
-    loadHomepage();
+  function showLoginView() {
+    if (panelSection) panelSection.style.display = "none";
+    if (loadingSection) loadingSection.style.display = "none";
+    if (loginSection) loginSection.style.display = "block";
+    if (usernameInput) usernameInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    setLoginError("");
+    updateHeaderUser("");
+    setBodyLoginMode(true);
+    closeMobileMenu();
   }
-  if (!bootstrap || !bootstrap.products) {
+
+  function showPanelView() {
+    if (loginSection) loginSection.style.display = "none";
+    if (loadingSection) loadingSection.style.display = "none";
+    if (panelSection) panelSection.style.display = "block";
+    setBodyLoginMode(false);
+  }
+
+  function startAdminSession(username) {
+    const info = VALID_USERS[username];
+    if (!info) return;
+
+    storeAdminUser(username);
+    updateHeaderUser(username);
+    setBodyLoginMode(false);
+
+    if (loginSection) loginSection.style.display = "none";
+
+    if (loadingSection) {
+      if (welcomeMessageEl) welcomeMessageEl.textContent = info.welcome;
+
+      const fill = loadingSection.querySelector(
+        ".loading-circle-fill"
+      );
+      if (fill && fill.parentElement) {
+        const clone = fill.cloneNode(true);
+        fill.parentElement.replaceChild(clone, fill);
+      }
+
+      loadingSection.style.display = "flex";
+
+      setTimeout(() => {
+        loadingSection.style.display = "none";
+        if (panelSection) panelSection.style.display = "block";
+        initializeAdminData();
+      }, 1800);
+    } else {
+      if (panelSection) panelSection.style.display = "block";
+      initializeAdminData();
+    }
+  }
+
+  function initializeAdminData() {
+    switchView("home");
+    renderAllCategoryGrids();
+    loadHomepageAdmin();
     loadProducts();
   }
 
-  // Cart count is tiny, safe to always refresh
-  refreshCartCount();
+  function handleLoginSubmit() {
+    const username =
+      (usernameInput && usernameInput.value.trim()) || "";
+    const password =
+      (passwordInput && passwordInput.value) || "";
 
-  // =========================
-  // Lightweight live listener
-  // =========================
-  function startLivePing() {
-    const intervalMs = 4 * 60 * 1000; // every 4 minutes
-    setInterval(() => {
-      fetch("/api/health", { cache: "no-store" }).catch(() => {
-        // ignore errors
-      });
-    }, intervalMs);
+    const info = VALID_USERS[username];
+    if (!info || info.password !== password) {
+      setLoginError("Usuário ou senha inválidos.");
+      return;
+    }
+
+    setLoginError("");
+    startAdminSession(username);
   }
 
-  startLivePing();
+  if (loginButton) {
+    loginButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleLoginSubmit();
+    });
+  }
+
+  if (usernameInput) {
+    usernameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleLoginSubmit();
+      }
+    });
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleLoginSubmit();
+      }
+    });
+  }
+
+  // Logout handler
+  if (logoutButton) {
+    logoutButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearAdminUser();
+      showLoginView();
+    });
+  }
+
+  // Restore prior session
+  try {
+    const stored = sessionStorage.getItem("darahAdminUser");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (
+        parsed &&
+        parsed.username &&
+        VALID_USERS[parsed.username]
+      ) {
+        if (loginSection) loginSection.style.display = "none";
+        if (loadingSection) loadingSection.style.display = "none";
+        if (panelSection) panelSection.style.display = "block";
+
+        const info = VALID_USERS[parsed.username];
+        if (welcomeMessageEl && info) {
+          welcomeMessageEl.textContent = info.welcome;
+        }
+
+        updateHeaderUser(parsed.username);
+        setBodyLoginMode(false);
+        initializeAdminData();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  function debounce(fn, ms) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
 });
