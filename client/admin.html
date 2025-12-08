@@ -101,7 +101,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        box-shadow: var(--shadow-soft);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-button-secondary:hover {
         background: rgba(255, 255, 255, 1);
@@ -148,7 +148,7 @@
         background: rgba(255, 255, 255, 0.9);
         font-size: 11px;
         cursor: pointer;
-        box-shadow: var(--shadow-soft);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-theme-label {
         font-weight: 500;
@@ -511,7 +511,6 @@
         background: rgba(0, 0, 0, 0.04);
         cursor: pointer;
         border: 1px solid transparent;
-        position: relative;
       }
       .admin-image-thumb img {
         width: 100%;
@@ -912,7 +911,7 @@
             <form id="productForm">
               <div class="admin-field">
                 <label for="productCategory" class="admin-label">Categoria</label>
-                <select id="productCategory" class="admin-select">
+                <select id="productCategory" class="admin-select" required>
                   <option value="specials">Ofertas especiais</option>
                   <option value="sets">Conjuntos</option>
                   <option value="rings">Anéis</option>
@@ -932,13 +931,12 @@
                 <textarea
                   id="productDescription"
                   class="admin-textarea"
-                  placeholder="Opcional, descreva detalhes se desejar"
+                  required
                 ></textarea>
               </div>
 
-              <!-- NOVO BLOCO DE FOTOS DO PRODUTO -->
               <div class="admin-field">
-                <label class="admin-label">Fotos do produto</label>
+                <label class="admin-label">Imagens do produto</label>
                 <div class="admin-image-upload-row">
                   <div class="admin-image-preview">
                     <div
@@ -949,7 +947,7 @@
                     </div>
                     <img
                       id="productImagePreview"
-                      alt="Foto principal do produto"
+                      alt="Pré visualização do produto"
                       style="display:none"
                     />
                   </div>
@@ -959,10 +957,11 @@
                       id="productImageFileButton"
                       class="admin-button-secondary"
                     >
-                      Adicionar foto
+                      Escolher foto(s)
                     </button>
                     <p class="admin-status" style="margin-top:4px">
-                      A primeira foto será a principal, até 5 fotos por produto.
+                      Use câmera, biblioteca de fotos ou arquivos do dispositivo.
+                      Você pode adicionar várias imagens, a primeira será a capa.
                     </p>
                   </div>
                 </div>
@@ -973,10 +972,12 @@
                   multiple
                   style="display:none"
                 />
-                <input id="productImageUrl" type="hidden" />
+                <input id="productImageUrl" type="text" style="display:none" />
                 <div id="productImageThumbs" class="admin-image-thumbs"></div>
+                <p class="admin-status" style="margin-top:4px">
+                  Toque em uma miniatura para defini-la como capa do produto.
+                </p>
               </div>
-              <!-- FIM DO BLOCO DE FOTOS DO PRODUTO -->
 
               <div class="admin-field">
                 <label for="productPrice" class="admin-label">
