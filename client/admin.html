@@ -31,41 +31,10 @@
         color: #2e7d32;
       }
       .admin-status.error {
-        color: #c62828;
+        color: var(--error);
       }
 
-      .admin-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 12px;
-      }
-
-      .admin-toolbar-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .admin-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        background: rgba(0, 0, 0, 0.04);
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-      }
-
-      .admin-badge-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 999px;
-        background: var(--accent);
-      }
-
+      /* Login */
       .admin-login {
         max-width: 420px;
         margin: 40px auto;
@@ -82,36 +51,36 @@
         font-size: 13px;
         color: var(--text-muted);
       }
+      .admin-login-error {
+        display: none;
+      }
 
+      /* Form fields */
       .admin-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         margin-bottom: 14px;
       }
       .admin-label {
-        display: block;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        margin-bottom: 4px;
-        color: var(--text-muted-strong);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
       }
       .admin-input,
       .admin-textarea,
       .admin-select {
         width: 100%;
-        border-radius: 999px;
+        border-radius: 10px;
         border: 1px solid var(--border-soft);
-        padding: 7px 11px;
-        font-size: 13px;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: rgba(255, 255, 255, 0.96);
+        padding: 10px 12px;
+        font-size: 14px;
+        background: var(--input-bg, #ffffff);
         color: var(--text-main);
       }
       .admin-textarea {
-        border-radius: 12px;
-        min-height: 100px;
+        min-height: 80px;
         resize: vertical;
-        line-height: 1.4;
       }
       .admin-input:focus,
       .admin-textarea:focus,
@@ -131,31 +100,70 @@
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        justify-content: center;
         gap: 6px;
-        transition: background 0.15s ease, transform 0.08s ease,
-          box-shadow 0.12s ease;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
       .admin-button-secondary:hover {
-        background: rgba(0, 0, 0, 0.02);
-        transform: translateY(1px);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+        background: rgba(255, 255, 255, 1);
       }
-      .admin-button-secondary:active {
-        transform: translateY(2px);
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+      .admin-button-ghost {
+        border-radius: 999px;
+        border: 1px solid transparent;
+        padding: 4px 8px;
+        font-size: 11px;
+        background: transparent;
+        cursor: pointer;
+        color: var(--text-muted);
+      }
+      .admin-button-ghost:hover {
+        background: rgba(0, 0, 0, 0.03);
       }
 
-      .admin-login-button {
-        width: 100%;
-        margin-top: 12px;
+      /* Admin header actions */
+      .admin-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .admin-badge-top {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-muted);
+        backdrop-filter: blur(6px);
       }
 
-      .admin-login-error {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #c62828;
-        display: none;
+      .admin-theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border-soft);
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 11px;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      }
+      .admin-theme-label {
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+      .admin-theme-select {
+        border: none;
+        background: transparent;
+        font-size: 11px;
+        padding: 2px 0;
+        color: var(--text-main);
+        cursor: pointer;
+      }
+      .admin-theme-select:focus {
+        outline: none;
       }
 
       .admin-user-box {
@@ -163,48 +171,24 @@
         align-items: center;
         gap: 8px;
       }
-
       .admin-user-label {
-        font-size: 13px;
-        color: var(--text-muted-strong);
-      }
-
-      .admin-header-actions {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
-
-      .admin-theme-toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+        max-width: 140px;
         font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-
-      .admin-theme-label {
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-size: 11px;
-        color: var(--text-muted-strong);
-      }
-
-      .admin-theme-select {
-        min-width: 120px;
-        font-size: 12px;
-      }
-
-      .admin-badge-top {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: var(--text-muted-strong);
-      }
-
       .admin-logout-button {
         font-size: 11px;
+        padding: 5px 10px;
       }
 
+      /* Loading welcome */
+      .admin-panel {
+        display: none;
+      }
       .admin-loading-section {
         display: none;
         justify-content: center;
@@ -226,176 +210,262 @@
         padding: 24px 0;
       }
       .loading-circle {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: conic-gradient(
-          var(--accent-soft) 0deg,
-          #f0f0f0 120deg,
-          #f0f0f0 360deg
-        );
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .loading-circle-inner {
-        width: 64px;
-        height: 64px;
-        background: #ffffff;
+        position: relative;
+        width: 160px;
+        height: 160px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
       }
       .loading-circle-fill {
-        width: 56px;
-        height: 56px;
+        position: absolute;
+        inset: 0;
         border-radius: 50%;
-        background: conic-gradient(
-          var(--accent-blue) 0deg,
-          #f0f0f0 0deg
-        );
-        animation: loadingFill 1.4s linear infinite;
+        background: conic-gradient(var(--accent-blue) 0deg, #f0f0f0 0deg);
+        transform: rotate(-90deg);
+        animation: loadingFill 4s linear forwards;
       }
-
-      .admin-loading-text {
+      .loading-circle-inner {
+        position: absolute;
+        inset: 16px;
+        border-radius: 50%;
+        background: var(--card-bg);
+      }
+      .loading-circle-message {
+        position: relative;
+        z-index: 2;
         font-size: 14px;
-        margin-top: 10px;
+        font-weight: 600;
+        color: var(--text-main);
+        padding: 0 12px;
       }
-      .admin-loading-subtext {
-        font-size: 12px;
-        margin-top: 4px;
-        color: var(--text-muted);
-      }
-
       @keyframes loadingFill {
         from {
-          background: conic-gradient(
-            var(--accent-blue) 0deg,
-            #f0f0f0 0deg
-          );
+          background: conic-gradient(var(--accent-blue) 0deg, #f0f0f0 0deg);
         }
         to {
-          background: conic-gradient(
-            var(--accent-blue) 360deg,
-            #f0f0f0 0deg
-          );
+          background: conic-gradient(var(--accent-blue) 360deg, #f0f0f0 0deg);
         }
       }
 
       /* Admin product grid mirrors storefront */
       .admin-product-grid {
+        margin-top: 18px;
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 16px;
-        margin-top: 12px;
+        gap: 18px;
+      }
+      @media (max-width: 900px) {
+        .admin-product-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 640px) {
+        .admin-product-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
 
       .admin-product-card {
         background: var(--card-bg);
-        border-radius: 16px;
-        padding: 10px;
+        border-radius: 18px;
+        overflow: hidden;
         box-shadow: var(--shadow-soft);
-        border: 1px solid var(--border-soft);
         display: flex;
         flex-direction: column;
-      }
-
-      .admin-product-images {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 8px;
-      }
-
-      .admin-product-image-thumb {
-        width: 48px;
-        height: 48px;
-        border-radius: 10px;
-        background: var(--skeleton-soft);
-        overflow: hidden;
         border: 1px solid var(--border-soft);
+        position: relative;
       }
 
-      .admin-product-image-thumb img {
+      .admin-product-card.add-card {
+        border-style: dashed;
+        border-color: var(--accent-soft);
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--text-muted);
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .add-card-inner {
+        padding: 20px 16px 22px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      .add-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid var(--accent-soft);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+      }
+
+      .admin-product-image-wrapper {
+        position: relative;
+        width: 100%;
+        padding-top: 75%;
+        background: #ececec;
+        overflow: hidden;
+      }
+      .admin-product-image-wrapper > img {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
 
-      .admin-product-main-info {
-        margin-bottom: 6px;
-      }
-
-      .admin-product-title-row {
+      .admin-product-body {
+        padding: 12px 14px 12px;
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
+        flex-direction: column;
         gap: 6px;
       }
-
       .admin-product-title {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
       }
-
-      .admin-product-price {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--accent);
+      .admin-product-description {
+        font-size: 12px;
+        color: var(--text-muted);
       }
-
       .admin-product-meta-row {
         display: flex;
         justify-content: space-between;
-        font-size: 11px;
-        color: var(--text-muted-strong);
-      }
-
-      .admin-product-badges {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 4px;
+        align-items: center;
         margin-top: 4px;
+        gap: 6px;
       }
-
-      .admin-product-badge {
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        border-radius: 999px;
-        padding: 2px 6px;
-        border: 1px solid var(--border-soft);
+      .admin-product-price {
+        font-weight: 600;
+        font-size: 13px;
       }
-
+      .admin-product-stock {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
       .admin-product-actions-row {
-        margin-top: 8px;
         display: flex;
         justify-content: flex-end;
+        padding: 0 14px 12px;
       }
 
-      .admin-product-form {
-        margin-top: 14px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 16px;
-        padding: 14px 12px 12px;
-        border: 1px dashed var(--border-soft);
+      /* Hero and notices */
+      .hero-admin-note {
+        margin: 10px 0 0;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .notice-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .notice-row .admin-label {
+        margin: 0;
       }
 
-      .admin-product-form h3 {
+      .admin-notice-list {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .admin-notice-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.02);
+        font-size: 12px;
+      }
+      .admin-notice-text {
+        flex: 1;
+      }
+
+      /* Product modal */
+      .admin-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.38);
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px 12px;
+        z-index: 40;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .admin-modal {
+        width: 100%;
+        max-width: 460px;
+        background: var(--card-bg);
+        border-radius: 18px;
+        box-shadow: var(--shadow-soft);
+        padding: 18px 18px 20px;
+        margin-top: 32px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border-soft);
+      }
+      .admin-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .admin-modal-title {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .admin-modal-close {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        color: var(--text-muted);
+      }
+      .admin-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .admin-price-wrapper {
+        display: flex;
+        align-items: center;
+        border-radius: 10px;
+        border: 1px solid var(--border-soft);
+        background: var(--input-bg, #ffffff);
+        padding-right: 10px;
+      }
+      .admin-price-prefix {
+        padding: 0 8px 0 10px;
         font-size: 13px;
-        margin: 0 0 10px 0;
+        color: var(--text-muted);
+        white-space: nowrap;
       }
-
-      .admin-product-form-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+      .admin-price-input {
+        border: none;
+        flex: 1;
+        padding: 10px 0;
+        font-size: 14px;
+        background: transparent;
       }
-
-      .admin-product-textarea {
-        min-height: 80px;
-        border-radius: 12px;
+      .admin-price-input:focus {
+        outline: none;
       }
 
       .admin-image-upload-row {
@@ -403,133 +473,91 @@
         align-items: center;
         gap: 10px;
       }
-
       .admin-image-preview {
-        width: 60px;
-        height: 60px;
-        border-radius: 14px;
-        background: var(--skeleton-soft);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.03);
         overflow: hidden;
-        border: 1px solid var(--border-soft);
+        flex-shrink: 0;
       }
-
       .admin-image-preview img {
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
-
       .admin-image-placeholder {
-        font-size: 22px;
-        color: #999;
-      }
-
-      .admin-notice-list {
-        margin-top: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .admin-notice-item {
+        width: 100%;
+        height: 100%;
         display: flex;
         align-items: center;
-        gap: 6px;
-      }
-
-      .admin-notice-item input {
-        flex: 1;
-      }
-
-      .admin-notice-remove {
-        padding: 4px 8px;
-        font-size: 11px;
-      }
-
-      .admin-theme-select {
-        border-radius: 999px;
-      }
-
-      .admin-product-id {
-        font-size: 11px;
+        justify-content: center;
+        font-size: 24px;
         color: var(--text-muted);
       }
 
-      .admin-product-category {
-        font-size: 11px;
-        color: var(--text-muted-strong);
-      }
-
-      .admin-panel {
-        display: none;
-      }
-
-      .notice-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-      }
-
-      .admin-subsection-title {
-        margin-top: 18px;
-        margin-bottom: 8px;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: var(--text-muted-strong);
-      }
-
-      .admin-section-description {
-        font-size: 12px;
-        color: var(--text-muted);
-      }
-
-      .admin-category-tabs {
+      /* Thumbnail gallery for multiple product images */
+      .admin-image-thumbs {
+        margin-top: 8px;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-bottom: 8px;
       }
-
-      .admin-category-tab {
-        border-radius: 999px;
-        padding: 5px 10px;
-        font-size: 11px;
-        border: 1px solid var(--border-soft);
-        background: rgba(255, 255, 255, 0.9);
+      .admin-image-thumb {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.04);
         cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .admin-image-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .admin-image-thumb.active {
+        border-color: var(--accent-soft);
+        box-shadow: 0 0 0 1px var(--accent-soft);
       }
 
-      .admin-category-tab.is-active {
-        background: var(--accent);
-        color: #ffffff;
-        border-color: var(--accent);
-      }
-
-      .admin-category-empty {
-        font-size: 13px;
-        color: var(--text-muted);
-        padding: 12px 0;
-      }
-
-      .admin-hero-tip {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-top: 6px;
-      }
-
-      .admin-grid-subtitle {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-bottom: 6px;
+      @media (max-width: 640px) {
+        .admin-login {
+          margin-top: 28px;
+        }
+        .admin-login-card {
+          padding: 18px 14px 20px;
+        }
+        .admin-main {
+          padding: 0 12px 24px;
+        }
+        .admin-header-actions {
+          gap: 8px;
+        }
+        .admin-badge-top {
+          display: none;
+        }
+        .admin-user-label {
+          max-width: 100px;
+        }
+        .admin-modal-backdrop {
+          padding: 16px 10px;
+        }
+        .admin-modal {
+          margin-top: 24px;
+          max-height: calc(100vh - 32px);
+          border-radius: 14px;
+        }
+        /* Admin mobile nav: hide inline tabs so everything lives in the menu */
+        .admin-page .main-nav .nav-left {
+          display: none;
+        }
       }
     </style>
   </head>
-  <body>
+  <body class="admin-page">
+    <!-- Cabeçalho igual à vitrine, com seletor de tema -->
     <header class="site-header">
       <div class="brand-bar">
         <div class="brand-bar-inner">
@@ -560,52 +588,28 @@
         </button>
 
         <div class="nav-left">
-          <button
-            class="nav-link active"
-            data-mobile-priority="true"
-            data-view="home"
-          >
+          <button class="nav-link active" data-view="home">
             Início
           </button>
-          <button
-            class="nav-link"
-            data-mobile-priority="true"
-            data-view="about"
-          >
+          <button class="nav-link" data-view="about">
             Sobre nós
           </button>
-          <button
-            class="nav-link"
-            data-mobile-extra="true"
-            data-view="specials"
-          >
+          <button class="nav-link" data-view="specials">
             Ofertas especiais
           </button>
-          <button class="nav-link" data-mobile-extra="true" data-view="sets">
+          <button class="nav-link" data-view="sets">
             Conjuntos
           </button>
-          <button class="nav-link" data-mobile-extra="true" data-view="rings">
+          <button class="nav-link" data-view="rings">
             Anéis
           </button>
-          <button
-            class="nav-link"
-            data-mobile-extra="true"
-            data-view="necklaces"
-          >
+          <button class="nav-link" data-view="necklaces">
             Colares
           </button>
-          <button
-            class="nav-link"
-            data-mobile-extra="true"
-            data-view="bracelets"
-          >
+          <button class="nav-link" data-view="bracelets">
             Pulseiras
           </button>
-          <button
-            class="nav-link"
-            data-mobile-extra="true"
-            data-view="earrings"
-          >
+          <button class="nav-link" data-view="earrings">
             Brincos
           </button>
         </div>
@@ -641,12 +645,9 @@
       <!-- Login -->
       <section id="adminLoginSection" class="admin-login">
         <div class="admin-login-card">
-          <h1 class="section-title" style="margin-top:0">
-            Acesso ao painel DARAH
-          </h1>
+          <h1 class="section-title" style="margin-top:0">Acesso administrativo</h1>
           <p class="admin-login-subtitle">
-            Informe seu usuário e senha para acessar as coleções, fotos da
-            homepage e avisos do site.
+            Digite seu usuário e senha para entrar no painel da DARAH.
           </p>
 
           <div class="admin-field">
@@ -656,7 +657,6 @@
               class="admin-input"
               type="text"
               autocomplete="username"
-              placeholder="Ex: Maria Eduarda"
             />
           </div>
 
@@ -667,42 +667,37 @@
               class="admin-input"
               type="password"
               autocomplete="current-password"
-              placeholder="Digite sua senha"
             />
           </div>
 
           <button
             id="adminLoginButton"
-            type="button"
-            class="primary-button admin-login-button"
+            class="primary-button"
+            style="width:100%;margin-top:4px"
           >
             Entrar
           </button>
-
-          <p id="adminLoginError" class="admin-login-error"></p>
+          <p id="adminLoginError" class="admin-status admin-login-error error"></p>
         </div>
       </section>
 
-      <!-- Loading -->
-      <section id="adminLoadingSection" class="admin-loading-section">
-        <div class="admin-loading-card">
+      <!-- Carregando / boas vindas -->
+      <section
+        id="adminLoadingSection"
+        class="admin-loading-section"
+        aria-hidden="true"
+      >
+        <div class="admin-card admin-loading-card">
+          <p class="home-highlight-text">Preparando o painel administrativo.</p>
           <div class="loading-circle-wrapper">
             <div class="loading-circle">
-              <div class="loading-circle-inner">
-                <div class="loading-circle-fill"></div>
+              <div class="loading-circle-fill"></div>
+              <div class="loading-circle-inner"></div>
+              <div class="loading-circle-message" id="adminWelcomeMessage">
+                Bem-vindo(a)!
               </div>
             </div>
           </div>
-          <p
-            id="adminWelcomeMessage"
-            class="admin-loading-text"
-            style="margin-bottom:4px"
-          >
-            Bem vinda ao painel DARAH
-          </p>
-          <p class="admin-loading-subtext">
-            Carregando suas coleções, fotos da homepage e avisos do site.
-          </p>
         </div>
       </section>
 
@@ -722,29 +717,12 @@
                 <textarea
                   id="adminAboutText"
                   class="admin-textarea"
-                  placeholder="Texto curto que aparece na homepage ao lado das fotos"
+                  placeholder="História, valores e identidade da DARAH"
                 ></textarea>
               </div>
-
-              <p class="admin-hero-tip">
-                Esse texto aparece em destaque na página inicial, ao lado da
-                colagem de fotos.
+              <p class="hero-admin-note">
+                As alterações aparecem na vitrine pública após salvar.
               </p>
-
-              <div class="admin-field" style="margin-top:10px">
-                <label for="adminAboutLongText" class="admin-label"
-                  >Texto longo (opcional)</label
-                >
-                <textarea
-                  id="adminAboutLongText"
-                  class="admin-textarea"
-                  placeholder='Texto usado na página "Sobre nós" se você quiser um texto mais detalhado sobre a história da marca.'
-                ></textarea>
-                <p class="admin-status">
-                  Se esse campo ficar vazio, usaremos o texto curto acima na
-                  página "Sobre nós".
-                </p>
-              </div>
 
               <div style="margin-top:10px">
                 <input
@@ -776,6 +754,7 @@
                 ></textarea>
               </div>
 
+              <!-- Avisos -->
               <div style="margin-top:16px">
                 <div class="notice-row">
                   <span class="admin-label">Avisos do site</span>
@@ -792,6 +771,13 @@
               </div>
             </div>
           </div>
+
+          <div class="home-highlight" style="margin-top:24px">
+            <h2>Seleção em destaque</h2>
+            <p class="home-highlight-text">
+              Explore nossas coleções de anéis, colares, pulseiras e brincos.
+            </p>
+          </div>
         </section>
 
         <!-- VISÃO SOBRE NÓS -->
@@ -804,23 +790,20 @@
                   Texto da página "Sobre nós"
                 </label>
                 <textarea
-                  id="adminAboutLongTextText"
+                  id="adminAboutLongText"
                   class="admin-textarea"
-                  placeholder='Esse texto aparece na página "Sobre nós". Caso fique vazio, usamos o texto curto da homepage.'
+                  placeholder="Conte a história da DARAH, missão, valores e o que desejar."
                 ></textarea>
-                <p class="admin-status">
-                  O conteúdo deste campo deve ser uma versão mais completa sobre
-                  a história da marca.
-                </p>
               </div>
-
+              <p class="hero-admin-note">
+                Este texto aparece na aba "Sobre nós" do site público.
+              </p>
+            </div>
+            <div class="about-text-block">
               <div class="admin-field">
                 <label class="admin-label">Fotos da página "Sobre nós"</label>
                 <div class="admin-image-upload-row">
-                  <div
-                    class="admin-image-preview"
-                    style="width:72px;height:72px;"
-                  >
+                  <div class="admin-image-preview" style="width:72px;height:72px;">
                     <div
                       id="adminAboutImagePlaceholder"
                       class="admin-image-placeholder"
@@ -842,168 +825,286 @@
                       Escolher foto(s)
                     </button>
                     <p class="admin-status" style="margin-top:4px">
-                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem
-                      não aparece na vitrine.
+                      Até 4 fotos. Se nenhuma foto for adicionada, a colagem não aparece
+                      na vitrine.
                     </p>
                   </div>
                 </div>
+                <input
+                  id="adminAboutImagesFile"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display:none"
+                />
+                <textarea
+                  id="adminAboutImages"
+                  class="admin-textarea"
+                  style="display:none"
+                ></textarea>
+                <div
+                  id="adminAboutCollagePreview"
+                  class="about-collage"
+                  style="margin-top:10px"
+                ></div>
               </div>
-
-              <p id="adminAboutStatus" class="admin-status"></p>
-
-              <input
-                id="adminAboutImagesFile"
-                type="file"
-                accept="image/*"
-                multiple
-                style="display:none"
-              />
-              <textarea
-                id="adminAboutImages"
-                class="admin-textarea"
-                style="display:none"
-              ></textarea>
-              <div
-                id="adminAboutCollagePreview"
-                class="about-collage"
-                style="margin-top:10px"
-              ></div>
-
-              <button
-                id="saveAboutPageBtn"
-                class="primary-button"
-                style="margin-top:12px"
-              >
-                Salvar página "Sobre nós"
-              </button>
             </div>
+          </div>
+          <div style="margin-top:14px">
+            <button id="saveAboutPageBtn" class="primary-button">
+              Salvar página "Sobre nós"
+            </button>
+            <p id="adminAboutSaveStatus" class="admin-status"></p>
           </div>
         </section>
 
-        <!-- VISÕES DE PRODUTOS (espelham a vitrine) -->
+        <!-- VISÃO OFERTAS ESPECIAIS -->
         <section id="view-specials" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Ofertas especiais</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Produtos marcados como destaque ou com promoção aparecem em destaque
-            nesta seção.
-          </p>
-          <div
-            id="adminSpecialsGrid"
-            class="product-grid admin-product-grid"
-          ></div>
-          <p id="adminSpecialsStatus" class="admin-status"></p>
+          <h2 class="section-title">Ofertas especiais</h2>
+          <div id="grid-specials" class="admin-product-grid"></div>
         </section>
 
+        <!-- VISÃO CONJUNTOS -->
         <section id="view-sets" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Conjuntos</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Conjuntos combinando várias peças em harmonia.
-          </p>
-          <div id="adminSetsGrid" class="product-grid admin-product-grid"></div>
-          <p id="adminSetsStatus" class="admin-status"></p>
+          <h2 class="section-title">Conjuntos</h2>
+          <div id="grid-sets" class="admin-product-grid"></div>
         </section>
 
+        <!-- VISÕES DE CATEGORIA -->
         <section id="view-rings" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Anéis</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Gerencie todos os anéis disponíveis na vitrine.
-          </p>
-          <div id="adminRingsGrid" class="product-grid admin-product-grid"></div>
-          <p id="adminRingsStatus" class="admin-status"></p>
+          <h2 class="section-title">Anéis</h2>
+          <div id="grid-rings" class="admin-product-grid"></div>
         </section>
 
         <section id="view-necklaces" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Colares</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Cadastre e edite colares com ou sem pingentes especiais.
-          </p>
-          <div
-            id="adminNecklacesGrid"
-            class="product-grid admin-product-grid"
-          ></div>
-          <p id="adminNecklacesStatus" class="admin-status"></p>
+          <h2 class="section-title">Colares</h2>
+          <div id="grid-necklaces" class="admin-product-grid"></div>
         </section>
 
         <section id="view-bracelets" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Pulseiras</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Pulseiras delicadas, rígidas, com pingentes e mais.
-          </p>
-          <div
-            id="adminBraceletsGrid"
-            class="product-grid admin-product-grid"
-          ></div>
-          <p id="adminBraceletsStatus" class="admin-status"></p>
+          <h2 class="section-title">Pulseiras</h2>
+          <div id="grid-bracelets" class="admin-product-grid"></div>
         </section>
 
         <section id="view-earrings" class="view">
-          <div class="admin-toolbar">
-            <div class="admin-toolbar-left">
-              <h2 class="section-title">Brincos</h2>
-            </div>
-          </div>
-          <p class="admin-grid-subtitle">
-            Brincos clássicos, argolas, pontos de luz e peças autorais.
-          </p>
-          <div
-            id="adminEarringsGrid"
-            class="product-grid admin-product-grid"
-          ></div>
-          <p id="adminEarringsStatus" class="admin-status"></p>
+          <h2 class="section-title">Brincos</h2>
+          <div id="grid-earrings" class="admin-product-grid"></div>
         </section>
 
-        <!-- Template de aviso para clonagem no JS -->
+        <!-- Modal de produto -->
+        <div id="adminProductModalBackdrop" class="admin-modal-backdrop">
+          <div class="admin-modal">
+            <div class="admin-modal-header">
+              <h3 id="adminProductModalTitle" class="admin-modal-title">
+                Novo produto
+              </h3>
+              <button
+                type="button"
+                id="adminProductModalClose"
+                class="admin-modal-close"
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <form id="productForm">
+              <div class="admin-field">
+                <label for="productCategory" class="admin-label">Categoria</label>
+                <select id="productCategory" class="admin-select">
+                  <option value="specials">Ofertas especiais</option>
+                  <option value="sets">Conjuntos</option>
+                  <option value="rings">Anéis</option>
+                  <option value="necklaces">Colares</option>
+                  <option value="bracelets">Pulseiras</option>
+                  <option value="earrings">Brincos</option>
+                </select>
+              </div>
+
+              <div class="admin-field">
+                <label for="productName" class="admin-label">Nome do produto</label>
+                <input id="productName" class="admin-input" type="text" required />
+              </div>
+
+              <div class="admin-field">
+                <label for="productDescription" class="admin-label">Descrição</label>
+                <textarea
+                  id="productDescription"
+                  class="admin-textarea"
+                  placeholder="Opcional, descreva detalhes se desejar"
+                ></textarea>
+              </div>
+
+              <div class="admin-field">
+                <label for="productPrice" class="admin-label">
+                  Preço atual
+                </label>
+                <div class="admin-price-wrapper">
+                  <span class="admin-price-prefix">R$</span>
+                  <input
+                    id="productPrice"
+                    class="admin-price-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    inputmode="decimal"
+                  />
+                </div>
+              </div>
+
+              <div class="admin-field">
+                <label for="productOriginalPrice" class="admin-label">
+                  Preço original (opcional, apenas para ofertas especiais)
+                </label>
+                <div class="admin-price-wrapper">
+                  <span class="admin-price-prefix">R$</span>
+                  <input
+                    id="productOriginalPrice"
+                    class="admin-price-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputmode="decimal"
+                  />
+                </div>
+                <p class="admin-status" style="margin-top:4px">
+                  Se preenchido, aparecerá como valor riscado na aba "Ofertas
+                  especiais".
+                </p>
+              </div>
+
+              <div class="admin-field">
+                <label for="productDiscountLabel" class="admin-label">
+                  Rótulo de desconto (opcional)
+                </label>
+                <input
+                  id="productDiscountLabel"
+                  class="admin-input"
+                  type="text"
+                  placeholder="Ex.: 20% off, Frete grátis, Leve 2 e pague 1"
+                />
+              </div>
+
+              <div class="admin-field">
+                <label class="admin-label">Imagens do produto</label>
+                <div class="admin-image-upload-row">
+                  <div class="admin-image-preview">
+                    <div
+                      id="productImagePlaceholder"
+                      class="admin-image-placeholder"
+                    >
+                      +
+                    </div>
+                    <img
+                      id="productImagePreview"
+                      alt="Pré visualização do produto"
+                      style="display:none"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      id="productImageFileButton"
+                      class="admin-button-secondary"
+                    >
+                      Escolher foto(s)
+                    </button>
+                    <p class="admin-status" style="margin-top:4px">
+                      Use câmera, biblioteca de fotos ou arquivos do dispositivo.
+                      Você pode adicionar várias imagens, a primeira será a capa.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  id="productImageFile"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display:none"
+                />
+                <input id="productImageUrl" type="text" style="display:none" />
+                <div id="productImageThumbs" class="admin-image-thumbs"></div>
+                <p class="admin-status" style="margin-top:4px">
+                  Toque em uma miniatura para defini-la como capa do produto.
+                </p>
+              </div>
+
+              <div class="admin-field">
+                <label for="productStock" class="admin-label">
+                  Estoque disponível
+                </label>
+                <input
+                  id="productStock"
+                  class="admin-input"
+                  type="number"
+                  min="0"
+                  required
+                />
+              </div>
+
+              <p id="adminProductFormStatus" class="admin-status"></p>
+
+              <div class="admin-modal-actions">
+                <button
+                  type="button"
+                  id="productDeleteButton"
+                  class="admin-button-ghost"
+                  style="display:none"
+                >
+                  Excluir produto
+                </button>
+                <button type="submit" class="primary-button">
+                  Salvar produto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Template para aviso -->
         <template id="noticeItemTemplate">
           <div class="admin-notice-item">
-            <input
-              type="text"
-              class="admin-input"
-              placeholder="Mensagem do aviso"
-            />
-            <button
-              type="button"
-              class="admin-button-secondary admin-notice-remove"
-            >
-              Remover
-            </button>
+            <span class="admin-notice-text"></span>
+            <div>
+              <button type="button" class="admin-button-ghost admin-notice-edit">
+                Editar
+              </button>
+              <button type="button" class="admin-button-ghost admin-notice-delete">
+                Excluir
+              </button>
+            </div>
           </div>
         </template>
 
-        <!-- Template de cartão de produto -->
-        <template id="adminProductCardTemplate">
-          <article class="product-card admin-product-card">
-            <div class="product-image">
-              <img alt="" class="admin-product-main-image" />
-            </div>
-            <div class="product-body">
-              <div class="product-category admin-product-category"></div>
-              <h3 class="product-title admin-product-title"></h3>
-              <div class="product-price-row">
-                <span class="product-price admin-product-price"></span>
+        <!-- Template para cartão de produto do admin -->
+        <template id="adminAddCardTemplate">
+          <article class="admin-product-card add-card">
+            <button
+              type="button"
+              class="add-card-inner admin-add-product-button"
+            >
+              <div class="add-card-icon">+</div>
+              <div style="font-size:13px;font-weight:500">
+                Adicionar novo produto
               </div>
-              <div class="admin-product-badges"></div>
+              <div style="font-size:11px;color:var(--text-muted)">
+                Crie um cartão com foto, preço e estoque.
+              </div>
+            </button>
+          </article>
+        </template>
+
+        <template id="adminProductCardTemplate">
+          <article class="admin-product-card" data-product-id="">
+            <div class="admin-product-image-wrapper">
+              <img src="" alt="" class="admin-product-image" />
+            </div>
+            <div class="admin-product-body">
+              <h3 class="admin-product-title"></h3>
+              <p class="admin-product-description"></p>
               <div class="admin-product-meta-row">
-                <span class="admin-product-id"></span>
+                <span class="admin-product-price"></span>
                 <span class="admin-product-stock"></span>
               </div>
             </div>
