@@ -36,6 +36,110 @@ const MAX_PRODUCT_IMAGES = 5;
 const MAX_IMAGE_URL_LENGTH = 900000;
 
 /* ------------------------------------------------------------------ */
+/* Optional image optimizer (sharp)                                    */
+/* ------------------------------------------------------------------ */
+
+let sharp = null;
+try {
+  // eslint-disable-next-line global-require
+  sharp = require("sharp");
+  console.log("[DARAH] sharp loaded. Server image optimization enabled.");
+} catch (err) {
+  console.log(
+    "[DARAH] sharp not installed. Server image optimization disabled."
+  );
+}
+
+const IMAGE_OPT = {
+  // Good balance for jewelry photos. Keeps detail but reduces payload a lot.
+  maxEdge: 1400,
+  quality: 82
+};
+
+function parseDataUrl(dataUrl) {
+  const str = String(dataUrl || "");
+  const match = str.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+  if (!match) return null;
+  return { mime: match[1], base64: match[2] };
+}
+
+async function optimizeDataImageUrl(dataUrl) {
+  if (!sharp) return String(dataUrl || "");
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) return String(dataUrl || "");
+
+  try {
+    const input = Buffer.from(parsed.base64, "base64");
+    let pipeline = sharp(input, { failOnError: false });
+
+    const meta = await pipeline.metadata();
+    const hasAlpha = !!meta.hasAlpha;
+
+    pipeline = pipeline.resize({
+      width: IMAGE_OPT.maxEdge,
+      height: IMAGE_OPT.maxEdge,
+      fit: "inside",
+      withoutEnlargement: true
+    });
+
+    // WebP is usually the best size to quality choice for web storefronts.
+    // If the image needs alpha, webp supports it well.
+    const outBuf = await pipeline.webp({ quality: IMAGE_OPT.quality }).toBuffer();
+    const outB64 = outBuf.toString("base64");
+
+    // Only replace if it actually gets smaller, otherwise keep original.
+    const optimized = `data:image/webp;base64,${outB64}`;
+    if (optimized.length < String(dataUrl || "").length) return optimized;
+
+    // If the optimizer did not reduce size, still keep the webp when alpha is present
+    // because it often decodes faster in browsers, but size can be similar.
+    if (hasAlpha) return optimized;
+
+    return String(dataUrl || "");
+  } catch (err) {
+    console.error("[DARAH] Image optimization failed, keeping original:", err);
+    return String(dataUrl || "");
+  }
+}
+
+async function optimizeImageArrayOnWrite(arr, limit) {
+  const max =
+    typeof limit === "number" && limit > 0 ? limit : MAX_PRODUCT_IMAGES;
+
+  if (!Array.isArray(arr)) return [];
+
+  const cleaned = arr
+    .map((s) => String(s || "").trim())
+    .filter((s, idx, a) => {
+      if (!s) return false;
+      if (a.indexOf(s) !== idx) return false;
+
+      if (!s.startsWith("data:image") && s.length > MAX_IMAGE_URL_LENGTH) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, max);
+
+  const optimized = [];
+  for (const src of cleaned) {
+    if (src.startsWith("data:image")) {
+      // Only bother optimizing when the data url is big enough to matter.
+      if (src.length > 120000) {
+        optimized.push(await optimizeDataImageUrl(src));
+      } else {
+        optimized.push(src);
+      }
+    } else {
+      optimized.push(src);
+    }
+  }
+
+  // Dedup again after optimization (two different sources may optimize to identical outputs).
+  return optimized.filter((s, idx, a) => s && a.indexOf(s) === idx).slice(0, max);
+}
+
+/* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
 /* ------------------------------------------------------------------ */
 function resolveClientDir() {
@@ -125,7 +229,6 @@ app.use("/api", (_req, res, next) => {
 
 // Static client assets with strong caching for CSS, JS, images.
 // BUT: main.js and styles.css must not be cached long term because they are not fingerprinted.
-// If they get stuck, deploys can randomly break on some devices.
 app.use(
   express.static(CLIENT_DIR, {
     fallthrough: true,
@@ -134,19 +237,16 @@ app.use(
     setHeaders(res, filePath) {
       const base = path.basename(filePath).toLowerCase();
 
-      // Safety for any HTML
       if (filePath.match(/\.html$/i)) {
         res.setHeader("Cache-Control", "no-store");
         return;
       }
 
-      // Critical storefront files: never let these go stale across deploys
       if (base === "main.js" || base === "styles.css") {
         res.setHeader("Cache-Control", "no-store");
         return;
       }
 
-      // 30 days, immutable for assets that are safe to cache long term
       if (filePath.match(/\.(js|css|png|jpe?g|webp|svg)$/i)) {
         res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
       }
@@ -192,7 +292,6 @@ function bumpProductsVersion() {
   if (productsVersion > Number.MAX_SAFE_INTEGER - 1) {
     productsVersion = 1;
   }
-  // Invalidate grouped products cache so it will rebuild on next request
   productsCache = {
     version: 0,
     data: null
@@ -230,7 +329,7 @@ function ensureSessionCart(req) {
   return req.session.cart;
 }
 
-// General image sanitizer for all server side image lists
+// Read time sanitizer. Keep it fast. Do NOT optimize here.
 function normalizeImageArray(arr, limit) {
   const max =
     typeof limit === "number" && limit > 0 ? limit : MAX_PRODUCT_IMAGES;
@@ -241,15 +340,11 @@ function normalizeImageArray(arr, limit) {
     .map((s) => String(s || "").trim())
     .filter((s, idx, a) => {
       if (!s) return false;
-      // Drop duplicates
       if (a.indexOf(s) !== idx) return false;
 
-      // Only enforce size guard for non data URLs.
-      // Data URLs come from the admin compressor and are dimension capped.
       if (!s.startsWith("data:image") && s.length > MAX_IMAGE_URL_LENGTH) {
         return false;
       }
-
       return true;
     });
 
@@ -377,10 +472,6 @@ function buildPublicHomepagePayload() {
   };
 }
 
-/**
- * Sends JSON with a strong ETag and short public cache.
- * Used for read only public endpoints to speed up repeat visits.
- */
 function sendJsonWithEtag(req, res, payload, cacheKey) {
   const body = JSON.stringify(payload);
   const hash = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
@@ -398,14 +489,6 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
   return res.send(body);
 }
 
-/**
- * Renders index.html with a bootstrap script that contains homepage data
- * and initial products so the client can render immediately without
- * waiting for the first /api/products fetch.
- *
- * Result is cached per homepageVersion and productsVersion so repeated
- * hits are effectively just a send().
- */
 function renderIndexWithBootstrap() {
   if (!INDEX_HTML_TEMPLATE) return null;
 
@@ -441,6 +524,57 @@ function renderIndexWithBootstrap() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Optional: migrate existing images once at startup                   */
+/* ------------------------------------------------------------------ */
+
+async function migrateOptimizeExistingImages() {
+  if (!sharp) return;
+
+  let changedProducts = 0;
+
+  for (const p of db.products) {
+    if (!p) continue;
+
+    const current = Array.isArray(p.imageUrls) ? p.imageUrls : [];
+    const normalized = normalizeImageArray(current, MAX_PRODUCT_IMAGES);
+
+    // Only optimize if any image is a big data url
+    const shouldOptimize = normalized.some(
+      (s) => typeof s === "string" && s.startsWith("data:image") && s.length > 180000
+    );
+
+    if (!shouldOptimize) continue;
+
+    const optimized = await optimizeImageArrayOnWrite(normalized, MAX_PRODUCT_IMAGES);
+
+    const before = JSON.stringify(normalized);
+    const after = JSON.stringify(optimized);
+
+    if (before !== after) {
+      p.imageUrls = optimized;
+      if (!p.imageUrl && optimized.length) p.imageUrl = optimized[0];
+      changedProducts += 1;
+      changedProducts += 0;
+
+      try {
+        await persistProductUpsert(p);
+      } catch (err) {
+        console.error("[DARAH] Failed persisting optimized product:", p.id, err);
+      }
+    }
+  }
+
+  if (changedProducts > 0) {
+    bumpProductsVersion();
+    cachedIndexHtml = null;
+    cachedIndexVersionKey = "";
+    console.log("[DARAH] Image migration complete. Products updated:", changedProducts);
+  } else {
+    console.log("[DARAH] Image migration skipped. No large images detected.");
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -466,14 +600,14 @@ app.put("/api/homepage", async (req, res) => {
   }
 
   if (Array.isArray(heroImages)) {
-    db.homepage.heroImages = normalizeImageArray(
+    db.homepage.heroImages = await optimizeImageArrayOnWrite(
       heroImages,
       MAX_HOMEPAGE_IMAGES
     );
   }
 
   if (Array.isArray(aboutImages)) {
-    db.homepage.aboutImages = normalizeImageArray(
+    db.homepage.aboutImages = await optimizeImageArrayOnWrite(
       aboutImages,
       MAX_ABOUT_IMAGES
     );
@@ -563,8 +697,9 @@ app.post("/api/products", async (req, res) => {
     ? images
     : [];
 
-  const normalizedImages = normalizeImageArray(rawImages, MAX_PRODUCT_IMAGES);
-  const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
+  const optimizedImages = await optimizeImageArrayOnWrite(rawImages, MAX_PRODUCT_IMAGES);
+
+  const primaryImageUrl = String(imageUrl || optimizedImages[0] || "");
 
   const normalizedOriginalPrice =
     typeof originalPrice === "number" && !Number.isNaN(originalPrice)
@@ -583,7 +718,7 @@ app.post("/api/products", async (req, res) => {
     price: Number(price),
     stock: Math.max(0, Number(stock)),
     imageUrl: primaryImageUrl,
-    imageUrls: normalizedImages,
+    imageUrls: optimizedImages,
     originalPrice: normalizedOriginalPrice,
     discountLabel: normalizedDiscountLabel
   };
@@ -654,27 +789,27 @@ app.put("/api/products/:id", async (req, res) => {
     "discountLabel"
   ];
 
-  Object.keys(req.body || {}).forEach((k) => {
-    if (!allowed.includes(k)) return;
+  for (const k of Object.keys(req.body || {})) {
+    if (!allowed.includes(k)) continue;
 
     if (k === "stock") {
       product[k] = Math.max(0, Number(req.body[k]));
-      return;
+      continue;
     }
 
     if (k === "price") {
       product[k] = Number(req.body[k]);
-      return;
+      continue;
     }
 
     if (k === "imageUrls") {
       const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
-      const cleaned = normalizeImageArray(srcs, MAX_PRODUCT_IMAGES);
-      product.imageUrls = cleaned;
-      if (!product.imageUrl && cleaned.length) {
-        product.imageUrl = cleaned[0];
+      const optimized = await optimizeImageArrayOnWrite(srcs, MAX_PRODUCT_IMAGES);
+      product.imageUrls = optimized;
+      if (!product.imageUrl && optimized.length) {
+        product.imageUrl = optimized[0];
       }
-      return;
+      continue;
     }
 
     if (k === "originalPrice") {
@@ -684,22 +819,22 @@ app.put("/api/products/:id", async (req, res) => {
       } else if (v == null || v === "") {
         product.originalPrice = null;
       }
-      return;
+      continue;
     }
 
     if (k === "discountLabel") {
       const text = String(req.body[k] || "").trim();
       product.discountLabel = text;
-      return;
+      continue;
     }
 
     if (k === "imageUrl") {
       product.imageUrl = String(req.body[k] || "");
-      return;
+      continue;
     }
 
     product[k] = req.body[k];
-  });
+  }
 
   bumpProductsVersion();
   cachedIndexHtml = null;
@@ -859,28 +994,11 @@ app.get("*", (_req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Startup: listen immediately, hydrate from DB in the background      */
+/* Startup: hydrate first, then listen                                 */
 /* ------------------------------------------------------------------ */
 
-app.listen(PORT, () => {
-  console.log(`DARAH API rodando na porta ${PORT}`);
-
-  const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
-  setInterval(() => {
-    http
-      .get(keepAliveUrl, (res) => {
-        res.on("data", () => {});
-        res.on("end", () => {});
-      })
-      .on("error", (err) => {
-        console.error("[DARAH] keep alive ping failed:", err.message);
-      });
-  }, 5 * 60 * 1000);
-});
-
-// Then hydrate the in memory cache from Postgres in the background.
-// If this fails, the app keeps working with the in memory store only.
-(async () => {
+async function start() {
+  // Initialize DB before listening so admin never loads empty data on first hit.
   try {
     await initDatabase(db);
 
@@ -890,10 +1008,31 @@ app.listen(PORT, () => {
     cachedIndexVersionKey = "";
 
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
+
+    // Optional one time migration to optimize old images already stored in DB.
+    await migrateOptimizeExistingImages();
   } catch (err) {
     console.error(
       "[DARAH] Failed to initialize database. Continuing with in memory store only.",
       err
     );
   }
-})();
+
+  app.listen(PORT, () => {
+    console.log(`DARAH API rodando na porta ${PORT}`);
+
+    const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
+    setInterval(() => {
+      http
+        .get(keepAliveUrl, (res) => {
+          res.on("data", () => {});
+          res.on("end", () => {});
+        })
+        .on("error", (err) => {
+          console.error("[DARAH] keep alive ping failed:", err.message);
+        });
+    }, 5 * 60 * 1000);
+  });
+}
+
+start();
