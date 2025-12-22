@@ -12,7 +12,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const compression = require("compression");
-const http = require("http"); // <--- added
+const http = require("http");
 
 // Database persistence helpers
 const {
@@ -102,6 +102,8 @@ app.use(
   })
 );
 
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "darah-dev-secret",
@@ -110,6 +112,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
+      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 24 * 7
     }
   })
@@ -123,19 +126,31 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
-// Static client assets with strong caching for CSS, JS, images.
+// Static client assets
+// IMPORTANT:
+// - JS/CSS must not be cached long term unless filenames are fingerprinted.
+// - Images can be cached aggressively.
 app.use(
   express.static(CLIENT_DIR, {
     fallthrough: true,
     index: false,
     etag: true,
     setHeaders(res, filePath) {
-      if (filePath.match(/\.(js|css|png|jpe?g|webp|svg)$/i)) {
-        // 30 days, immutable so repeat visits are instant for assets
-        res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
-      } else if (filePath.match(/\.html$/i)) {
-        // Safety for direct /index.html access
+      // Never cache HTML
+      if (/\.html$/i.test(filePath)) {
         res.setHeader("Cache-Control", "no-store");
+        return;
+      }
+
+      // JS and CSS: prevent stale deploy breakage
+      if (/\.(js|css)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+        return;
+      }
+
+      // Images and SVG: safe long caching
+      if (/\.(png|jpe?g|webp|svg)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
       }
     }
   })
@@ -373,7 +388,6 @@ function sendJsonWithEtag(req, res, payload, cacheKey) {
   const hash = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
   const etag = `"${cacheKey}-${hash}"`;
 
-  // Simplified cache header for compatibility
   res.setHeader("Cache-Control", "public, max-age=60");
   res.setHeader("ETag", etag);
 
@@ -479,7 +493,6 @@ app.put("/api/homepage", async (req, res) => {
     db.homepage.theme = trimmed || "default";
   }
 
-  // Bump homepage version and invalidate cached HTML so new content appears
   homepageVersion += 1;
   cachedIndexHtml = null;
   cachedIndexVersionKey = "";
@@ -552,10 +565,7 @@ app.post("/api/products", async (req, res) => {
     ? images
     : [];
 
-  const normalizedImages = normalizeImageArray(
-    rawImages,
-    MAX_PRODUCT_IMAGES
-  );
+  const normalizedImages = normalizeImageArray(rawImages, MAX_PRODUCT_IMAGES);
   const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
   const normalizedOriginalPrice =
@@ -827,7 +837,6 @@ app.get("/", (_req, res) => {
 
   const html = renderIndexWithBootstrap();
   if (!html) {
-    // Fallback if template could not be read for some reason
     return sendHtmlWithNoCache(res, INDEX_HTML);
   }
 
@@ -855,25 +864,20 @@ app.get("*", (_req, res) => {
 /* Startup: listen immediately, hydrate from DB in the background      */
 /* ------------------------------------------------------------------ */
 
-// Start the HTTP server right away so the first request is not blocked
-// by Postgres connection or schema checks.
 const server = app.listen(PORT, () => {
   console.log(`DARAH API rodando na porta ${PORT}`);
-  
-  // Simple internal keep alive ping so the process keeps touching /api/health
-  // at a steady interval.
+
   const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
   setInterval(() => {
     http
       .get(keepAliveUrl, (res) => {
-        // Drain the response to free sockets
         res.on("data", () => {});
         res.on("end", () => {});
       })
       .on("error", (err) => {
         console.error("[DARAH] keep alive ping failed:", err.message);
       });
-  }, 5 * 60 * 1000); // every 5 minutes
+  }, 5 * 60 * 1000);
 });
 
 // Then hydrate the in memory cache from Postgres in the background.
@@ -882,7 +886,6 @@ const server = app.listen(PORT, () => {
   try {
     await initDatabase(db);
 
-    // After DB hydration, bump versions so next HTML render uses fresh data
     homepageVersion += 1;
     bumpProductsVersion();
     cachedIndexHtml = null;
