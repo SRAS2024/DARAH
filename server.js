@@ -102,8 +102,6 @@ app.use(
   })
 );
 
-const isProduction = process.env.NODE_ENV === "production";
-
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "darah-dev-secret",
@@ -112,7 +110,6 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 24 * 7
     }
   })
@@ -126,30 +123,31 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
-// Static client assets
-// IMPORTANT:
-// - JS/CSS must not be cached long term unless filenames are fingerprinted.
-// - Images can be cached aggressively.
+// Static client assets with strong caching for CSS, JS, images.
+// BUT: main.js and styles.css must not be cached long term because they are not fingerprinted.
+// If they get stuck, deploys can randomly break on some devices.
 app.use(
   express.static(CLIENT_DIR, {
     fallthrough: true,
     index: false,
     etag: true,
     setHeaders(res, filePath) {
-      // Never cache HTML
-      if (/\.html$/i.test(filePath)) {
+      const base = path.basename(filePath).toLowerCase();
+
+      // Safety for any HTML
+      if (filePath.match(/\.html$/i)) {
         res.setHeader("Cache-Control", "no-store");
         return;
       }
 
-      // JS and CSS: prevent stale deploy breakage
-      if (/\.(js|css)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+      // Critical storefront files: never let these go stale across deploys
+      if (base === "main.js" || base === "styles.css") {
+        res.setHeader("Cache-Control", "no-store");
         return;
       }
 
-      // Images and SVG: safe long caching
-      if (/\.(png|jpe?g|webp|svg)$/i.test(filePath)) {
+      // 30 days, immutable for assets that are safe to cache long term
+      if (filePath.match(/\.(js|css|png|jpe?g|webp|svg)$/i)) {
         res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
       }
     }
@@ -864,7 +862,7 @@ app.get("*", (_req, res) => {
 /* Startup: listen immediately, hydrate from DB in the background      */
 /* ------------------------------------------------------------------ */
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`DARAH API rodando na porta ${PORT}`);
 
   const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
