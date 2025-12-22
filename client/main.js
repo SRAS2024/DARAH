@@ -7,6 +7,18 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // CRITICAL SAFETY GUARD
+  // =========================
+  // This script is the ADMIN script. If it is accidentally loaded on the
+  // storefront (index.html), most admin elements do not exist and it can crash.
+  // We exit early to prevent random runtime errors without changing UI design.
+  const loginSectionGuard = document.getElementById("adminLoginSection");
+  const panelSectionGuard = document.getElementById("adminPanelSection");
+  if (!loginSectionGuard && !panelSectionGuard) {
+    return;
+  }
+
   // Limits
   const MAX_PRODUCT_IMAGES = 5; // até 5 imagens por produto
   const MAX_HOMEPAGE_IMAGES = 12; // até 12 imagens no collage da página inicial
@@ -19,9 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const navLeftContainer = document.querySelector(".nav-left");
 
   // Top navigation inside Admin (mirrors storefront)
-  const navLinks = Array.from(
-    document.querySelectorAll(".main-nav .nav-link")
-  );
+  const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
     home: document.getElementById("view-home"),
     about: document.getElementById("view-about"),
@@ -235,9 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currency: "BRL"
       });
     } catch {
-      return (
-        "R$ " + Number(value || 0).toFixed(2).replace(".", ",")
-      );
+      return "R$ " + Number(value || 0).toFixed(2).replace(".", ",");
     }
   }
 
@@ -264,9 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : String(reader.result)
         );
       reader.onerror = () =>
-        reject(
-          reader.error || new Error("Falha ao ler arquivo de imagem.")
-        );
+        reject(reader.error || new Error("Falha ao ler arquivo de imagem."));
       reader.readAsDataURL(file);
     });
   }
@@ -295,26 +301,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const cleaned = list
       .map((u) => String(u || "").trim())
       .filter((u, index, arr) => u && arr.indexOf(u) === index);
-    return typeof max === "number" && max > 0
-      ? cleaned.slice(0, max)
-      : cleaned;
+    return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
   }
 
   // View switching inside admin
   function switchView(id) {
-    Object.values(views).forEach((v) =>
-      v && v.classList.remove("active-view")
-    );
+    Object.values(views).forEach((v) => v && v.classList.remove("active-view"));
     const el = views[id];
     if (el) el.classList.add("active-view");
-    navLinks.forEach((b) =>
-      b.classList.toggle("active", b.dataset.view === id)
-    );
+    navLinks.forEach((b) => b.classList.toggle("active", b.dataset.view === id));
   }
 
   navLinks.forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.view;
+      // Guard: only switch if this admin view element exists
       if (id && views[id]) {
         switchView(id);
       }
@@ -334,8 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
       clone.dataset.view = viewId;
       clone.addEventListener("click", () => {
         switchView(viewId);
-        const dropdownLinks =
-          navDropdown.querySelectorAll(".nav-link");
+        const dropdownLinks = navDropdown.querySelectorAll(".nav-link");
         dropdownLinks.forEach((linkEl) => {
           linkEl.classList.toggle("active", linkEl === clone);
         });
@@ -374,8 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Theme selector handler
   if (themeSelect) {
     themeSelect.addEventListener("change", () => {
-      const value =
-        (themeSelect.value || "default").trim() || "default";
+      const value = (themeSelect.value || "default").trim() || "default";
       homepageState.theme = value;
       applyThemeVariant(value);
       setHomepageStatus(
@@ -397,36 +396,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const hp = await res.json();
 
-      homepageState.aboutText =
-        typeof hp.aboutText === "string" ? hp.aboutText : "";
+      homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
       homepageState.aboutLongText =
-        typeof hp.aboutLongText === "string"
-          ? hp.aboutLongText
-          : "";
-      homepageState.heroImages = normalizeList(
-        hp.heroImages || [],
-        MAX_HOMEPAGE_IMAGES
-      );
-      homepageState.notices = normalizeList(
-        hp.notices || [],
-        10
-      );
-      homepageState.theme =
-        typeof hp.theme === "string" ? hp.theme : "default";
-      homepageState.aboutImages = normalizeList(
-        hp.aboutImages || [],
-        MAX_ABOUT_IMAGES
-      );
+        typeof hp.aboutLongText === "string" ? hp.aboutLongText : "";
+      homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
+      homepageState.notices = normalizeList(hp.notices || [], 10);
+      homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+      homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
 
       if (aboutTextEl) {
         aboutTextEl.value = homepageState.aboutText;
       }
 
       if (aboutLongTextEl) {
-        if (
-          homepageState.aboutLongText &&
-          homepageState.aboutLongText.trim().length
-        ) {
+        if (homepageState.aboutLongText && homepageState.aboutLongText.trim().length) {
           aboutLongTextEl.value = homepageState.aboutLongText;
         } else if (typeof hp.aboutText === "string") {
           aboutLongTextEl.value = hp.aboutText;
@@ -436,29 +419,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (heroImagesTextarea) {
-        heroImagesTextarea.value =
-          homepageState.heroImages.join("\n");
+        heroImagesTextarea.value = homepageState.heroImages.join("\n");
       }
 
       if (aboutImagesTextarea) {
-        aboutImagesTextarea.value =
-          homepageState.aboutImages.join("\n");
+        aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
       }
 
       applyThemeVariant(homepageState.theme);
       renderHeroGallery();
       renderAboutGallery();
       renderNotices();
-      setHomepageStatus(
-        "Conteúdo carregado com sucesso.",
-        "ok"
-      );
+      setHomepageStatus("Conteúdo carregado com sucesso.", "ok");
     } catch (err) {
       console.error(err);
-      setHomepageStatus(
-        "Não foi possível carregar a homepage.",
-        "error"
-      );
+      setHomepageStatus("Não foi possível carregar a homepage.", "error");
     }
   }
 
@@ -484,8 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .filter((u, index, arr) => u && arr.indexOf(u) === index)
       .slice(0, MAX_ABOUT_IMAGES);
     homepageState.aboutImages = fromTextarea;
-    aboutImagesTextarea.value =
-      homepageState.aboutImages.join("\n");
+    aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
     renderAboutGallery();
   }
 
@@ -495,8 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Ensure visible area on all devices
     heroGalleryEl.style.display = "grid";
-    heroGalleryEl.style.gridTemplateColumns =
-      "repeat(auto-fit, minmax(140px, 1fr))";
+    heroGalleryEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(140px, 1fr))";
     heroGalleryEl.style.gap = "10px";
     heroGalleryEl.style.minHeight = "140px";
 
@@ -538,13 +511,9 @@ document.addEventListener("DOMContentLoaded", () => {
         del.style.color = "#fff";
         del.addEventListener("click", () => {
           homepageState.heroImages.splice(idx, 1);
-          homepageState.heroImages = normalizeList(
-            homepageState.heroImages,
-            MAX_HOMEPAGE_IMAGES
-          );
+          homepageState.heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
           if (heroImagesTextarea) {
-            heroImagesTextarea.value =
-              homepageState.heroImages.join("\n");
+            heroImagesTextarea.value = homepageState.heroImages.join("\n");
           }
           renderHeroGallery();
         });
@@ -562,14 +531,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Ensure visible area on all devices
     aboutCollageEl.style.display = "grid";
-    aboutCollageEl.style.gridTemplateColumns =
-      "repeat(auto-fit, minmax(120px, 1fr))";
+    aboutCollageEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(120px, 1fr))";
     aboutCollageEl.style.gap = "8px";
     aboutCollageEl.style.minHeight = "120px";
 
-    const images = Array.isArray(homepageState.aboutImages)
-      ? homepageState.aboutImages
-      : [];
+    const images = Array.isArray(homepageState.aboutImages) ? homepageState.aboutImages : [];
 
     if (!images.length) {
       const ph = document.createElement("div");
@@ -632,13 +598,9 @@ document.addEventListener("DOMContentLoaded", () => {
       del.style.color = "#fff";
       del.addEventListener("click", () => {
         homepageState.aboutImages.splice(idx, 1);
-        homepageState.aboutImages = normalizeList(
-          homepageState.aboutImages,
-          MAX_ABOUT_IMAGES
-        );
+        homepageState.aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
         if (aboutImagesTextarea) {
-          aboutImagesTextarea.value =
-            homepageState.aboutImages.join("\n");
+          aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
         }
         renderAboutGallery();
       });
@@ -678,16 +640,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const value = typeof text === "string" ? text : "";
 
       if (noticeItemTemplate && "content" in noticeItemTemplate) {
-        const fragment = document.importNode(
-          noticeItemTemplate.content,
-          true
-        );
+        const fragment = document.importNode(noticeItemTemplate.content, true);
         const itemEl = fragment.querySelector(".admin-notice-item");
         const textSpan = fragment.querySelector(".admin-notice-text");
         const editBtn = fragment.querySelector(".admin-notice-edit");
-        const deleteBtn = fragment.querySelector(
-          ".admin-notice-delete"
-        );
+        const deleteBtn = fragment.querySelector(".admin-notice-delete");
 
         if (!itemEl) return;
 
@@ -710,10 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             homepageState.notices[idx] = trimmed;
             renderNotices();
-            setNoticeStatus(
-              "Aviso atualizado. Clique em salvar para publicar.",
-              "ok"
-            );
+            setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
           });
         }
 
@@ -760,10 +714,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           homepageState.notices[idx] = trimmed;
           textSpan.textContent = trimmed;
-          setNoticeStatus(
-            "Aviso atualizado. Clique em salvar para publicar.",
-            "ok"
-          );
+          setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
         });
 
         const deleteBtn = document.createElement("button");
@@ -796,48 +747,30 @@ document.addEventListener("DOMContentLoaded", () => {
       homepageState.notices.push(text.trim());
       homepageState.notices = normalizeList(homepageState.notices, 10);
       renderNotices();
-      setNoticeStatus(
-        "Aviso adicionado. Clique em salvar para publicar no site.",
-        "ok"
-      );
+      setNoticeStatus("Aviso adicionado. Clique em salvar para publicar no site.", "ok");
     });
   }
 
   if (heroImagesFileButton && heroImagesFileInput) {
-    heroImagesFileButton.addEventListener("click", () =>
-      heroImagesFileInput.click()
-    );
+    heroImagesFileButton.addEventListener("click", () => heroImagesFileInput.click());
     heroImagesFileInput.addEventListener("change", async () => {
       const files = Array.from(heroImagesFileInput.files || []);
       if (!files.length) return;
       try {
-        setHomepageStatus(
-          "Processando imagens selecionadas...",
-          ""
-        );
+        setHomepageStatus("Processando imagens selecionadas...", "");
         for (const f of files) {
           const url = await fileToDataUrl(f);
           homepageState.heroImages.push(url);
         }
-        homepageState.heroImages = normalizeList(
-          homepageState.heroImages,
-          MAX_HOMEPAGE_IMAGES
-        );
+        homepageState.heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
         if (heroImagesTextarea) {
-          heroImagesTextarea.value =
-            homepageState.heroImages.join("\n");
+          heroImagesTextarea.value = homepageState.heroImages.join("\n");
         }
         renderHeroGallery();
-        setHomepageStatus(
-          "Imagens adicionadas. Clique em salvar.",
-          "ok"
-        );
+        setHomepageStatus("Imagens adicionadas. Clique em salvar.", "ok");
       } catch (err) {
         console.error(err);
-        setHomepageStatus(
-          "Não foi possível processar as imagens.",
-          "error"
-        );
+        setHomepageStatus("Não foi possível processar as imagens.", "error");
       } finally {
         heroImagesFileInput.value = "";
       }
@@ -845,40 +778,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (aboutImagesFileButton && aboutImagesFileInput) {
-    aboutImagesFileButton.addEventListener("click", () =>
-      aboutImagesFileInput.click()
-    );
+    aboutImagesFileButton.addEventListener("click", () => aboutImagesFileInput.click());
     aboutImagesFileInput.addEventListener("change", async () => {
       const files = Array.from(aboutImagesFileInput.files || []);
       if (!files.length) return;
       try {
-        setAboutStatus(
-          "Processando imagens selecionadas...",
-          ""
-        );
+        setAboutStatus("Processando imagens selecionadas...", "");
         for (const f of files) {
           const url = await fileToDataUrl(f);
           homepageState.aboutImages.push(url);
         }
-        homepageState.aboutImages = normalizeList(
-          homepageState.aboutImages,
-          MAX_ABOUT_IMAGES
-        );
+        homepageState.aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
         if (aboutImagesTextarea) {
-          aboutImagesTextarea.value =
-            homepageState.aboutImages.join("\n");
+          aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
         }
         renderAboutGallery();
-        setAboutStatus(
-          "Imagens adicionadas. Clique em salvar.",
-          "ok"
-        );
+        setAboutStatus("Imagens adicionadas. Clique em salvar.", "ok");
       } catch (err) {
         console.error(err);
-        setAboutStatus(
-          "Não foi possível processar as imagens.",
-          "error"
-        );
+        setAboutStatus("Não foi possível processar as imagens.", "error");
       } finally {
         aboutImagesFileInput.value = "";
       }
@@ -890,12 +808,8 @@ document.addEventListener("DOMContentLoaded", () => {
       setHomepageStatus("Salvando...", "");
       setAboutStatus("Salvando...", "");
 
-      const aboutText = aboutTextEl
-        ? aboutTextEl.value.trim()
-        : "";
-      const aboutLongText = aboutLongTextEl
-        ? aboutLongTextEl.value.trim()
-        : "";
+      const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
+      const aboutLongText = aboutLongTextEl ? aboutLongTextEl.value.trim() : "";
 
       if (heroImagesTextarea) {
         syncHeroImagesFromTextarea();
@@ -904,14 +818,8 @@ document.addEventListener("DOMContentLoaded", () => {
         syncAboutImagesFromTextarea();
       }
 
-      const heroImages = normalizeList(
-        homepageState.heroImages,
-        MAX_HOMEPAGE_IMAGES
-      );
-      const aboutImages = normalizeList(
-        homepageState.aboutImages,
-        MAX_ABOUT_IMAGES
-      );
+      const heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
+      const aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
       const notices = normalizeList(
         homepageState.notices.filter((n) => n && n.trim().length),
         10
@@ -948,30 +856,15 @@ document.addEventListener("DOMContentLoaded", () => {
         aboutImagesTextarea.value = aboutImages.join("\n");
       }
 
-      setHomepageStatus(
-        "Homepage atualizada com sucesso.",
-        "ok"
-      );
-      setNoticeStatus(
-        "Avisos publicados na vitrine.",
-        "ok"
-      );
-      setAboutStatus(
-        'Colagem e texto da página "Sobre nós" atualizados.',
-        "ok"
-      );
+      setHomepageStatus("Homepage atualizada com sucesso.", "ok");
+      setNoticeStatus("Avisos publicados na vitrine.", "ok");
+      setAboutStatus('Colagem e texto da página "Sobre nós" atualizados.', "ok");
 
       await loadHomepageAdmin();
     } catch (err) {
       console.error(err);
-      setHomepageStatus(
-        "Não foi possível salvar a homepage.",
-        "error"
-      );
-      setAboutStatus(
-        'Não foi possível salvar a página "Sobre nós".',
-        "error"
-      );
+      setHomepageStatus("Não foi possível salvar a homepage.", "error");
+      setAboutStatus('Não foi possível salvar a página "Sobre nós".', "error");
     }
   }
 
@@ -1010,14 +903,7 @@ document.addEventListener("DOMContentLoaded", () => {
         allProducts = products;
       } else if (products && typeof products === "object") {
         const flat = [];
-        [
-          "specials",
-          "sets",
-          "rings",
-          "necklaces",
-          "bracelets",
-          "earrings"
-        ].forEach((key) => {
+        ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
           if (Array.isArray(products[key])) {
             products[key].forEach((p) => flat.push(p));
           }
@@ -1031,10 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setFormStatus("", "");
     } catch (err) {
       console.error(err);
-      setFormStatus(
-        "Não foi possível carregar os produtos.",
-        "error"
-      );
+      setFormStatus("Não foi possível carregar os produtos.", "error");
       renderAllCategoryGrids();
     }
   }
@@ -1050,9 +933,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!container) return;
     container.innerHTML = "";
 
-    const items = allProducts.filter(
-      (p) => p.category === categoryKey
-    );
+    const items = allProducts.filter((p) => p.category === categoryKey);
     items.sort((a, b) => {
       if (a.createdAt && b.createdAt) {
         const ad = new Date(a.createdAt).getTime();
@@ -1068,9 +949,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasProducts = items.length > 0;
     const fragment = document.createDocumentFragment();
 
-    const addCardFragment = createAddProductCardFragment(
-      categoryKey
-    );
+    const addCardFragment = createAddProductCardFragment(categoryKey);
 
     if (hasProducts) {
       const first = items[0];
@@ -1094,32 +973,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!addCardTemplate || !("content" in addCardTemplate)) {
       return null;
     }
-    const fragment = document.importNode(
-      addCardTemplate.content,
-      true
-    );
-    const button = fragment.querySelector(
-      ".admin-add-product-button"
-    );
+    const fragment = document.importNode(addCardTemplate.content, true);
+    const button = fragment.querySelector(".admin-add-product-button");
     if (button) {
-      button.addEventListener("click", () =>
-        openProductModal(categoryKey, null)
-      );
+      button.addEventListener("click", () => openProductModal(categoryKey, null));
     }
     return fragment;
   }
 
   function normalizeProductImages(product) {
-    const primary =
-      typeof product.imageUrl === "string"
-        ? product.imageUrl
-        : "";
-    const fromImageUrls = Array.isArray(product.imageUrls)
-      ? product.imageUrls
-      : [];
-    const fromImages = Array.isArray(product.images)
-      ? product.images
-      : [];
+    const primary = typeof product.imageUrl === "string" ? product.imageUrl : "";
+    const fromImageUrls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    const fromImages = Array.isArray(product.images) ? product.images : [];
     const merged = [...fromImageUrls, ...fromImages];
     const cleaned = merged
       .map((u) => String(u || "").trim())
@@ -1131,23 +996,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createProductCardFragment(product) {
-    if (
-      !productCardTemplate ||
-      !("content" in productCardTemplate)
-    ) {
+    if (!productCardTemplate || !("content" in productCardTemplate)) {
       return null;
     }
-    const fragment = document.importNode(
-      productCardTemplate.content,
-      true
-    );
+    const fragment = document.importNode(productCardTemplate.content, true);
     const article = fragment.querySelector("article");
     if (!article) return null;
     article.dataset.productId = product.id || "";
 
-    const wrapper = fragment.querySelector(
-      ".admin-product-image-wrapper"
-    );
+    const wrapper = fragment.querySelector(".admin-product-image-wrapper");
     const imgEl = fragment.querySelector(".admin-product-image");
     const images = normalizeProductImages(product);
 
@@ -1189,8 +1046,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const leftBtn = document.createElement("button");
         leftBtn.type = "button";
-        leftBtn.className =
-          "product-carousel-arrow product-carousel-arrow-left";
+        leftBtn.className = "product-carousel-arrow product-carousel-arrow-left";
         leftBtn.textContent = "‹";
 
         const indicator = document.createElement("div");
@@ -1198,8 +1054,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const rightBtn = document.createElement("button");
         rightBtn.type = "button";
-        rightBtn.className =
-          "product-carousel-arrow product-carousel-arrow-right";
+        rightBtn.className = "product-carousel-arrow product-carousel-arrow-right";
         rightBtn.textContent = "›";
 
         controls.appendChild(leftBtn);
@@ -1209,15 +1064,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let currentIndex = 0;
         function updateCarousel() {
-          const index = Math.max(
-            0,
-            Math.min(images.length - 1, currentIndex)
-          );
+          const index = Math.max(0, Math.min(images.length - 1, currentIndex));
           currentIndex = index;
-          track.style.transform =
-            "translateX(" + String(-index * 100) + "%)";
-          indicator.textContent =
-            String(index + 1) + "/" + String(images.length);
+          track.style.transform = "translateX(" + String(-index * 100) + "%)";
+          indicator.textContent = String(index + 1) + "/" + String(images.length);
           leftBtn.disabled = index === 0;
           rightBtn.disabled = index === images.length - 1;
         }
@@ -1247,12 +1097,9 @@ document.addEventListener("DOMContentLoaded", () => {
       titleEl.textContent = product.name || "Produto";
     }
 
-    const descEl = fragment.querySelector(
-      ".admin-product-description"
-    );
+    const descEl = fragment.querySelector(".admin-product-description");
     if (descEl) {
-      descEl.textContent =
-        product.description || "Peça da coleção DARAH.";
+      descEl.textContent = product.description || "Peça da coleção DARAH.";
     }
 
     const priceEl = fragment.querySelector(".admin-product-price");
@@ -1269,32 +1116,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    const editBtn = fragment.querySelector(
-      ".admin-edit-product-button"
-    );
+    const editBtn = fragment.querySelector(".admin-edit-product-button");
     if (editBtn) {
-      editBtn.addEventListener("click", () =>
-        openProductModal(product.category, product)
-      );
+      editBtn.addEventListener("click", () => openProductModal(product.category, product));
     }
 
     return fragment;
   }
 
   function renderProductImagesUI() {
-    if (
-      !productImagePreview ||
-      !productImagePlaceholder ||
-      !productImageThumbs
-    ) {
+    if (!productImagePreview || !productImagePlaceholder || !productImageThumbs) {
       return;
     }
     productImageThumbs.innerHTML = "";
 
-    if (
-      !Array.isArray(currentProductImages) ||
-      !currentProductImages.length
-    ) {
+    if (!Array.isArray(currentProductImages) || !currentProductImages.length) {
       productImagePreview.src = "";
       productImagePreview.style.display = "none";
       productImagePlaceholder.style.display = "flex";
@@ -1313,8 +1149,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentProductImages.forEach((url, idx) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className =
-        "admin-image-thumb" + (idx === 0 ? " active" : "");
+      btn.className = "admin-image-thumb" + (idx === 0 ? " active" : "");
       btn.style.position = "relative";
 
       const img = document.createElement("img");
@@ -1341,10 +1176,7 @@ document.addEventListener("DOMContentLoaded", () => {
       removeBtn.addEventListener("click", (ev) => {
         ev.stopPropagation();
         currentProductImages.splice(idx, 1);
-        currentProductImages = normalizeList(
-          currentProductImages,
-          MAX_PRODUCT_IMAGES
-        );
+        currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
         renderProductImagesUI();
       });
 
@@ -1378,49 +1210,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (hiddenForm.category) {
       hiddenForm.category.value =
-        productOrNull && productOrNull.category
-          ? productOrNull.category
-          : categoryKey;
+        productOrNull && productOrNull.category ? productOrNull.category : categoryKey;
     }
     if (hiddenForm.name) {
-      hiddenForm.name.value =
-        productOrNull && productOrNull.name
-          ? productOrNull.name
-          : "";
+      hiddenForm.name.value = productOrNull && productOrNull.name ? productOrNull.name : "";
     }
     if (hiddenForm.description) {
       hiddenForm.description.value =
-        productOrNull && productOrNull.description
-          ? productOrNull.description
-          : "";
+        productOrNull && productOrNull.description ? productOrNull.description : "";
     }
     if (hiddenForm.price) {
       const priceValue =
-        productOrNull && typeof productOrNull.price === "number"
-          ? String(productOrNull.price)
-          : "";
+        productOrNull && typeof productOrNull.price === "number" ? String(productOrNull.price) : "";
       hiddenForm.price.value = priceValue;
     }
     if (hiddenForm.originalPrice) {
       const originalPriceValue =
-        productOrNull &&
-        typeof productOrNull.originalPrice === "number"
+        productOrNull && typeof productOrNull.originalPrice === "number"
           ? String(productOrNull.originalPrice)
           : "";
       hiddenForm.originalPrice.value = originalPriceValue;
     }
     if (hiddenForm.discountLabel) {
       hiddenForm.discountLabel.value =
-        productOrNull &&
-        typeof productOrNull.discountLabel === "string"
+        productOrNull && typeof productOrNull.discountLabel === "string"
           ? productOrNull.discountLabel
           : "";
     }
     if (hiddenForm.stock) {
       const stockValue =
-        productOrNull && typeof productOrNull.stock === "number"
-          ? String(productOrNull.stock)
-          : "";
+        productOrNull && typeof productOrNull.stock === "number" ? String(productOrNull.stock) : "";
       hiddenForm.stock.value = stockValue;
     }
 
@@ -1435,9 +1254,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (productModalTitle) {
-      productModalTitle.textContent = productOrNull
-        ? "Editar produto"
-        : "Novo produto";
+      productModalTitle.textContent = productOrNull ? "Editar produto" : "Novo produto";
     }
 
     productModalBackdrop.style.display = "flex";
@@ -1453,11 +1270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (hiddenForm.el) {
       hiddenForm.el.reset();
     }
-    if (
-      productImagePreview &&
-      productImagePlaceholder &&
-      productImageThumbs
-    ) {
+    if (productImagePreview && productImagePlaceholder && productImageThumbs) {
       productImagePreview.src = "";
       productImagePreview.style.display = "none";
       productImagePlaceholder.style.display = "flex";
@@ -1488,10 +1301,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const files = Array.from(hiddenForm.imageFile.files || []);
       if (!files.length) return;
       try {
-        setFormStatus(
-          "Carregando imagens selecionadas...",
-          ""
-        );
+        setFormStatus("Carregando imagens selecionadas...", "");
         const newImages = [];
         for (const file of files) {
           const url = await fileToDataUrl(file);
@@ -1500,23 +1310,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(currentProductImages)) {
           currentProductImages = [];
         }
-        currentProductImages =
-          currentProductImages.concat(newImages);
-        currentProductImages = normalizeList(
-          currentProductImages,
-          MAX_PRODUCT_IMAGES
-        );
+        currentProductImages = currentProductImages.concat(newImages);
+        currentProductImages = normalizeList(currentProductImages, MAX_PRODUCT_IMAGES);
         renderProductImagesUI();
-        setFormStatus(
-          "Imagens adicionadas. Salve para aplicar.",
-          "ok"
-        );
+        setFormStatus("Imagens adicionadas. Salve para aplicar.", "ok");
       } catch (err) {
         console.error(err);
-        setFormStatus(
-          "Não foi possível processar a imagem selecionada.",
-          "error"
-        );
+        setFormStatus("Não foi possível processar a imagem selecionada.", "error");
       } finally {
         hiddenForm.imageFile.value = "";
       }
@@ -1527,48 +1327,24 @@ document.addEventListener("DOMContentLoaded", () => {
     hiddenForm.el.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      const priceRaw = hiddenForm.price
-        ? hiddenForm.price.value
-        : "";
-      const stockRaw = hiddenForm.stock
-        ? hiddenForm.stock.value
-        : "";
-      const originalPriceRaw = hiddenForm.originalPrice
-        ? hiddenForm.originalPrice.value
-        : "";
-      const discountLabelRaw = hiddenForm.discountLabel
-        ? hiddenForm.discountLabel.value.trim()
-        : "";
+      const priceRaw = hiddenForm.price ? hiddenForm.price.value : "";
+      const stockRaw = hiddenForm.stock ? hiddenForm.stock.value : "";
+      const originalPriceRaw = hiddenForm.originalPrice ? hiddenForm.originalPrice.value : "";
+      const discountLabelRaw = hiddenForm.discountLabel ? hiddenForm.discountLabel.value.trim() : "";
 
       const price = priceRaw ? parseFloat(priceRaw) : NaN;
       const stock = stockRaw ? parseInt(stockRaw, 10) : NaN;
-      const originalPriceParsed = originalPriceRaw
-        ? parseFloat(originalPriceRaw)
-        : NaN;
-      const originalPrice = Number.isNaN(originalPriceParsed)
-        ? null
-        : originalPriceParsed;
-      const discountLabel = discountLabelRaw.length
-        ? discountLabelRaw
-        : null;
+      const originalPriceParsed = originalPriceRaw ? parseFloat(originalPriceRaw) : NaN;
+      const originalPrice = Number.isNaN(originalPriceParsed) ? null : originalPriceParsed;
+      const discountLabel = discountLabelRaw.length ? discountLabelRaw : null;
 
       const payload = {
-        category: hiddenForm.category
-          ? hiddenForm.category.value
-          : "",
-        name: hiddenForm.name
-          ? hiddenForm.name.value.trim()
-          : "",
-        description: hiddenForm.description
-          ? hiddenForm.description.value.trim()
-          : "",
+        category: hiddenForm.category ? hiddenForm.category.value : "",
+        name: hiddenForm.name ? hiddenForm.name.value.trim() : "",
+        description: hiddenForm.description ? hiddenForm.description.value.trim() : "",
         price,
         stock,
-        imageUrl:
-          Array.isArray(currentProductImages) &&
-          currentProductImages.length
-            ? currentProductImages[0]
-            : "",
+        imageUrl: Array.isArray(currentProductImages) && currentProductImages.length ? currentProductImages[0] : "",
         images: Array.isArray(currentProductImages)
           ? currentProductImages.slice(0, MAX_PRODUCT_IMAGES)
           : [],
@@ -1576,15 +1352,8 @@ document.addEventListener("DOMContentLoaded", () => {
         discountLabel
       };
 
-      if (
-        !payload.name ||
-        Number.isNaN(payload.price) ||
-        Number.isNaN(payload.stock)
-      ) {
-        setFormStatus(
-          "Preencha pelo menos nome, preço e quantidade em estoque.",
-          "error"
-        );
+      if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock)) {
+        setFormStatus("Preencha pelo menos nome, preço e quantidade em estoque.", "error");
         return;
       }
 
@@ -1627,11 +1396,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(
-          body && body.error
-            ? body.error
-            : "Não foi possível criar o produto."
-        );
+        throw new Error(body && body.error ? body.error : "Não foi possível criar o produto.");
       }
       await res.json();
       setFormStatus("Produto criado com sucesso.", "ok");
@@ -1645,27 +1410,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function updateProduct(id, payload) {
     try {
-      const res = await fetch(
-        "/api/products/" + encodeURIComponent(id),
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }
-      );
+      const res = await fetch("/api/products/" + encodeURIComponent(id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(
-          body && body.error
-            ? body.error
-            : "Não foi possível atualizar o produto."
-        );
+        throw new Error(body && body.error ? body.error : "Não foi possível atualizar o produto.");
       }
       await res.json();
-      setFormStatus(
-        "Produto atualizado com sucesso.",
-        "ok"
-      );
+      setFormStatus("Produto atualizado com sucesso.", "ok");
       await loadProducts();
     } catch (err) {
       console.error(err);
@@ -1676,19 +1431,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function deleteProduct(id) {
     try {
-      const res = await fetch(
-        "/api/products/" + encodeURIComponent(id),
-        {
-          method: "DELETE"
-        }
-      );
+      const res = await fetch("/api/products/" + encodeURIComponent(id), {
+        method: "DELETE"
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(
-          body && body.error
-            ? body.error
-            : "Não foi possível excluir o produto."
-        );
+        throw new Error(body && body.error ? body.error : "Não foi possível excluir o produto.");
       }
       await res.json();
       setFormStatus("Produto excluído.", "ok");
@@ -1706,10 +1454,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function storeAdminUser(username) {
     try {
-      sessionStorage.setItem(
-        "darahAdminUser",
-        JSON.stringify({ username })
-      );
+      sessionStorage.setItem("darahAdminUser", JSON.stringify({ username }));
     } catch {
       // storage falhou
     }
@@ -1741,13 +1486,6 @@ document.addEventListener("DOMContentLoaded", () => {
     closeMobileMenu();
   }
 
-  function showPanelView() {
-    if (loginSection) loginSection.style.display = "none";
-    if (loadingSection) loadingSection.style.display = "none";
-    if (panelSection) panelSection.style.display = "block";
-    setBodyLoginMode(false);
-  }
-
   function startAdminSession(username) {
     const info = VALID_USERS[username];
     if (!info) return;
@@ -1761,9 +1499,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loadingSection) {
       if (welcomeMessageEl) welcomeMessageEl.textContent = info.welcome;
 
-      const fill = loadingSection.querySelector(
-        ".loading-circle-fill"
-      );
+      const fill = loadingSection.querySelector(".loading-circle-fill");
       if (fill && fill.parentElement) {
         const clone = fill.cloneNode(true);
         fill.parentElement.replaceChild(clone, fill);
@@ -1790,10 +1526,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleLoginSubmit() {
-    const username =
-      (usernameInput && usernameInput.value.trim()) || "";
-    const password =
-      (passwordInput && passwordInput.value) || "";
+    const username = (usernameInput && usernameInput.value.trim()) || "";
+    const password = (passwordInput && passwordInput.value) || "";
 
     const info = VALID_USERS[username];
     if (!info || info.password !== password) {
@@ -1844,11 +1578,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const stored = sessionStorage.getItem("darahAdminUser");
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (
-        parsed &&
-        parsed.username &&
-        VALID_USERS[parsed.username]
-      ) {
+      if (parsed && parsed.username && VALID_USERS[parsed.username]) {
         if (loginSection) loginSection.style.display = "none";
         if (loadingSection) loadingSection.style.display = "none";
         if (panelSection) panelSection.style.display = "block";
