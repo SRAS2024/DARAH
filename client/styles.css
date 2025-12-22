@@ -109,6 +109,11 @@ body.is-admin-login .main-nav {
   display: none;
 }
 
+/* Admin: ensure nav is hidden on the login screen (credentials) */
+body.admin-page.is-admin-login .main-nav {
+  display: none;
+}
+
 /* Header and brand bar */
 
 .site-header {
@@ -246,6 +251,9 @@ body.is-admin-login .main-nav {
   pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 19;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-dropdown.open {
@@ -254,7 +262,10 @@ body.is-admin-login .main-nav {
   pointer-events: auto;
 }
 
+/* Admin: dropdown buttons should behave like full width rows */
 .nav-dropdown .nav-link {
+  display: flex;
+  align-items: center;
   width: 100%;
   justify-content: flex-start;
 }
@@ -1208,4 +1219,3 @@ body.is-admin-login .main-nav {
     padding: 0 4px;
   }
 }
-\
