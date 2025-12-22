@@ -1,3 +1,4 @@
+// client/admin.js (FULL UPDATED FILE)
 "use strict";
 
 /**
@@ -166,6 +167,14 @@ document.addEventListener("DOMContentLoaded", () => {
     navMobileToggle.setAttribute("aria-expanded", "false");
   }
 
+  function isMobileWidth() {
+    try {
+      return window.matchMedia("(max-width: 640px)").matches;
+    } catch {
+      return window.innerWidth <= 640;
+    }
+  }
+
   // Initially we assume login view until session restore runs
   setBodyLoginMode(true);
 
@@ -222,19 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       return "R$ " + Number(value || 0).toFixed(2).replace(".", ",");
     }
-  }
-
-  function categoryLabel(key) {
-    return (
-      {
-        specials: "Ofertas especiais",
-        sets: "Conjuntos",
-        rings: "Anéis",
-        necklaces: "Colares",
-        bracelets: "Pulseiras",
-        earrings: "Brincos"
-      }[key] || key
-    );
   }
 
   function fileToDataUrl(file) {
@@ -366,8 +362,76 @@ document.addEventListener("DOMContentLoaded", () => {
   // Mobile nav dropdown setup for Admin
   function buildMobileDropdown() {
     if (!navDropdown || !navLeftContainer) return;
+
     navDropdown.innerHTML = "";
 
+    // Extras first (theme, user, logout) on mobile
+    if (isMobileWidth()) {
+      const extras = document.createElement("div");
+      extras.className = "admin-mobile-extras";
+
+      const badge = document.createElement("div");
+      badge.className = "admin-mobile-badge";
+      badge.textContent = "Painel administrativo privado";
+      extras.appendChild(badge);
+
+      const themeRow = document.createElement("div");
+      themeRow.className = "admin-mobile-row";
+
+      const themeLabel = document.createElement("span");
+      themeLabel.className = "admin-mobile-label";
+      themeLabel.textContent = "Tema";
+
+      const mobileThemeSelect = document.createElement("select");
+      mobileThemeSelect.className = "admin-select";
+      mobileThemeSelect.setAttribute("aria-label", "Selecionar tema do site");
+
+      if (themeSelect) {
+        Array.from(themeSelect.options).forEach((opt) => {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.textContent;
+          mobileThemeSelect.appendChild(o);
+        });
+        mobileThemeSelect.value = (themeSelect.value || "default").trim() || "default";
+      }
+
+      mobileThemeSelect.addEventListener("change", () => {
+        const value = (mobileThemeSelect.value || "default").trim() || "default";
+        homepageState.theme = value;
+        applyThemeVariant(value);
+        if (themeSelect) themeSelect.value = value;
+        setHomepageStatus("Tema atualizado. Clique em salvar para aplicar no site.", "ok");
+      });
+
+      themeRow.appendChild(themeLabel);
+      themeRow.appendChild(mobileThemeSelect);
+      extras.appendChild(themeRow);
+
+      const userRow = document.createElement("div");
+      userRow.className = "admin-mobile-row";
+
+      const userSpan = document.createElement("span");
+      userSpan.className = "admin-mobile-user";
+      userSpan.textContent = (userNameLabel && userNameLabel.textContent) ? userNameLabel.textContent : "";
+
+      const logoutBtn = document.createElement("button");
+      logoutBtn.type = "button";
+      logoutBtn.className = "admin-button-secondary";
+      logoutBtn.textContent = "Sair";
+      logoutBtn.addEventListener("click", () => {
+        if (logoutButton) logoutButton.click();
+        closeMobileMenu();
+      });
+
+      userRow.appendChild(userSpan);
+      userRow.appendChild(logoutBtn);
+      extras.appendChild(userRow);
+
+      navDropdown.appendChild(extras);
+    }
+
+    // Tabs
     const allTabs = navLeftContainer.querySelectorAll(".nav-link");
     allTabs.forEach((btn) => {
       const clone = btn.cloneNode(true);
@@ -384,12 +448,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   buildMobileDropdown();
 
+  // Rebuild dropdown on resize to ensure controls move correctly
+  const rebuildOnResize = debounce(() => {
+    buildMobileDropdown();
+    closeMobileMenu();
+  }, 150);
+  window.addEventListener("resize", rebuildOnResize);
+
   if (navMobileToggle && navDropdown) {
     navMobileToggle.addEventListener("click", () => {
       const isOpen = navDropdown.classList.contains("open");
       if (isOpen) {
         closeMobileMenu();
       } else {
+        buildMobileDropdown(); // keep username/theme current
         openMobileMenu();
       }
     });
@@ -408,13 +480,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Theme selector handler
+  // Theme selector handler (desktop)
   if (themeSelect) {
     themeSelect.addEventListener("change", () => {
       const value = (themeSelect.value || "default").trim() || "default";
       homepageState.theme = value;
       applyThemeVariant(value);
       setHomepageStatus("Tema atualizado. Clique em salvar para aplicar no site.", "ok");
+      buildMobileDropdown();
     });
   }
 
@@ -462,6 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderNotices();
 
       setHomepageStatus("Conteúdo carregado com sucesso.", "ok");
+      buildMobileDropdown();
     } catch (err) {
       console.error(err);
       setHomepageStatus("Não foi possível carregar a homepage.", "error");
@@ -528,6 +602,7 @@ document.addEventListener("DOMContentLoaded", () => {
         del.style.width = "28px";
         del.style.height = "28px";
         del.style.cursor = "pointer";
+        del.style.zIndex = "5";
         del.style.background = "rgba(0,0,0,0.55)";
         del.style.color = "#fff";
         del.addEventListener("click", () => {
@@ -608,6 +683,7 @@ document.addEventListener("DOMContentLoaded", () => {
       del.style.width = "24px";
       del.style.height = "24px";
       del.style.cursor = "pointer";
+      del.style.zIndex = "5";
       del.style.background = "rgba(0,0,0,0.55)";
       del.style.color = "#fff";
       del.addEventListener("click", () => {
@@ -657,12 +733,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const value = typeof text === "string" ? text : "";
       if (noticeItemTemplate && "content" in noticeItemTemplate) {
         const fragment = document.importNode(noticeItemTemplate.content, true);
-        const itemEl = fragment.querySelector(".admin-notice-item");
         const textSpan = fragment.querySelector(".admin-notice-text");
         const editBtn = fragment.querySelector(".admin-notice-edit");
         const deleteBtn = fragment.querySelector(".admin-notice-delete");
-        if (!itemEl) return;
         if (textSpan) textSpan.textContent = value;
+
         if (editBtn) {
           editBtn.addEventListener("click", () => {
             const current = homepageState.notices[idx] || "";
@@ -680,6 +755,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
           });
         }
+
         if (deleteBtn) {
           deleteBtn.addEventListener("click", () => {
             if (!window.confirm("Remover este aviso?")) return;
@@ -688,54 +764,8 @@ document.addEventListener("DOMContentLoaded", () => {
             setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
           });
         }
+
         noticeListEl.appendChild(fragment);
-      } else {
-        const row = document.createElement("div");
-        row.className = "admin-notice-item";
-
-        const textSpan = document.createElement("span");
-        textSpan.className = "admin-notice-text";
-        textSpan.textContent = value;
-
-        const btnBox = document.createElement("div");
-
-        const editBtn = document.createElement("button");
-        editBtn.type = "button";
-        editBtn.className = "admin-button-ghost";
-        editBtn.textContent = "Editar";
-        editBtn.addEventListener("click", () => {
-          const current = homepageState.notices[idx] || "";
-          const updated = window.prompt("Editar aviso", current);
-          if (updated == null) return;
-          const trimmed = updated.trim();
-          if (!trimmed) {
-            homepageState.notices.splice(idx, 1);
-            renderNotices();
-            setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
-            return;
-          }
-          homepageState.notices[idx] = trimmed;
-          textSpan.textContent = trimmed;
-          setNoticeStatus("Aviso atualizado. Clique em salvar para publicar.", "ok");
-        });
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "admin-button-ghost";
-        deleteBtn.textContent = "Excluir";
-        deleteBtn.addEventListener("click", () => {
-          if (!window.confirm("Remover este aviso?")) return;
-          homepageState.notices.splice(idx, 1);
-          renderNotices();
-          setNoticeStatus("Aviso removido. Clique em salvar para atualizar o site.", "ok");
-        });
-
-        btnBox.appendChild(editBtn);
-        btnBox.appendChild(deleteBtn);
-
-        row.appendChild(textSpan);
-        row.appendChild(btnBox);
-        noticeListEl.appendChild(row);
       }
     });
   }
@@ -1166,7 +1196,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "admin-image-thumb" + (idx === 0 ? " active" : "");
-      btn.style.position = "relative";
 
       const img = document.createElement("img");
       img.src = url;
@@ -1188,6 +1217,7 @@ document.addEventListener("DOMContentLoaded", () => {
       removeBtn.style.cursor = "pointer";
       removeBtn.style.fontSize = "11px";
       removeBtn.style.lineHeight = "1";
+      removeBtn.style.zIndex = "5";
       removeBtn.style.background = "rgba(0,0,0,0.65)";
       removeBtn.style.color = "#fff";
       removeBtn.addEventListener("click", (ev) => {
@@ -1500,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (userNameLabel) {
       userNameLabel.textContent = username || "";
     }
+    buildMobileDropdown();
   }
 
   function showLoginView() {
@@ -1512,13 +1543,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateHeaderUser("");
     setBodyLoginMode(true);
     closeMobileMenu();
-  }
-
-  function showPanelView() {
-    if (loginSection) loginSection.style.display = "none";
-    if (loadingSection) loadingSection.style.display = "none";
-    if (panelSection) panelSection.style.display = "block";
-    setBodyLoginMode(false);
   }
 
   function startAdminSession(username) {
@@ -1557,6 +1581,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderAllCategoryGrids();
     loadHomepageAdmin();
     loadProducts();
+    buildMobileDropdown();
   }
 
   function handleLoginSubmit() {
