@@ -31,113 +31,13 @@ const MAX_ABOUT_IMAGES = 4;
 const MAX_PRODUCT_IMAGES = 5;
 
 // Allow reasonably sized compressed data URLs and normal URLs.
-// New uploads are already pre compressed in the admin panel, so we only
-// enforce a hard length limit for non data URLs.
+// Admin panel should already compress. This is just a guard so the API
+// does not accidentally store massive external URLs.
 const MAX_IMAGE_URL_LENGTH = 900000;
 
-/* ------------------------------------------------------------------ */
-/* Optional image optimizer (sharp)                                    */
-/* ------------------------------------------------------------------ */
-
-let sharp = null;
-try {
-  // eslint-disable-next-line global-require
-  sharp = require("sharp");
-  console.log("[DARAH] sharp loaded. Server image optimization enabled.");
-} catch (err) {
-  console.log(
-    "[DARAH] sharp not installed. Server image optimization disabled."
-  );
-}
-
-const IMAGE_OPT = {
-  // Good balance for jewelry photos. Keeps detail but reduces payload a lot.
-  maxEdge: 1400,
-  quality: 82
-};
-
-function parseDataUrl(dataUrl) {
-  const str = String(dataUrl || "");
-  const match = str.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
-  if (!match) return null;
-  return { mime: match[1], base64: match[2] };
-}
-
-async function optimizeDataImageUrl(dataUrl) {
-  if (!sharp) return String(dataUrl || "");
-  const parsed = parseDataUrl(dataUrl);
-  if (!parsed) return String(dataUrl || "");
-
-  try {
-    const input = Buffer.from(parsed.base64, "base64");
-    let pipeline = sharp(input, { failOnError: false });
-
-    const meta = await pipeline.metadata();
-    const hasAlpha = !!meta.hasAlpha;
-
-    pipeline = pipeline.resize({
-      width: IMAGE_OPT.maxEdge,
-      height: IMAGE_OPT.maxEdge,
-      fit: "inside",
-      withoutEnlargement: true
-    });
-
-    // WebP is usually the best size to quality choice for web storefronts.
-    // If the image needs alpha, webp supports it well.
-    const outBuf = await pipeline.webp({ quality: IMAGE_OPT.quality }).toBuffer();
-    const outB64 = outBuf.toString("base64");
-
-    // Only replace if it actually gets smaller, otherwise keep original.
-    const optimized = `data:image/webp;base64,${outB64}`;
-    if (optimized.length < String(dataUrl || "").length) return optimized;
-
-    // If the optimizer did not reduce size, still keep the webp when alpha is present
-    // because it often decodes faster in browsers, but size can be similar.
-    if (hasAlpha) return optimized;
-
-    return String(dataUrl || "");
-  } catch (err) {
-    console.error("[DARAH] Image optimization failed, keeping original:", err);
-    return String(dataUrl || "");
-  }
-}
-
-async function optimizeImageArrayOnWrite(arr, limit) {
-  const max =
-    typeof limit === "number" && limit > 0 ? limit : MAX_PRODUCT_IMAGES;
-
-  if (!Array.isArray(arr)) return [];
-
-  const cleaned = arr
-    .map((s) => String(s || "").trim())
-    .filter((s, idx, a) => {
-      if (!s) return false;
-      if (a.indexOf(s) !== idx) return false;
-
-      if (!s.startsWith("data:image") && s.length > MAX_IMAGE_URL_LENGTH) {
-        return false;
-      }
-      return true;
-    })
-    .slice(0, max);
-
-  const optimized = [];
-  for (const src of cleaned) {
-    if (src.startsWith("data:image")) {
-      // Only bother optimizing when the data url is big enough to matter.
-      if (src.length > 120000) {
-        optimized.push(await optimizeDataImageUrl(src));
-      } else {
-        optimized.push(src);
-      }
-    } else {
-      optimized.push(src);
-    }
-  }
-
-  // Dedup again after optimization (two different sources may optimize to identical outputs).
-  return optimized.filter((s, idx, a) => s && a.indexOf(s) === idx).slice(0, max);
-}
+// If true, storefront will include products even when stock is 0.
+// This is the most common reason "missing products" happen.
+const SHOW_OUT_OF_STOCK_PRODUCTS = true;
 
 /* ------------------------------------------------------------------ */
 /* Resolve client directory robustly                                   */
@@ -329,7 +229,6 @@ function ensureSessionCart(req) {
   return req.session.cart;
 }
 
-// Read time sanitizer. Keep it fast. Do NOT optimize here.
 function normalizeImageArray(arr, limit) {
   const max =
     typeof limit === "number" && limit > 0 ? limit : MAX_PRODUCT_IMAGES;
@@ -340,15 +239,77 @@ function normalizeImageArray(arr, limit) {
     .map((s) => String(s || "").trim())
     .filter((s, idx, a) => {
       if (!s) return false;
+
+      // Drop duplicates
       if (a.indexOf(s) !== idx) return false;
 
+      // Only enforce size guard for non data URLs.
       if (!s.startsWith("data:image") && s.length > MAX_IMAGE_URL_LENGTH) {
         return false;
       }
+
       return true;
     });
 
   return cleaned.slice(0, max);
+}
+
+/* ------------------------------------------------------------------ */
+/* Category normalization (very common source of "missing products")   */
+/* ------------------------------------------------------------------ */
+
+const ALLOWED_CATEGORIES = [
+  "specials",
+  "sets",
+  "rings",
+  "necklaces",
+  "bracelets",
+  "earrings"
+];
+
+function normalizeCategory(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+
+  if (!s) return "";
+
+  // Common older or alternate forms
+  const map = {
+    special: "specials",
+    specials: "specials",
+    oferta: "specials",
+    ofertas: "specials",
+
+    set: "sets",
+    sets: "sets",
+    conjunto: "sets",
+    conjuntos: "sets",
+
+    ring: "rings",
+    rings: "rings",
+    anel: "rings",
+    aneis: "rings",
+    anéis: "rings",
+
+    necklace: "necklaces",
+    necklaces: "necklaces",
+    colar: "necklaces",
+    colares: "necklaces",
+
+    bracelet: "bracelets",
+    bracelets: "bracelets",
+    pulseira: "bracelets",
+    pulseiras: "bracelets",
+
+    earring: "earrings",
+    earrings: "earrings",
+    brinco: "earrings",
+    brincos: "earrings"
+  };
+
+  const mapped = map[s] || s;
+  if (ALLOWED_CATEGORIES.includes(mapped)) return mapped;
+
+  return "";
 }
 
 function groupPublicProducts() {
@@ -366,30 +327,39 @@ function groupPublicProducts() {
   };
 
   db.products.forEach((p) => {
-    if (!p || p.active === false) return;
-    if (typeof p.stock !== "number" || p.stock <= 0) return;
-    if (!out[p.category]) return;
+    if (!p) return;
+
+    // Normalize category so legacy values still show
+    const cat = normalizeCategory(p.category);
+    if (!cat || !out[cat]) return;
+
+    // Keep respecting active flag
+    if (p.active === false) return;
+
+    // Previously you filtered out stock <= 0. That causes "missing products".
+    const stockNum = typeof p.stock === "number" ? p.stock : Number(p.stock || 0);
+    const stock = Number.isNaN(stockNum) ? 0 : stockNum;
+
+    if (!SHOW_OUT_OF_STOCK_PRODUCTS && stock <= 0) return;
 
     const imageUrls = normalizeImageArray(p.imageUrls || [], MAX_PRODUCT_IMAGES);
     const imageUrl = p.imageUrl || imageUrls[0] || "";
 
-    const payload = {
+    out[cat].push({
       id: p.id,
       createdAt: p.createdAt,
-      category: p.category,
+      category: cat,
       name: p.name,
       description: p.description,
       price: Number(p.price || 0),
-      stock: p.stock,
+      stock,
       active: p.active !== false,
       imageUrl,
       imageUrls,
       images: imageUrls.slice(),
       originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
       discountLabel: typeof p.discountLabel === "string" ? p.discountLabel : ""
-    };
-
-    out[p.category].push(payload);
+    });
   });
 
   productsCache = {
@@ -411,10 +381,9 @@ function summarizeCart(cart) {
       if (!product) return null;
 
       const rawQuantity = Number(it.quantity || 0);
-      const maxStock =
-        typeof product.stock === "number" && product.stock > 0
-          ? product.stock
-          : 0;
+      const stockNum = typeof product.stock === "number" ? product.stock : Number(product.stock || 0);
+      const maxStock = Number.isNaN(stockNum) ? 0 : Math.max(0, stockNum);
+
       const quantity = Math.max(0, Math.min(rawQuantity, maxStock));
       if (!quantity) return null;
 
@@ -524,62 +493,46 @@ function renderIndexWithBootstrap() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Optional: migrate existing images once at startup                   */
-/* ------------------------------------------------------------------ */
-
-async function migrateOptimizeExistingImages() {
-  if (!sharp) return;
-
-  let changedProducts = 0;
-
-  for (const p of db.products) {
-    if (!p) continue;
-
-    const current = Array.isArray(p.imageUrls) ? p.imageUrls : [];
-    const normalized = normalizeImageArray(current, MAX_PRODUCT_IMAGES);
-
-    // Only optimize if any image is a big data url
-    const shouldOptimize = normalized.some(
-      (s) => typeof s === "string" && s.startsWith("data:image") && s.length > 180000
-    );
-
-    if (!shouldOptimize) continue;
-
-    const optimized = await optimizeImageArrayOnWrite(normalized, MAX_PRODUCT_IMAGES);
-
-    const before = JSON.stringify(normalized);
-    const after = JSON.stringify(optimized);
-
-    if (before !== after) {
-      p.imageUrls = optimized;
-      if (!p.imageUrl && optimized.length) p.imageUrl = optimized[0];
-      changedProducts += 1;
-      changedProducts += 0;
-
-      try {
-        await persistProductUpsert(p);
-      } catch (err) {
-        console.error("[DARAH] Failed persisting optimized product:", p.id, err);
-      }
-    }
-  }
-
-  if (changedProducts > 0) {
-    bumpProductsVersion();
-    cachedIndexHtml = null;
-    cachedIndexVersionKey = "";
-    console.log("[DARAH] Image migration complete. Products updated:", changedProducts);
-  } else {
-    console.log("[DARAH] Image migration skipped. No large images detected.");
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
 
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Debug counts so we can see why products are missing
+app.get("/api/admin/debug/products", (_req, res) => {
+  const total = db.products.length;
+
+  const byCategory = {};
+  const categoryInvalid = [];
+
+  let inactiveCount = 0;
+  let outOfStockCount = 0;
+
+  for (const p of db.products) {
+    const cat = normalizeCategory(p?.category);
+    if (!cat) {
+      categoryInvalid.push({ id: p?.id, category: p?.category });
+    } else {
+      byCategory[cat] = (byCategory[cat] || 0) + 1;
+    }
+
+    if (p?.active === false) inactiveCount += 1;
+
+    const stockNum = typeof p?.stock === "number" ? p.stock : Number(p?.stock || 0);
+    const stock = Number.isNaN(stockNum) ? 0 : stockNum;
+    if (stock <= 0) outOfStockCount += 1;
+  }
+
+  res.json({
+    totalProductsLoaded: total,
+    inactiveCount,
+    outOfStockCount,
+    byCategory,
+    invalidCategorySamples: categoryInvalid.slice(0, 25),
+    showOutOfStockOnStorefront: SHOW_OUT_OF_STOCK_PRODUCTS
+  });
+});
 
 // Homepage
 app.get("/api/homepage", (req, res) => {
@@ -600,17 +553,11 @@ app.put("/api/homepage", async (req, res) => {
   }
 
   if (Array.isArray(heroImages)) {
-    db.homepage.heroImages = await optimizeImageArrayOnWrite(
-      heroImages,
-      MAX_HOMEPAGE_IMAGES
-    );
+    db.homepage.heroImages = normalizeImageArray(heroImages, MAX_HOMEPAGE_IMAGES);
   }
 
   if (Array.isArray(aboutImages)) {
-    db.homepage.aboutImages = await optimizeImageArrayOnWrite(
-      aboutImages,
-      MAX_ABOUT_IMAGES
-    );
+    db.homepage.aboutImages = normalizeImageArray(aboutImages, MAX_ABOUT_IMAGES);
   }
 
   if (Array.isArray(notices)) {
@@ -645,11 +592,13 @@ app.get("/api/products", (req, res) => {
 });
 
 app.get("/api/admin/products", (_req, res) => {
+  // Admin should show everything, even inactive and stock 0.
   const adminProducts = db.products.map((p) => {
     const imageUrls = normalizeImageArray(p.imageUrls || [], MAX_PRODUCT_IMAGES);
     const imageUrl = p.imageUrl || imageUrls[0] || "";
     return {
       ...p,
+      category: normalizeCategory(p.category) || p.category,
       imageUrl,
       imageUrls,
       images: imageUrls.slice()
@@ -678,16 +627,8 @@ app.post("/api/products", async (req, res) => {
       .json({ error: "Preencha pelo menos nome, preço e estoque." });
   }
 
-  const allowedCategories = [
-    "specials",
-    "sets",
-    "rings",
-    "necklaces",
-    "bracelets",
-    "earrings"
-  ];
-
-  if (!allowedCategories.includes(category)) {
+  const normalizedCategory = normalizeCategory(category);
+  if (!normalizedCategory) {
     return res.status(400).json({ error: "Categoria inválida." });
   }
 
@@ -697,9 +638,8 @@ app.post("/api/products", async (req, res) => {
     ? images
     : [];
 
-  const optimizedImages = await optimizeImageArrayOnWrite(rawImages, MAX_PRODUCT_IMAGES);
-
-  const primaryImageUrl = String(imageUrl || optimizedImages[0] || "");
+  const normalizedImages = normalizeImageArray(rawImages, MAX_PRODUCT_IMAGES);
+  const primaryImageUrl = String(imageUrl || normalizedImages[0] || "");
 
   const normalizedOriginalPrice =
     typeof originalPrice === "number" && !Number.isNaN(originalPrice)
@@ -712,13 +652,13 @@ app.post("/api/products", async (req, res) => {
       : "";
 
   const normalizedPayload = {
-    category,
+    category: normalizedCategory,
     name: String(name),
     description: String(description || ""),
     price: Number(price),
     stock: Math.max(0, Number(stock)),
     imageUrl: primaryImageUrl,
-    imageUrls: optimizedImages,
+    imageUrls: normalizedImages,
     originalPrice: normalizedOriginalPrice,
     discountLabel: normalizedDiscountLabel
   };
@@ -793,21 +733,30 @@ app.put("/api/products/:id", async (req, res) => {
     if (!allowed.includes(k)) continue;
 
     if (k === "stock") {
-      product[k] = Math.max(0, Number(req.body[k]));
+      product.stock = Math.max(0, Number(req.body[k]));
       continue;
     }
 
     if (k === "price") {
-      product[k] = Number(req.body[k]);
+      product.price = Number(req.body[k]);
+      continue;
+    }
+
+    if (k === "category") {
+      const cat = normalizeCategory(req.body[k]);
+      if (!cat) {
+        return res.status(400).json({ error: "Categoria inválida." });
+      }
+      product.category = cat;
       continue;
     }
 
     if (k === "imageUrls") {
       const srcs = Array.isArray(req.body[k]) ? req.body[k] : [];
-      const optimized = await optimizeImageArrayOnWrite(srcs, MAX_PRODUCT_IMAGES);
-      product.imageUrls = optimized;
-      if (!product.imageUrl && optimized.length) {
-        product.imageUrl = optimized[0];
+      const cleaned = normalizeImageArray(srcs, MAX_PRODUCT_IMAGES);
+      product.imageUrls = cleaned;
+      if (!product.imageUrl && cleaned.length) {
+        product.imageUrl = cleaned[0];
       }
       continue;
     }
@@ -823,8 +772,7 @@ app.put("/api/products/:id", async (req, res) => {
     }
 
     if (k === "discountLabel") {
-      const text = String(req.body[k] || "").trim();
-      product.discountLabel = text;
+      product.discountLabel = String(req.body[k] || "").trim();
       continue;
     }
 
@@ -877,7 +825,11 @@ app.post("/api/cart/add", (req, res) => {
   const { productId } = req.body || {};
   const product = db.products.find((p) => p.id === productId && p.active !== false);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
-  if (!product.stock || product.stock <= 0) {
+
+  const stockNum = typeof product.stock === "number" ? product.stock : Number(product.stock || 0);
+  const stock = Number.isNaN(stockNum) ? 0 : stockNum;
+
+  if (!stock || stock <= 0) {
     return res.status(400).json({ error: "Produto sem estoque." });
   }
 
@@ -886,7 +838,7 @@ app.post("/api/cart/add", (req, res) => {
 
   if (item) {
     const next = item.quantity + 1;
-    if (next > product.stock) {
+    if (next > stock) {
       return res
         .status(400)
         .json({ error: "Quantidade além do estoque disponível." });
@@ -913,9 +865,12 @@ app.post("/api/cart/update", (req, res) => {
     return res.status(400).json({ error: "Quantidade inválida." });
   }
 
+  const stockNum = typeof product.stock === "number" ? product.stock : Number(product.stock || 0);
+  const stock = Number.isNaN(stockNum) ? 0 : stockNum;
+
   if (q === 0) {
     cart.items = cart.items.filter((it) => it.productId !== productId);
-  } else if (q > product.stock) {
+  } else if (q > stock) {
     return res.status(400).json({ error: "Quantidade além do estoque disponível." });
   } else {
     item.quantity = q;
@@ -998,7 +953,6 @@ app.get("*", (_req, res) => {
 /* ------------------------------------------------------------------ */
 
 async function start() {
-  // Initialize DB before listening so admin never loads empty data on first hit.
   try {
     await initDatabase(db);
 
@@ -1008,9 +962,7 @@ async function start() {
     cachedIndexVersionKey = "";
 
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
-
-    // Optional one time migration to optimize old images already stored in DB.
-    await migrateOptimizeExistingImages();
+    console.log("[DARAH] Products loaded:", db.products.length);
   } catch (err) {
     console.error(
       "[DARAH] Failed to initialize database. Continuing with in memory store only.",
