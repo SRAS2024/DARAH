@@ -10,8 +10,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Limits
   const MAX_PRODUCT_IMAGES = 5;      // até 5 imagens por produto
-  const MAX_HOMEPAGE_IMAGES = 12;    // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 4;        // até 4 imagens no collage da aba Sobre
+  const MAX_HOMEPAGE_IMAGES = 12;   // até 12 imagens no collage da página inicial
+  const MAX_ABOUT_IMAGES = 4;       // até 4 imagens no collage da aba Sobre
 
   // Basic layout
   const bodyEl = document.body;
@@ -340,6 +340,241 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((u) => String(u || "").trim())
       .filter((u, index, arr) => u && arr.indexOf(u) === index);
     return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
+  }
+
+  // =========================
+  // Category normalization (helps older products appear in grids)
+  // =========================
+  function normalizeCategory(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (!s) return "";
+
+    const map = {
+      special: "specials",
+      specials: "specials",
+      oferta: "specials",
+      ofertas: "specials",
+
+      set: "sets",
+      sets: "sets",
+      conjunto: "sets",
+      conjuntos: "sets",
+
+      ring: "rings",
+      rings: "rings",
+      anel: "rings",
+      aneis: "rings",
+      "anéis": "rings",
+
+      necklace: "necklaces",
+      necklaces: "necklaces",
+      colar: "necklaces",
+      colares: "necklaces",
+
+      bracelet: "bracelets",
+      bracelets: "bracelets",
+      pulseira: "bracelets",
+      pulseiras: "bracelets",
+
+      earring: "earrings",
+      earrings: "earrings",
+      brinco: "earrings",
+      brincos: "earrings"
+    };
+
+    const mapped = map[s] || s;
+    const allowed = ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"];
+    return allowed.includes(mapped) ? mapped : "";
+  }
+
+  // =========================
+  // Ultra compression for existing DB images
+  // Best for data URLs. Remote URLs only if CORS allows it.
+  // =========================
+  async function loadImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Falha ao carregar imagem para compressão."));
+      img.src = url;
+    });
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => reject(reader.error || new Error("Falha ao ler blob."));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function fetchRemoteToDataUrl(url) {
+    const res = await fetch(url, { mode: "cors", cache: "no-store" });
+    if (!res.ok) throw new Error("Falha ao baixar imagem remota.");
+    const blob = await res.blob();
+    return blobToDataUrl(blob);
+  }
+
+  async function ultraCompressDataUrl(inputDataUrl, opts) {
+    const options = opts || {};
+    const MAX_DIMENSION = typeof options.maxDimension === "number" ? options.maxDimension : 1280;
+    const MIN_QUALITY = typeof options.minQuality === "number" ? options.minQuality : 0.62;
+    const START_QUALITY = typeof options.startQuality === "number" ? options.startQuality : 0.78;
+
+    const original = String(inputDataUrl || "");
+    if (!original.startsWith("data:image")) return original;
+
+    let img;
+    try {
+      img = await loadImageFromUrl(original);
+    } catch {
+      return original;
+    }
+
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    if (!width || !height) return original;
+
+    let targetW = width;
+    let targetH = height;
+
+    if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+      if (width >= height) {
+        targetW = MAX_DIMENSION;
+        targetH = Math.round((height * MAX_DIMENSION) / width);
+      } else {
+        targetH = MAX_DIMENSION;
+        targetW = Math.round((width * MAX_DIMENSION) / height);
+      }
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return original;
+
+    try {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+    } catch {
+    }
+
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+
+    function toWebp(q) {
+      try {
+        return canvas.toDataURL("image/webp", q);
+      } catch {
+        return "";
+      }
+    }
+
+    function toJpeg(q) {
+      try {
+        return canvas.toDataURL("image/jpeg", q);
+      } catch {
+        return "";
+      }
+    }
+
+    let q = START_QUALITY;
+    let out = toWebp(q);
+    if (!out) out = toJpeg(q);
+    if (!out) return original;
+
+    if (out.length < original.length * 0.80) return out;
+
+    while (q > MIN_QUALITY) {
+      q = Math.max(MIN_QUALITY, q - 0.06);
+      const next = toWebp(q) || toJpeg(q);
+      if (!next) break;
+      out = next;
+      if (out.length < original.length * 0.80) break;
+    }
+
+    if (out && out.length < original.length * 0.92) return out;
+    return original;
+  }
+
+  async function ultraCompressAnyImageSrc(src) {
+    const s = String(src || "").trim();
+    if (!s) return "";
+
+    if (s.startsWith("data:image")) {
+      return ultraCompressDataUrl(s, { maxDimension: 1280, startQuality: 0.78, minQuality: 0.62 });
+    }
+
+    try {
+      const asDataUrl = await fetchRemoteToDataUrl(s);
+      const compressed = await ultraCompressDataUrl(asDataUrl, { maxDimension: 1280, startQuality: 0.78, minQuality: 0.62 });
+      return compressed || s;
+    } catch {
+      return s;
+    }
+  }
+
+  async function ultraCompressList(list, max) {
+    const cleaned = normalizeList(list, max);
+    const out = [];
+    for (let i = 0; i < cleaned.length; i += 1) {
+      const src = cleaned[i];
+      const optimized = await ultraCompressAnyImageSrc(src);
+      if (optimized) out.push(optimized);
+    }
+    return normalizeList(out, max);
+  }
+
+  async function optimizeAllDatabaseImages() {
+    const res = await fetch("/api/admin/products", { cache: "no-store" });
+    if (!res.ok) throw new Error("Não foi possível carregar produtos para otimização.");
+
+    const products = await res.json();
+    if (!Array.isArray(products) || !products.length) {
+      return { updated: 0, total: 0 };
+    }
+
+    let updated = 0;
+
+    for (let i = 0; i < products.length; i += 1) {
+      const p = products[i];
+      if (!p || !p.id) continue;
+
+      const rawImages = []
+        .concat(Array.isArray(p.imageUrls) ? p.imageUrls : [])
+        .concat(Array.isArray(p.images) ? p.images : []);
+
+      let merged = rawImages.map((x) => String(x || "").trim()).filter(Boolean);
+
+      if (p.imageUrl && !merged.includes(p.imageUrl)) merged.unshift(String(p.imageUrl));
+
+      merged = normalizeList(merged, MAX_PRODUCT_IMAGES);
+      if (!merged.length) continue;
+
+      const optimized = await ultraCompressList(merged, MAX_PRODUCT_IMAGES);
+
+      const before = JSON.stringify(merged);
+      const after = JSON.stringify(optimized);
+      if (before === after) continue;
+
+      const payload = {
+        imageUrl: optimized[0] || "",
+        imageUrls: optimized.slice(0, MAX_PRODUCT_IMAGES)
+      };
+
+      const putRes = await fetch("/api/products/" + encodeURIComponent(p.id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (putRes.ok) updated += 1;
+    }
+
+    return { updated, total: products.length };
   }
 
   // View switching inside admin
@@ -847,22 +1082,30 @@ document.addEventListener("DOMContentLoaded", () => {
       const aboutText = aboutTextEl ? aboutTextEl.value.trim() : "";
       const aboutLongText = aboutLongTextEl ? aboutLongTextEl.value.trim() : "";
 
-      if (heroImagesTextarea) {
-        syncHeroImagesFromTextarea();
-      }
-      if (aboutImagesTextarea) {
-        syncAboutImagesFromTextarea();
-      }
+      // Sync and ultra compress homepage images already stored
+      if (heroImagesTextarea) syncHeroImagesFromTextarea();
+      if (aboutImagesTextarea) syncAboutImagesFromTextarea();
 
-      const heroImages = normalizeList(
-        homepageState.heroImages,
-        MAX_HOMEPAGE_IMAGES
+      setHomepageStatus("Otimizando imagens da homepage...", "");
+      homepageState.heroImages = await ultraCompressList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
+      homepageState.aboutImages = await ultraCompressList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
+
+      if (heroImagesTextarea) heroImagesTextarea.value = homepageState.heroImages.join("\n");
+      if (aboutImagesTextarea) aboutImagesTextarea.value = homepageState.aboutImages.join("\n");
+      renderHeroGallery();
+      renderAboutGallery();
+
+      // Ultra compress every product image in the database on homepage save
+      setHomepageStatus("Otimizando imagens de produtos no banco...", "");
+      const result = await optimizeAllDatabaseImages();
+
+      setHomepageStatus(
+        "Imagens otimizadas. Produtos atualizados: " + result.updated + " de " + result.total + ". Salvando homepage...",
+        "ok"
       );
 
-      const aboutImages = normalizeList(
-        homepageState.aboutImages,
-        MAX_ABOUT_IMAGES
-      );
+      const heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
+      const aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
 
       const notices = normalizeList(
         homepageState.notices.filter((n) => n && n.trim().length),
@@ -902,7 +1145,9 @@ document.addEventListener("DOMContentLoaded", () => {
       setHomepageStatus("Homepage atualizada com sucesso.", "ok");
       setNoticeStatus("Avisos publicados na vitrine.", "ok");
       setAboutStatus('Colagem e texto da página "Sobre nós" atualizados.', "ok");
+
       await loadHomepageAdmin();
+      await loadProducts(); // refresh admin after DB wide optimization
     } catch (err) {
       console.error(err);
       setHomepageStatus("Não foi possível salvar a homepage.", "error");
@@ -952,6 +1197,15 @@ document.addEventListener("DOMContentLoaded", () => {
         allProducts = [];
       }
 
+      // Normalize categories so legacy products show in the correct grids
+      allProducts = allProducts.map((p) => {
+        const cat = normalizeCategory(p && p.category);
+        return {
+          ...p,
+          category: cat || (p && p.category) || ""
+        };
+      });
+
       renderAllCategoryGrids();
       setFormStatus("", "");
     } catch (err) {
@@ -973,7 +1227,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     container.innerHTML = "";
 
-    const items = allProducts.filter((p) => p.category === categoryKey);
+    const items = allProducts.filter((p) => normalizeCategory(p.category) === categoryKey);
 
     items.sort((a, b) => {
       if (a.createdAt && b.createdAt) {
