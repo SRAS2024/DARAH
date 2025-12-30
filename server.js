@@ -921,22 +921,33 @@ app.post("/api/cart/update", (req, res) => {
 
 // WhatsApp checkout
 app.post("/api/checkout-link", (req, res) => {
-  const summary = summarizeCart(ensureSessionCart(req));
-  if (!summary.items.length) return res.status(400).json({ error: "Carrinho vazio." });
+  // Accept cart items from request body (sent from client localStorage)
+  const { items } = req.body || {};
 
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Carrinho vazio." });
+  }
+
+  // Build WhatsApp message
   const lines = [];
   lines.push("Olá, eu gostaria de fazer um pedido dos seguintes itens:");
   lines.push("");
 
-  summary.items.forEach((it, i) => {
-    const itemLine = `${i + 1}. ${it.name}`;
-    const priceLine = `   ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`;
+  let total = 0;
+  items.forEach((item, i) => {
+    const price = Number(item.price || 0);
+    const quantity = Number(item.quantity || 0);
+    const lineTotal = price * quantity;
+    total += lineTotal;
+
+    const itemLine = `${i + 1}. ${item.name}`;
+    const priceLine = `   ${quantity} x ${brl(price)} = ${brl(lineTotal)}`;
     lines.push(itemLine);
     lines.push(priceLine);
   });
 
   lines.push("");
-  lines.push(`*Total: ${brl(summary.total)}*`);
+  lines.push(`*Total: ${brl(total)}*`);
 
   const phone = "5565999883400";
   const text = encodeURIComponent(lines.join("\n"));
