@@ -827,30 +827,26 @@ function initStorefrontApp() {
           return;
         }
 
-        // Ensure products are loaded
-        if (!allProducts || allProducts.length === 0) {
-          alert("Carregando produtos... Por favor, aguarde um momento e tente novamente.");
-          return;
-        }
-
         // Convert cart object to array format with product details
+        // Cart structure is { [productId]: { qty: number, product: object } }
         const cartItems = [];
-        for (const [productId, quantity] of Object.entries(cartObj)) {
-          const product = allProducts.find(p => p.id === productId);
-          if (product && quantity > 0) {
+        for (const [productId, cartItem] of Object.entries(cartObj)) {
+          if (cartItem && cartItem.qty > 0 && cartItem.product) {
             cartItems.push({
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              quantity: quantity
+              id: cartItem.product.id,
+              name: cartItem.product.name,
+              price: cartItem.product.price,
+              quantity: cartItem.qty
             });
           }
         }
 
         if (cartItems.length === 0) {
-          alert("Não foi possível encontrar os produtos no carrinho. Tente atualizar a página.");
+          alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
           return;
         }
+
+        console.log("Sending cart items to server:", cartItems);
 
         // Send cart to server for WhatsApp message generation
         const res = await fetch("/api/checkout-link", {
@@ -865,6 +861,8 @@ function initStorefrontApp() {
         }
 
         const data = await res.json();
+        console.log("WhatsApp URL:", data.url);
+
         if (data.url) {
           // Open WhatsApp in new window/tab
           window.open(data.url, '_blank');
