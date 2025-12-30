@@ -174,11 +174,10 @@ function initStorefrontApp() {
 
     navDropdown.innerHTML = "";
 
-    // Only clone the tabs marked as "mobile extra" into the dropdown
-    const extraTabs = Array.from(navLeftContainer.querySelectorAll(".nav-link"))
-      .filter((btn) => btn.getAttribute("data-mobile-extra") === "true");
+    // Clone all tabs into the dropdown (mobile will hide first 2 in nav-left via CSS)
+    const allTabs = Array.from(navLeftContainer.querySelectorAll(".nav-link"));
 
-    extraTabs.forEach((btn) => {
+    allTabs.forEach((btn) => {
       const viewId = btn.getAttribute("data-view");
       if (!viewId || !views[viewId]) return;
 
