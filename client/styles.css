@@ -1152,7 +1152,7 @@ body.admin-page.is-admin-login .main-nav {
   }
 
   /* No mobile, só as abas principais (Início e Sobre nós) aparecem na linha de cima */
-  .nav-left .nav-link[data-mobile-extra="true"] {
+  .nav-left .nav-link:nth-child(n+3) {
     display: none;
   }
 
