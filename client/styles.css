@@ -1132,21 +1132,39 @@ body.admin-page.is-admin-login .main-nav {
 /* Desktop navigation: 900px+ for displays 9 inches or larger */
 @media (min-width: 900px) {
   .nav-left {
-    display: flex;
+    display: flex !important;
     flex-wrap: wrap;
     gap: 8px;
   }
 
   .nav-link {
-    display: inline-flex;
+    display: inline-flex !important;
   }
 
   .nav-mobile-toggle {
-    display: none;
+    display: none !important;
   }
 
   .nav-dropdown {
     display: none !important;
+  }
+
+  /* Ensure main content and views are visible on desktop */
+  .main-content {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .view.active-view {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .hero, .product-grid, .about-layout {
+    display: grid;
+    visibility: visible;
   }
 }
 
