@@ -467,10 +467,47 @@ function renderIndexWithBootstrap() {
     return cachedIndexHtml;
   }
 
+  // Build lightweight bootstrap WITHOUT images to keep HTML small and fast
+  const homepage = buildPublicHomepagePayload();
+  const products = groupPublicProducts();
+
+  // Strip images from bootstrap - they'll load async for speed
+  const lightweightHomepage = {
+    aboutText: homepage.aboutText,
+    aboutLongText: homepage.aboutLongText,
+    notices: homepage.notices,
+    theme: homepage.theme,
+    // Images excluded - will load via API
+    heroImages: [],
+    aboutImages: []
+  };
+
+  // Strip images from products - keep structure light
+  const lightweightProducts = {};
+  Object.keys(products).forEach(cat => {
+    lightweightProducts[cat] = products[cat].map(p => ({
+      id: p.id,
+      category: p.category,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      stock: p.stock,
+      active: p.active,
+      originalPrice: p.originalPrice,
+      discountLabel: p.discountLabel,
+      // Images excluded - will load on demand
+      imageUrl: "",
+      imageUrls: [],
+      images: []
+    }));
+  });
+
   const bootstrap = {
-    homepage: buildPublicHomepagePayload(),
-    products: groupPublicProducts(),
-    productsVersion
+    homepage: lightweightHomepage,
+    products: lightweightProducts,
+    productsVersion,
+    // Flag to indicate images need to be loaded
+    imagesDeferred: true
   };
 
   const json = JSON.stringify(bootstrap).replace(/</g, "\\u003c");
@@ -892,15 +929,14 @@ app.post("/api/checkout-link", (req, res) => {
   lines.push("");
 
   summary.items.forEach((it, i) => {
-    lines.push(
-      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(
-        it.lineTotal
-      )}`
-    );
+    const itemLine = `${i + 1}. ${it.name}`;
+    const priceLine = `   ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`;
+    lines.push(itemLine);
+    lines.push(priceLine);
   });
 
   lines.push("");
-  lines.push(`Total geral: ${brl(summary.total)}`);
+  lines.push(`*Total: ${brl(summary.total)}*`);
 
   const phone = "5565999883400";
   const text = encodeURIComponent(lines.join("\n"));

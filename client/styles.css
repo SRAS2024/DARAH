@@ -267,7 +267,8 @@ body.admin-page.is-admin-login .main-nav {
   display: flex;
   align-items: center;
   width: 100%;
-  justify-content: flex-start;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Cart button */
@@ -503,7 +504,30 @@ body.admin-page.is-admin-login .main-nav {
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(0, 0, 0, 0.02);
+  animation: fadeInCard 0.3s ease-out forwards;
+  opacity: 0;
 }
+
+@keyframes fadeInCard {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger animation delays for smooth cascading effect */
+.product-card:nth-child(1) { animation-delay: 0s; }
+.product-card:nth-child(2) { animation-delay: 0.05s; }
+.product-card:nth-child(3) { animation-delay: 0.1s; }
+.product-card:nth-child(4) { animation-delay: 0.15s; }
+.product-card:nth-child(5) { animation-delay: 0.2s; }
+.product-card:nth-child(6) { animation-delay: 0.25s; }
+.product-card:nth-child(7) { animation-delay: 0.3s; }
+.product-card:nth-child(8) { animation-delay: 0.35s; }
 
 /* Wrapper para imagens de produto com carrossel */
 .product-image-wrapper {
@@ -736,6 +760,12 @@ body.admin-page.is-admin-login .main-nav {
   background: #c7c7c7;
   cursor: not-allowed;
   box-shadow: none;
+  transform: none;
+}
+
+.primary-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Admin product grid (espelha cards da vitrine) */
