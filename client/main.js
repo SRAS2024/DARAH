@@ -683,9 +683,15 @@ function initStorefrontApp() {
         // Render immediately with text (no images yet)
         renderHomepage();
 
-        // Load images in background if deferred
+        // Defer image loading until browser is truly idle (not blocking initial render)
         if (window.__DARAH_BOOTSTRAP__.imagesDeferred) {
-          loadHomepageImages();
+          if (window.requestIdleCallback) {
+            requestIdleCallback(() => {
+              setTimeout(loadHomepageImages, 300); // Extra delay for smooth UX
+            }, { timeout: 2000 });
+          } else {
+            setTimeout(loadHomepageImages, 800);
+          }
         }
         return;
       }
@@ -749,9 +755,15 @@ function initStorefrontApp() {
         // Render product cards immediately (images will show placeholders)
         renderProducts();
 
-        // Load images in background
+        // Defer image loading until browser is truly idle (not blocking initial render)
         if (window.__DARAH_BOOTSTRAP__.imagesDeferred) {
-          loadProductImages();
+          if (window.requestIdleCallback) {
+            requestIdleCallback(() => {
+              setTimeout(loadProductImages, 500); // Extra delay for smooth UX
+            }, { timeout: 2000 });
+          } else {
+            setTimeout(loadProductImages, 1000);
+          }
         }
         return;
       }
@@ -846,8 +858,6 @@ function initStorefrontApp() {
           return;
         }
 
-        console.log("Sending cart items to server:", cartItems);
-
         // Send cart to server for WhatsApp message generation
         const res = await fetch("/api/checkout-link", {
           method: "POST",
@@ -861,11 +871,10 @@ function initStorefrontApp() {
         }
 
         const data = await res.json();
-        console.log("WhatsApp URL:", data.url);
 
         if (data.url) {
-          // Open WhatsApp in new window/tab
-          window.open(data.url, '_blank');
+          // Use direct navigation to open WhatsApp app (not window.open)
+          window.location.href = data.url;
         } else {
           alert("Erro ao gerar link do WhatsApp. Tente novamente.");
         }
