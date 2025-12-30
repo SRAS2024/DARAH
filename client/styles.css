@@ -1129,6 +1129,27 @@ body.admin-page.is-admin-login .main-nav {
   }
 }
 
+/* Desktop navigation: ensure all tabs are visible and properly styled */
+@media (min-width: 641px) {
+  .nav-left {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .nav-link {
+    display: inline-flex;
+  }
+
+  .nav-mobile-toggle {
+    display: none;
+  }
+
+  .nav-dropdown {
+    display: none !important;
+  }
+}
+
 @media (max-width: 640px) {
   .main-nav {
     flex-direction: row;
