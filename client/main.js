@@ -672,14 +672,21 @@ function initStorefrontApp() {
       if (window.__DARAH_BOOTSTRAP__ && window.__DARAH_BOOTSTRAP__.homepage) {
         const hp = window.__DARAH_BOOTSTRAP__.homepage;
 
+        // Load text content immediately from bootstrap
         homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
         homepageState.aboutLongText = typeof hp.aboutLongText === "string" ? hp.aboutLongText : "";
-        homepageState.heroImages = normalizeList(hp.heroImages || [], 12);
-        homepageState.aboutImages = normalizeList(hp.aboutImages || [], 4);
         homepageState.notices = normalizeList(hp.notices || [], 10);
         homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+        homepageState.heroImages = [];
+        homepageState.aboutImages = [];
 
+        // Render immediately with text (no images yet)
         renderHomepage();
+
+        // Load images in background if deferred
+        if (window.__DARAH_BOOTSTRAP__.imagesDeferred) {
+          loadHomepageImages();
+        }
         return;
       }
 
@@ -703,12 +710,30 @@ function initStorefrontApp() {
     }
   }
 
+  // Load images separately in background for fast initial render
+  async function loadHomepageImages() {
+    try {
+      const res = await fetch("/api/homepage", { cache: "default" });
+      if (!res.ok) return;
+      const hp = await res.json();
+
+      homepageState.heroImages = normalizeList(hp.heroImages || [], 12);
+      homepageState.aboutImages = normalizeList(hp.aboutImages || [], 4);
+
+      // Re-render to show images
+      renderHomepage();
+    } catch (err) {
+      console.error("Failed to load images:", err);
+    }
+  }
+
   async function loadProducts() {
     try {
       // Check for server-side bootstrap data first (instant loading)
       if (window.__DARAH_BOOTSTRAP__ && window.__DARAH_BOOTSTRAP__.products) {
         const products = window.__DARAH_BOOTSTRAP__.products;
 
+        // Load product data structure immediately (without images)
         if (Array.isArray(products)) {
           allProducts = products;
         } else if (products && typeof products === "object") {
@@ -721,7 +746,13 @@ function initStorefrontApp() {
           allProducts = [];
         }
 
+        // Render product cards immediately (images will show placeholders)
         renderProducts();
+
+        // Load images in background
+        if (window.__DARAH_BOOTSTRAP__.imagesDeferred) {
+          loadProductImages();
+        }
         return;
       }
 
@@ -747,6 +778,31 @@ function initStorefrontApp() {
       console.error(err);
       allProducts = [];
       renderProducts();
+    }
+  }
+
+  // Load product images separately in background
+  async function loadProductImages() {
+    try {
+      const res = await fetch("/api/products", { cache: "default" });
+      if (!res.ok) return;
+      const products = await res.json();
+
+      // Update products with images
+      if (Array.isArray(products)) {
+        allProducts = products;
+      } else if (products && typeof products === "object") {
+        const flat = [];
+        ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
+          if (Array.isArray(products[key])) products[key].forEach((p) => flat.push(p));
+        });
+        allProducts = flat;
+      }
+
+      // Re-render with images
+      renderProducts();
+    } catch (err) {
+      console.error("Failed to load product images:", err);
     }
   }
 
@@ -1018,7 +1074,65 @@ function initAdminApp() {
     }
   }
 
+  // Compress image to reduce file size while maintaining quality
+  function compressImage(file, maxWidth = 1200, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Calculate new dimensions maintaining aspect ratio
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+
+          // Create canvas and compress
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          // Enable image smoothing for better quality
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to compressed data URL
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Falha ao comprimir imagem'));
+                return;
+              }
+              const compressedReader = new FileReader();
+              compressedReader.onload = () => resolve(compressedReader.result);
+              compressedReader.onerror = () => reject(new Error('Falha ao ler imagem comprimida'));
+              compressedReader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   function fileToDataUrl(file) {
+    // Use compression for images
+    if (file.type.startsWith('image/')) {
+      return compressImage(file);
+    }
+
+    // Fallback for non-images
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () =>
