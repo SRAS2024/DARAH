@@ -827,6 +827,12 @@ function initStorefrontApp() {
           return;
         }
 
+        // Ensure products are loaded
+        if (!allProducts || allProducts.length === 0) {
+          alert("Carregando produtos... Por favor, aguarde um momento e tente novamente.");
+          return;
+        }
+
         // Convert cart object to array format with product details
         const cartItems = [];
         for (const [productId, quantity] of Object.entries(cartObj)) {
@@ -842,7 +848,7 @@ function initStorefrontApp() {
         }
 
         if (cartItems.length === 0) {
-          alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
+          alert("Não foi possível encontrar os produtos no carrinho. Tente atualizar a página.");
           return;
         }
 
@@ -853,17 +859,21 @@ function initStorefrontApp() {
           body: JSON.stringify({ items: cartItems })
         });
 
-        if (!res.ok) throw new Error("Falha ao gerar link de checkout");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Falha ao gerar link de checkout");
+        }
 
         const data = await res.json();
         if (data.url) {
-          window.location.href = data.url;
+          // Open WhatsApp in new window/tab
+          window.open(data.url, '_blank');
         } else {
           alert("Erro ao gerar link do WhatsApp. Tente novamente.");
         }
       } catch (err) {
-        console.error(err);
-        alert("Erro ao finalizar pedido. Verifique sua conexão.");
+        console.error("Checkout error:", err);
+        alert("Erro ao finalizar pedido: " + err.message);
       }
     });
   }
@@ -873,13 +883,9 @@ function initStorefrontApp() {
   loadHomepage();
   renderCheckout();
 
-  // Defer product loading to not block initial page render
-  // This ensures homepage and about page appear instantly
-  if (window.requestIdleCallback) {
-    requestIdleCallback(() => loadProducts(), { timeout: 100 });
-  } else {
-    setTimeout(() => loadProducts(), 50);
-  }
+  // Load products immediately (needed for cart/checkout functionality)
+  // Products without images load instantly, images come in background
+  loadProducts();
 }
 
 /* =========================================================
