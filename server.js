@@ -892,15 +892,14 @@ app.post("/api/checkout-link", (req, res) => {
   lines.push("");
 
   summary.items.forEach((it, i) => {
-    lines.push(
-      `${i + 1}. ${it.name} · ${it.quantity} x ${brl(it.price)} = ${brl(
-        it.lineTotal
-      )}`
-    );
+    const itemLine = `${i + 1}. ${it.name}`;
+    const priceLine = `   ${it.quantity} x ${brl(it.price)} = ${brl(it.lineTotal)}`;
+    lines.push(itemLine);
+    lines.push(priceLine);
   });
 
   lines.push("");
-  lines.push(`Total geral: ${brl(summary.total)}`);
+  lines.push(`*Total: ${brl(summary.total)}*`);
 
   const phone = "5565999883400";
   const text = encodeURIComponent(lines.join("\n"));

@@ -783,11 +783,18 @@ function initStorefrontApp() {
     });
   }
 
-  // Initial view and load
+  // Initial view and load - prioritize homepage for instant display
   switchView("home");
   loadHomepage();
-  loadProducts();
   renderCheckout();
+
+  // Defer product loading to not block initial page render
+  // This ensures homepage and about page appear instantly
+  if (window.requestIdleCallback) {
+    requestIdleCallback(() => loadProducts(), { timeout: 100 });
+  } else {
+    setTimeout(() => loadProducts(), 50);
+  }
 }
 
 /* =========================================================
