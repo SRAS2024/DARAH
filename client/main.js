@@ -665,9 +665,25 @@ function initStorefrontApp() {
     applyThemeVariant(homepageState.theme || "default");
   }
 
-  // Data loading
+  // Data loading with bootstrap support for instant loading
   async function loadHomepage() {
     try {
+      // Check for server-side bootstrap data first (instant loading)
+      if (window.__DARAH_BOOTSTRAP__ && window.__DARAH_BOOTSTRAP__.homepage) {
+        const hp = window.__DARAH_BOOTSTRAP__.homepage;
+
+        homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
+        homepageState.aboutLongText = typeof hp.aboutLongText === "string" ? hp.aboutLongText : "";
+        homepageState.heroImages = normalizeList(hp.heroImages || [], 12);
+        homepageState.aboutImages = normalizeList(hp.aboutImages || [], 4);
+        homepageState.notices = normalizeList(hp.notices || [], 10);
+        homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+
+        renderHomepage();
+        return;
+      }
+
+      // Fallback to API call if no bootstrap
       const res = await fetch("/api/homepage", { cache: "no-store" });
       if (!res.ok) throw new Error("homepage fetch failed");
       const hp = await res.json();
@@ -689,6 +705,27 @@ function initStorefrontApp() {
 
   async function loadProducts() {
     try {
+      // Check for server-side bootstrap data first (instant loading)
+      if (window.__DARAH_BOOTSTRAP__ && window.__DARAH_BOOTSTRAP__.products) {
+        const products = window.__DARAH_BOOTSTRAP__.products;
+
+        if (Array.isArray(products)) {
+          allProducts = products;
+        } else if (products && typeof products === "object") {
+          const flat = [];
+          ["specials", "sets", "rings", "necklaces", "bracelets", "earrings"].forEach((key) => {
+            if (Array.isArray(products[key])) products[key].forEach((p) => flat.push(p));
+          });
+          allProducts = flat;
+        } else {
+          allProducts = [];
+        }
+
+        renderProducts();
+        return;
+      }
+
+      // Fallback to API call if no bootstrap
       const res = await fetch("/api/products", { cache: "no-store" });
       if (!res.ok) throw new Error("products fetch failed");
       const products = await res.json();
@@ -724,9 +761,25 @@ function initStorefrontApp() {
   }
 
   if (checkoutButton) {
-    checkoutButton.addEventListener("click", () => {
-      // Placeholder behavior, backend checkout can be added later
-      alert("Pedido recebido! Em breve entraremos em contato para finalizar.");
+    checkoutButton.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/checkout-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+
+        if (!res.ok) throw new Error("Falha ao gerar link de checkout");
+
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          alert("Erro ao gerar link do WhatsApp. Tente novamente.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao finalizar pedido. Verifique sua conexão.");
+      }
     });
   }
 

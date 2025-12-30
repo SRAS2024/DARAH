@@ -481,7 +481,10 @@ function renderIndexWithBootstrap() {
     `</script>`;
 
   let html = INDEX_HTML_TEMPLATE;
-  if (html.includes("</body>")) {
+  // Inject in head for immediate availability
+  if (html.includes("</head>")) {
+    html = html.replace("</head>", scriptTag + "</head>");
+  } else if (html.includes("</body>")) {
     html = html.replace("</body>", scriptTag + "</body>");
   } else {
     html += scriptTag;
@@ -963,6 +966,12 @@ async function start() {
 
     console.log("[DARAH] Database initialized and in memory cache hydrated.");
     console.log("[DARAH] Products loaded:", db.products.length);
+
+    // Pre-generate cached HTML for instant first load
+    if (INDEX_HTML_TEMPLATE) {
+      renderIndexWithBootstrap();
+      console.log("[DARAH] Pre-generated cached HTML for instant loading.");
+    }
   } catch (err) {
     console.error(
       "[DARAH] Failed to initialize database. Continuing with in memory store only.",
@@ -971,7 +980,9 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`DARAH API rodando na porta ${PORT}`);
+    console.log(`[DARAH] API rodando na porta ${PORT}`);
+    console.log(`[DARAH] Storefront: http://localhost:${PORT}/`);
+    console.log(`[DARAH] Admin: http://localhost:${PORT}/admin`);
 
     const keepAliveUrl = `http://127.0.0.1:${PORT}/api/health`;
     setInterval(() => {
