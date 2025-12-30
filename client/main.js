@@ -819,9 +819,38 @@ function initStorefrontApp() {
   if (checkoutButton) {
     checkoutButton.addEventListener("click", async () => {
       try {
+        // Get cart from localStorage
+        const cartObj = loadCart();
+
+        if (!cartObj || Object.keys(cartObj).length === 0) {
+          alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
+          return;
+        }
+
+        // Convert cart object to array format with product details
+        const cartItems = [];
+        for (const [productId, quantity] of Object.entries(cartObj)) {
+          const product = allProducts.find(p => p.id === productId);
+          if (product && quantity > 0) {
+            cartItems.push({
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              quantity: quantity
+            });
+          }
+        }
+
+        if (cartItems.length === 0) {
+          alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
+          return;
+        }
+
+        // Send cart to server for WhatsApp message generation
         const res = await fetch("/api/checkout-link", {
           method: "POST",
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: cartItems })
         });
 
         if (!res.ok) throw new Error("Falha ao gerar link de checkout");
