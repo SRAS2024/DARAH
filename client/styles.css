@@ -1129,8 +1129,8 @@ body.admin-page.is-admin-login .main-nav {
   }
 }
 
-/* Desktop navigation: ensure all tabs are visible and properly styled */
-@media (min-width: 641px) {
+/* Desktop navigation: 900px+ for displays 9 inches or larger */
+@media (min-width: 900px) {
   .nav-left {
     display: flex;
     flex-wrap: wrap;
@@ -1150,7 +1150,8 @@ body.admin-page.is-admin-login .main-nav {
   }
 }
 
-@media (max-width: 640px) {
+/* Mobile/tablet navigation: under 900px (smaller than 9 inches) */
+@media (max-width: 899px) {
   .main-nav {
     flex-direction: row;
     align-items: center;
@@ -1162,18 +1163,8 @@ body.admin-page.is-admin-login .main-nav {
     display: inline-flex;
   }
 
+  /* Hide all tabs from nav bar on mobile/tablet - show everything in dropdown */
   .nav-left {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-    flex: 1;
-    justify-content: flex-start;
-    gap: 6px;
-  }
-
-  /* No mobile, só as abas principais (Início e Sobre nós) aparecem na linha de cima */
-  .nav-left .nav-link:nth-child(n+3) {
     display: none;
   }
 
