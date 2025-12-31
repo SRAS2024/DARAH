@@ -268,7 +268,7 @@ body.admin-page.is-admin-login .main-nav {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
-  z-index: 19;
+  z-index: 25;
   max-height: calc(100vh - 120px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -287,6 +287,40 @@ body.admin-page.is-admin-login .main-nav {
   width: 100%;
   justify-content: center;
   text-align: center;
+}
+
+/* Device mode: keep JS heuristic and CSS in sync */
+body.is-small-device .nav-mobile-toggle {
+  display: inline-flex;
+}
+
+body.is-large-device .nav-mobile-toggle {
+  display: none;
+}
+
+body.is-small-device .nav-left {
+  flex: 1 1 auto;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+}
+
+body.is-small-device .nav-left .nav-link {
+  display: none;
+}
+
+body.is-small-device .nav-left .nav-link[data-mobile-priority="true"] {
+  display: inline-flex;
+}
+
+body.is-large-device .nav-left .nav-link {
+  display: inline-flex;
+}
+
+body.is-large-device .nav-dropdown {
+  display: none;
 }
 
 /* Cart button */
@@ -1152,40 +1186,13 @@ body.admin-page.is-admin-login .main-nav {
   }
 }
 
-/* Mobile/tablet navigation: under 900px */
+/* Mobile/tablet sizing tweaks (layout only) */
 @media (max-width: 899px) {
   .main-nav {
     flex-direction: row;
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-  }
-
-  .nav-mobile-toggle {
-    display: inline-flex;
-  }
-
-  /*
-    IMPORTANT: keep navigation usable even if JS fails.
-    On mobile, show only the priority tabs in the bar.
-    Extras can still appear in the dropdown when JS clones them.
-  */
-  .nav-left {
-    display: flex;
-    flex: 1 1 auto;
-    gap: 6px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 2px 0;
-  }
-
-  .nav-left .nav-link {
-    display: none;
-  }
-
-  .nav-left .nav-link[data-mobile-priority="true"] {
-    display: inline-flex;
   }
 
   .cart-button {
