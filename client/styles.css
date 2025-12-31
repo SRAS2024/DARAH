@@ -93,7 +93,7 @@ body {
   font-family: "Cinzel", "Georgia", "Times New Roman", serif;
   background: var(--page-bg);
   color: var(--text-main);
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -112,6 +112,17 @@ body.is-admin-login .main-nav {
 /* Admin: ensure nav is hidden on the login screen (credentials) */
 body.admin-page.is-admin-login .main-nav {
   display: none;
+}
+
+/* Focus styles (keyboard friendly) */
+.nav-link:focus-visible,
+.cart-button:focus-visible,
+.primary-button:focus-visible,
+.nav-mobile-toggle:focus-visible,
+.quantity-button:focus-visible,
+.add-card-button:focus-visible {
+  outline: 3px solid rgba(78, 107, 90, 0.45);
+  outline-offset: 3px;
 }
 
 /* Header and brand bar */
@@ -150,6 +161,13 @@ body.admin-page.is-admin-login .main-nav {
   border-bottom: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
+}
+
+/* Fallback when blur is not supported */
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .main-nav {
+    background: #ffffff;
+  }
 }
 
 /* Mobile hamburger toggle, hidden por padrão em telas grandes */
@@ -325,9 +343,6 @@ body.admin-page.is-admin-login .main-nav {
   display: none;
   opacity: 0;
   transition: opacity 0.18s ease;
-  /* Dica ao navegador para não renderizar conteúdo fora da tela de forma desnecessária */
-  content-visibility: auto;
-  contain-intrinsic-size: 800px;
 }
 
 .view.active-view {
@@ -491,9 +506,6 @@ body.admin-page.is-admin-login .main-nav {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
   min-height: 120px;
-  /* Ajuda o navegador a adiar renderização de grids fora da tela */
-  content-visibility: auto;
-  contain-intrinsic-size: 500px;
 }
 
 .product-card {
@@ -520,14 +532,30 @@ body.admin-page.is-admin-login .main-nav {
 }
 
 /* Stagger animation delays for smooth cascading effect */
-.product-card:nth-child(1) { animation-delay: 0s; }
-.product-card:nth-child(2) { animation-delay: 0.05s; }
-.product-card:nth-child(3) { animation-delay: 0.1s; }
-.product-card:nth-child(4) { animation-delay: 0.15s; }
-.product-card:nth-child(5) { animation-delay: 0.2s; }
-.product-card:nth-child(6) { animation-delay: 0.25s; }
-.product-card:nth-child(7) { animation-delay: 0.3s; }
-.product-card:nth-child(8) { animation-delay: 0.35s; }
+.product-card:nth-child(1) {
+  animation-delay: 0s;
+}
+.product-card:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.product-card:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.product-card:nth-child(4) {
+  animation-delay: 0.15s;
+}
+.product-card:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.product-card:nth-child(6) {
+  animation-delay: 0.25s;
+}
+.product-card:nth-child(7) {
+  animation-delay: 0.3s;
+}
+.product-card:nth-child(8) {
+  animation-delay: 0.35s;
+}
 
 /* Wrapper para imagens de produto com carrossel */
 .product-image-wrapper {
@@ -775,9 +803,6 @@ body.admin-page.is-admin-login .main-nav {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  /* Mesma dica de visibilidade para a grade de produtos no admin */
-  content-visibility: auto;
-  contain-intrinsic-size: 600px;
 }
 
 .admin-product-card {
@@ -941,8 +966,6 @@ body.admin-page.is-admin-login .main-nav {
   padding: 16px;
   box-shadow: var(--shadow-soft);
   min-height: 120px;
-  content-visibility: auto;
-  contain-intrinsic-size: 400px;
 }
 
 .checkout-empty {
@@ -1129,7 +1152,7 @@ body.admin-page.is-admin-login .main-nav {
   }
 }
 
-/* Mobile/tablet navigation: under 900px (smaller than 9 inches) */
+/* Mobile/tablet navigation: under 900px */
 @media (max-width: 899px) {
   .main-nav {
     flex-direction: row;
@@ -1142,9 +1165,27 @@ body.admin-page.is-admin-login .main-nav {
     display: inline-flex;
   }
 
-  /* Hide all tabs from nav bar on mobile/tablet - show everything in dropdown */
+  /*
+    IMPORTANT: keep navigation usable even if JS fails.
+    On mobile, show only the priority tabs in the bar.
+    Extras can still appear in the dropdown when JS clones them.
+  */
   .nav-left {
-    display: none !important;
+    display: flex;
+    flex: 1 1 auto;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0;
+  }
+
+  .nav-left .nav-link {
+    display: none;
+  }
+
+  .nav-left .nav-link[data-mobile-priority="true"] {
+    display: inline-flex;
   }
 
   .cart-button {
@@ -1238,5 +1279,17 @@ body.admin-page.is-admin-login .main-nav {
   .product-carousel-controls .product-carousel-indicator {
     font-size: 10px;
     padding: 0 4px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }
