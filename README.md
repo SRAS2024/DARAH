@@ -1,34 +1,102 @@
-# DARAH
-An e-commerce jewelry shop.
-
 # DARAH · Boutique Jewelry Storefront
 
-DARAH is a modern jewelry storefront with a built-in admin panel and a fully functional checkout model, crafted for small brands that want something elegant, focused, and fast.
+**Live site:** [https://darah.up.railway.app](https://darah.up.railway.app)
+
+DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and fully functional checkout flow, crafted for small brands that want something elegant, focused, and fast. Built for the Brazilian market with BRL pricing and Portuguese language support.
 
 ## Features
 
-* Single page storefront with category views for rings, necklaces, bracelets, earrings, and checkout  
-* BRL pricing and formatting tailored for a Brazilian audience  
-* Per user cart sessions on the server, so every visitor keeps a private cart  
-* Fully functional checkout model that calculates totals and prepares complete order details  
-* Admin dashboard to edit homepage content, upload hero images, and manage products without touching code  
-* Responsive layout that works cleanly on mobile and desktop
+### Storefront
+- Single-page storefront with category views: Special Offers, Sets, Rings, Necklaces, Bracelets, and Earrings
+- Product browsing with multi-image galleries (up to 5 images per product)
+- Per-visitor cart sessions on the server so every visitor keeps a private cart
+- Full checkout flow with subtotal and tax calculation, completing orders via WhatsApp
+- Discount labels and strikethrough original pricing
+- Customizable site-wide announcements and notices
+- Seasonal theme variants (Default Sage, Christmas Red/Gold, Easter Blue/Gold)
+- Responsive layout that works cleanly on mobile and desktop
 
-## Tech stack
+### Admin Panel
+- Authenticated admin dashboard at `/admin.html`
+- Product management: create, edit, and delete products with multi-image uploads
+- Homepage editor: upload hero images, edit about text, manage notices
+- About page customization with image collages (up to 4 images)
+- Stock and pricing management including discount tracking
+- Theme selection interface
 
-* Node.js and Express for the back end HTTP API and session handling  
-* Vanilla JavaScript for the storefront and admin behavior  
-* `express-session` for cart persistence per visitor  
-* Static client bundle served directly from the Node app
+## Tech Stack
 
-## Getting started
+| Layer | Technology |
+|-------|-----------|
+| Back end | Node.js, Express |
+| Front end | Vanilla JavaScript, HTML5, CSS3 |
+| Database | PostgreSQL (falls back to in-memory if unavailable) |
+| Sessions | `express-session` with httpOnly cookies |
+| Deployment | Railway |
+
+## Project Structure
+
+```
+DARAH/
+├── server.js          # Express API and session handling
+├── db.js              # PostgreSQL persistence layer
+├── package.json
+├── LICENSE
+└── client/
+    ├── index.html     # Storefront UI
+    ├── admin.html     # Admin panel UI
+    ├── main.js        # Shared client script (auto-detects page context)
+    └── styles.css     # Styling with CSS variable theming
+```
+
+## API Overview
+
+### Public
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/homepage` | Homepage content, images, notices, theme |
+| GET | `/api/products` | All products grouped by category |
+| GET | `/api/cart` | Current visitor's cart |
+| POST | `/api/cart/add` | Add a product to the cart |
+| POST | `/api/cart/update` | Update cart item quantity |
+| POST | `/api/checkout-link` | Generate a WhatsApp checkout link |
+
+### Admin
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/api/homepage` | Update homepage content |
+| GET | `/api/admin/products` | All products including inactive |
+| POST | `/api/products` | Create a product |
+| PUT | `/api/products/:id` | Update a product |
+| DELETE | `/api/products/:id` | Delete a product |
+
+## Getting Started
 
 ```bash
-git clone <your-repo-url> darah
-cd darah
+git clone https://github.com/SRAS2024/DARAH.git
+cd DARAH
 npm install
+```
 
-# start the server
-node server.js
-# or, if you add a script:
-# npm start
+### Environment Variables
+
+| Variable | Purpose | Required |
+|----------|---------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | No (falls back to in-memory) |
+| `SESSION_SECRET` | Secret for signing session cookies | No (uses default in dev) |
+| `PORT` | Server port | No (defaults to 3000) |
+
+### Run
+
+```bash
+npm start
+```
+
+The storefront will be available at `http://localhost:3000` and the admin panel at `http://localhost:3000/admin.html`.
+
+## License
+
+See [LICENSE](LICENSE) for details.
