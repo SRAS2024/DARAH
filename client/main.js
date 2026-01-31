@@ -196,7 +196,15 @@ function initStorefrontApp() {
 
   // Cart state
   const CART_STORAGE_KEY = "darahCartV1";
-  /** @type {{[productId: string]: {qty:number, product:any}}} */
+
+  /**
+   * In-memory cart shape:
+   * {
+   *   [productId]: { qty: number, product: { id, name, price } OR full product object }
+   * }
+   *
+   * We persist a compact version to localStorage to avoid quota issues caused by big image fields.
+   */
   let cart = loadCart();
 
   // Responsive mode state
@@ -243,6 +251,96 @@ function initStorefrontApp() {
       .filter((u, index, arr) => u && arr.indexOf(u) === index);
     if (primary && !cleaned.includes(primary)) cleaned.unshift(primary);
     return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+  }
+
+  function getProductById(productId) {
+    const id = String(productId || "");
+    if (!id) return null;
+    const found = allProducts.find((p) => p && String(p.id || "") === id);
+    return found || null;
+  }
+
+  function compactProduct(product) {
+    if (!product || typeof product !== "object") return null;
+    const id = String(product.id || "");
+    if (!id) return null;
+
+    const name = typeof product.name === "string" ? product.name : "";
+    const price = Number(product.price || 0);
+
+    return {
+      id,
+      name,
+      price: Number.isFinite(price) ? price : 0
+    };
+  }
+
+  function normalizeLoadedCart(loaded) {
+    // Supports:
+    // - Legacy flat map: { [id]: { qty, product: fullProduct } }
+    // - New wrapper: { _meta: {...}, items: { [id]: { qty, product: compact } } }
+    // - Quota fallback: { _meta: {...}, qtyOnly: { [id]: qty } }
+    if (!loaded || typeof loaded !== "object") return {};
+
+    let items = loaded;
+
+    if (loaded && typeof loaded === "object" && loaded.items && typeof loaded.items === "object") {
+      items = loaded.items;
+    }
+
+    // qtyOnly snapshot (very small)
+    if (loaded && typeof loaded === "object" && loaded.qtyOnly && typeof loaded.qtyOnly === "object") {
+      const out = {};
+      for (const [id, qtyVal] of Object.entries(loaded.qtyOnly)) {
+        const idStr = String(id || "");
+        const qty = Math.floor(Number(qtyVal || 0));
+        if (!idStr || !Number.isFinite(qty) || qty <= 0) continue;
+
+        const resolved = getProductById(idStr);
+        const prod = resolved ? resolved : { id: idStr, name: "", price: 0 };
+        out[idStr] = { qty, product: compactProduct(prod) || { id: idStr, name: "", price: 0 } };
+      }
+      return out;
+    }
+
+    const out = {};
+    for (const [id, row] of Object.entries(items)) {
+      const idStr = String(id || "");
+      if (!idStr) continue;
+
+      const qty = row && typeof row === "object" ? Math.floor(Number(row.qty || 0)) : 0;
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+
+      // Prefer current catalog product if available (best name/price)
+      const resolved = getProductById(idStr);
+
+      let prod = null;
+      if (resolved) {
+        prod = resolved;
+      } else if (row && typeof row === "object" && row.product && typeof row.product === "object") {
+        prod = row.product;
+      } else {
+        prod = { id: idStr, name: "", price: 0 };
+      }
+
+      out[idStr] = { qty, product: prod };
+    }
+
+    return out;
+  }
+
+  function buildQtyOnlySnapshot(cartMap) {
+    const out = {};
+    if (!cartMap || typeof cartMap !== "object") return out;
+
+    for (const [id, row] of Object.entries(cartMap)) {
+      const idStr = String(id || "");
+      if (!idStr) continue;
+      const qty = row && typeof row === "object" ? Math.floor(Number(row.qty || 0)) : 0;
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      out[idStr] = qty;
+    }
+    return out;
   }
 
   // Views
@@ -349,18 +447,56 @@ function initStorefrontApp() {
       const raw = localStorage.getItem(CART_STORAGE_KEY);
       if (!raw) return {};
       const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return {};
-      return parsed;
+      const normalized = normalizeLoadedCart(parsed);
+
+      // Auto-migrate legacy heavy carts into compact storage.
+      // We do not overwrite in-memory product objects, only what we persist.
+      cart = normalized;
+      saveCart();
+
+      return normalized;
     } catch {
       return {};
     }
   }
 
   function saveCart() {
+    // Persist a compact cart to prevent localStorage quota failures caused by image fields.
+    const compactItems = {};
+    for (const [id, row] of Object.entries(cart || {})) {
+      const idStr = String(id || "");
+      if (!idStr) continue;
+
+      const qty = row && typeof row === "object" ? Math.floor(Number(row.qty || 0)) : 0;
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+
+      // Prefer catalog product for correct name/price
+      const resolved = getProductById(idStr);
+      const prodSource = resolved || (row && row.product ? row.product : null);
+      const compact = compactProduct(prodSource) || { id: idStr, name: "", price: 0 };
+
+      compactItems[idStr] = { qty, product: compact };
+    }
+
+    const payload = {
+      _meta: { v: 2, mode: "compact" },
+      items: compactItems
+    };
+
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    } catch {
-      // ignore
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      // Fallback: store only quantities. This is very small and avoids losing the cart.
+      try {
+        const qtyOnly = buildQtyOnlySnapshot(cart);
+        const fallbackPayload = {
+          _meta: { v: 2, mode: "qtyOnly" },
+          qtyOnly
+        };
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(fallbackPayload));
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -380,6 +516,8 @@ function initStorefrontApp() {
     const safeQty = Math.max(1, Number(qty || 1));
     if (!cart[id]) cart[id] = { qty: 0, product };
     cart[id].qty += safeQty;
+
+    // Keep full product in memory for UI, but persist compact.
     cart[id].product = product;
 
     saveCart();
@@ -402,6 +540,37 @@ function initStorefrontApp() {
     renderCheckout();
   }
 
+  function buildCheckoutItemsFromCart(cartMap) {
+    const items = [];
+    if (!cartMap || typeof cartMap !== "object") return items;
+
+    for (const [id, row] of Object.entries(cartMap)) {
+      const idStr = String(id || "");
+      if (!idStr) continue;
+
+      const qty = row && typeof row === "object" ? Math.floor(Number(row.qty || 0)) : 0;
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+
+      const resolved = getProductById(idStr);
+
+      const prod = resolved || (row && row.product ? row.product : null);
+      const name = prod && typeof prod.name === "string" ? prod.name : "";
+      const priceNum = prod ? Number(prod.price || 0) : 0;
+
+      items.push({
+        id: idStr,
+        name: name || "Produto",
+        price: Number.isFinite(priceNum) ? priceNum : 0,
+        quantity: qty
+      });
+    }
+
+    // Stable, clean ordering in the WhatsApp message
+    items.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+
+    return items;
+  }
+
   // Checkout rendering
   function renderCheckout() {
     if (!checkoutItemsEl || !summarySubtotalEl || !summaryTaxesEl || !summaryTotalEl) return;
@@ -409,7 +578,11 @@ function initStorefrontApp() {
     checkoutItemsEl.innerHTML = "";
 
     const items = Object.entries(cart)
-      .map(([id, row]) => ({ id, qty: row.qty, product: row.product }))
+      .map(([id, row]) => {
+        const resolved = getProductById(id);
+        const prod = resolved || (row ? row.product : null);
+        return { id, qty: row && row.qty ? row.qty : 0, product: prod };
+      })
       .filter((x) => x.product && x.qty > 0);
 
     if (!items.length) {
@@ -701,6 +874,9 @@ function initStorefrontApp() {
       items.forEach((p) => frag.appendChild(createProductCard(p)));
       container.appendChild(frag);
     });
+
+    // If products loaded after cart, refresh checkout so images show and names/prices match catalog.
+    renderCheckout();
   }
 
   // Homepage rendering
@@ -941,27 +1117,12 @@ function initStorefrontApp() {
             wasDisabled = true;
           }
 
-          const cartObj = loadCart();
+          // IMPORTANT: use the in-memory cart so WhatsApp always reflects what the UI shows.
+          // We still persist the cart, but we do not reload here because localStorage can be stale
+          // if a previous save failed due to quota.
+          const cartItems = buildCheckoutItemsFromCart(cart);
 
-          if (!cartObj || Object.keys(cartObj).length === 0) {
-            alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
-            if (popup && !popup.closed) popup.close();
-            return;
-          }
-
-          const cartItems = [];
-          for (const [, cartItem] of Object.entries(cartObj)) {
-            if (cartItem && cartItem.qty > 0 && cartItem.product) {
-              cartItems.push({
-                id: cartItem.product.id,
-                name: cartItem.product.name,
-                price: cartItem.product.price,
-                quantity: cartItem.qty
-              });
-            }
-          }
-
-          if (cartItems.length === 0) {
+          if (!cartItems.length) {
             alert("Seu carrinho está vazio. Adicione itens antes de finalizar o pedido.");
             if (popup && !popup.closed) popup.close();
             return;
