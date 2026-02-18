@@ -1174,27 +1174,19 @@ function initStorefrontApp() {
    ========================================================= */
 
 function initAdminApp() {
-  /**
-   * The entire block below is your existing admin script with one key change:
-   * - We ensure admin-only body class is set here.
-   */
-
   // Limits
-  const MAX_PRODUCT_IMAGES = 5; // até 5 imagens por produto
-  const MAX_HOMEPAGE_IMAGES = 12; // até 12 imagens no collage da página inicial
-  const MAX_ABOUT_IMAGES = 4; // até 4 imagens no collage da aba Sobre
+  const MAX_PRODUCT_IMAGES = 5;
+  const MAX_HOMEPAGE_IMAGES = 12;
+  const MAX_ABOUT_IMAGES = 4;
 
   // Basic layout
   const bodyEl = document.body;
-
-  // Mark admin page so admin-only CSS can be scoped safely
   if (bodyEl) bodyEl.classList.add("admin-page");
 
   const navMobileToggle = document.querySelector(".nav-mobile-toggle");
   const navDropdown = document.getElementById("navDropdown");
   const navLeftContainer = document.querySelector(".nav-left");
 
-  // Top navigation inside Admin (mirrors storefront)
   const navLinks = Array.from(document.querySelectorAll(".main-nav .nav-link"));
   const views = {
     home: document.getElementById("view-home"),
@@ -1217,14 +1209,11 @@ function initAdminApp() {
   const welcomeMessageEl = document.getElementById("adminWelcomeMessage");
   const panelSection = document.getElementById("adminPanelSection");
 
-  // Header user info and logout
   const logoutButton = document.getElementById("adminLogoutButton");
   const userNameLabel = document.getElementById("adminUserNameLabel");
-
-  // Theme
   const themeSelect = document.getElementById("adminThemeSelect");
 
-  // Homepage admin controls (Início)
+  // Homepage admin controls
   const aboutTextEl = document.getElementById("adminAboutText");
   const heroGalleryEl = document.getElementById("adminHeroGallery");
   const heroImagesTextarea = document.getElementById("adminHeroImages");
@@ -1233,16 +1222,13 @@ function initAdminApp() {
   const saveHomepageBtn = document.getElementById("saveHomepageBtn");
   const homepageStatusEl = document.getElementById("adminHomepageStatus");
 
-  // About page long text
   const aboutLongTextEl = document.getElementById("adminAboutLongText");
 
-  // Optional site notices
   const addNoticeBtn = document.getElementById("adminAddNoticeBtn");
   const noticeListEl = document.getElementById("adminNoticeList");
   const noticeStatusEl = document.getElementById("adminNoticeStatus");
   const noticeItemTemplate = document.getElementById("noticeItemTemplate");
 
-  // About page collage controls (matching admin.html)
   const aboutCollageEl = document.getElementById("adminAboutCollagePreview");
   const aboutImagePreviewEl = document.getElementById("adminAboutImagePreview");
   const aboutImagePlaceholderEl = document.getElementById("adminAboutImagePlaceholder");
@@ -1252,7 +1238,6 @@ function initAdminApp() {
   const aboutSaveStatusEl = document.getElementById("adminAboutSaveStatus");
   const saveAboutPageBtn = document.getElementById("saveAboutPageBtn");
 
-  // Product modal and templates
   const productModalBackdrop = document.getElementById("adminProductModalBackdrop");
   const productModalTitle = document.getElementById("adminProductModalTitle");
   const productModalClose = document.getElementById("adminProductModalClose");
@@ -1264,7 +1249,6 @@ function initAdminApp() {
   const productImageFileButton = document.getElementById("productImageFileButton");
   const productImageThumbs = document.getElementById("productImageThumbs");
 
-  // Product form (in modal)
   const hiddenForm = {
     el: document.getElementById("productForm"),
     category: document.getElementById("productCategory"),
@@ -1279,7 +1263,6 @@ function initAdminApp() {
     status: document.getElementById("adminProductFormStatus")
   };
 
-  // Category grids (mirror storefront)
   const grids = {
     specials: document.getElementById("grid-specials"),
     sets: document.getElementById("grid-sets"),
@@ -1302,8 +1285,35 @@ function initAdminApp() {
   let currentProductEditing = null;
   let currentProductImages = [];
 
-  // Responsive mode state
   let isSmallDevice = false;
+
+  /* ---- Helpers ---- */
+
+  function normalizeList(list, max) {
+    if (!Array.isArray(list)) return [];
+    const cleaned = list
+      .map(function (u) { return String(u || "").trim(); })
+      .filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+    return typeof max === "number" && max > 0 ? cleaned.slice(0, max) : cleaned;
+  }
+
+  function formatBRL(value) {
+    if (value == null || Number.isNaN(Number(value))) return "R$ 0,00";
+    try {
+      return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    } catch (e) {
+      return "R$ " + Number(value || 0).toFixed(2).replace(".", ",");
+    }
+  }
+
+  function applyThemeVariant(variant) {
+    var root = document.documentElement;
+    var value = (typeof variant === "string" ? variant.trim() : "") || "default";
+    if (root) {
+      root.dataset.themeVariant = value;
+      root.setAttribute("data-theme-variant", value);
+    }
+  }
 
   function setBodyLoginMode(isLogin) {
     if (!bodyEl) return;
@@ -1311,12 +1321,52 @@ function initAdminApp() {
     else bodyEl.classList.remove("is-admin-login");
   }
 
+  function showLoginError(msg) {
+    if (!loginErrorEl) return;
+    loginErrorEl.textContent = msg || "";
+    loginErrorEl.style.display = msg ? "block" : "none";
+  }
+
+  function setStatus(el, msg, type) {
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "admin-status" + (type === "ok" ? " ok" : type === "error" ? " error" : "");
+  }
+
+  /* ---- View switching ---- */
+
+  function switchView(id) {
+    Object.values(views).forEach(function (v) {
+      if (v) v.classList.remove("active-view");
+    });
+    var el = views[id];
+    if (el) el.classList.add("active-view");
+
+    navLinks.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.view === id);
+    });
+
+    // Sync dropdown active states
+    if (navDropdown) {
+      var dropLinks = navDropdown.querySelectorAll(".nav-link");
+      dropLinks.forEach(function (b) {
+        b.classList.toggle("active", b.dataset.view === id);
+      });
+    }
+
+    closeMobileMenu();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ---- Mobile menu ---- */
+
   function openMobileMenu() {
     if (!navDropdown || !navMobileToggle) return;
     if (!isSmallDevice) return;
     navDropdown.classList.add("open");
     navMobileToggle.classList.add("is-open");
     navMobileToggle.setAttribute("aria-expanded", "true");
+    navDropdown.setAttribute("aria-hidden", "false");
   }
 
   function closeMobileMenu() {
@@ -1324,68 +1374,241 @@ function initAdminApp() {
     navDropdown.classList.remove("open");
     navMobileToggle.classList.remove("is-open");
     navMobileToggle.setAttribute("aria-expanded", "false");
+    navDropdown.setAttribute("aria-hidden", "true");
+  }
+
+  function buildMobileDropdown() {
+    if (!navDropdown || !navLeftContainer) return;
+    navDropdown.innerHTML = "";
+
+    // Add admin extras at top of dropdown (theme, user, logout)
+    var extras = document.createElement("div");
+    extras.className = "admin-mobile-extras";
+
+    var themeRow = document.createElement("div");
+    themeRow.className = "admin-mobile-row";
+    var themeLabel = document.createElement("span");
+    themeLabel.className = "admin-mobile-label";
+    themeLabel.textContent = "Tema";
+    var themeSelectClone = document.createElement("select");
+    themeSelectClone.className = "admin-theme-select";
+    themeSelectClone.innerHTML = '<option value="default">Padrão</option><option value="natal">Natal</option><option value="pascoa">Páscoa</option>';
+    themeSelectClone.value = homepageState.theme || "default";
+    themeSelectClone.addEventListener("change", function () {
+      var v = themeSelectClone.value;
+      if (themeSelect) themeSelect.value = v;
+      handleThemeChange(v);
+    });
+    themeRow.appendChild(themeLabel);
+    themeRow.appendChild(themeSelectClone);
+    extras.appendChild(themeRow);
+
+    var userRow = document.createElement("div");
+    userRow.className = "admin-mobile-row";
+    var userLabel = document.createElement("span");
+    userLabel.className = "admin-mobile-user";
+    userLabel.textContent = (userNameLabel && userNameLabel.textContent) || "Admin";
+    var badge = document.createElement("span");
+    badge.className = "admin-mobile-badge";
+    badge.textContent = "Painel administrativo";
+    userRow.appendChild(userLabel);
+    userRow.appendChild(badge);
+    extras.appendChild(userRow);
+
+    var logoutRow = document.createElement("div");
+    logoutRow.className = "admin-mobile-row";
+    var logoutBtn = document.createElement("button");
+    logoutBtn.className = "admin-button-secondary admin-logout-button";
+    logoutBtn.textContent = "Sair";
+    logoutBtn.addEventListener("click", handleLogout);
+    logoutRow.appendChild(logoutBtn);
+    extras.appendChild(logoutRow);
+
+    navDropdown.appendChild(extras);
+
+    var allTabs = Array.from(navLeftContainer.querySelectorAll(".nav-link"));
+    allTabs.forEach(function (btn) {
+      var viewId = btn.getAttribute("data-view");
+      if (!viewId || !views[viewId]) return;
+
+      var clone = btn.cloneNode(true);
+      clone.classList.remove("active");
+      clone.addEventListener("click", function () {
+        switchView(viewId);
+      });
+      navDropdown.appendChild(clone);
+    });
+  }
+
+  // Wire nav clicks for view switching
+  navLinks.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.dataset.view;
+      if (id && views[id]) switchView(id);
+    });
+  });
+
+  // Wire hamburger toggle
+  if (navMobileToggle && navDropdown) {
+    navMobileToggle.addEventListener("click", function () {
+      if (!isSmallDevice) {
+        closeMobileMenu();
+        return;
+      }
+      var isOpen = navDropdown.classList.contains("open");
+      if (isOpen) closeMobileMenu();
+      else openMobileMenu();
+    });
+
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      if (!target || !(target instanceof Node)) return;
+      if (!navDropdown.contains(target) && !navMobileToggle.contains(target)) {
+        closeMobileMenu();
+      }
+    });
   }
 
   setBodyLoginMode(true);
 
-  // Keep responsive mode synced, and force close mobile menu when switching to desktop mode
-  const responsive = attachResponsiveMode(bodyEl, (nextIsSmall) => {
+  var responsive = attachResponsiveMode(bodyEl, function (nextIsSmall) {
     isSmallDevice = nextIsSmall;
     if (!isSmallDevice) closeMobileMenu();
   });
   isSmallDevice = responsive.isSmall();
 
-  // --- Login handler (validates against server-side environment variables) ---
+  /* ---- Image compression helper ---- */
+
+  function compressImage(file, maxWidth, quality) {
+    maxWidth = maxWidth || 1200;
+    quality = quality || 0.7;
+
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var img = new Image();
+        img.onload = function () {
+          var canvas = document.createElement("canvas");
+          var w = img.width;
+          var h = img.height;
+
+          if (w > maxWidth) {
+            h = Math.round((h * maxWidth) / w);
+            w = maxWidth;
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+
+          var dataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(dataUrl);
+        };
+        img.onerror = function () { reject(new Error("Failed to load image")); };
+        img.src = e.target.result;
+      };
+      reader.onerror = function () { reject(new Error("Failed to read file")); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function compressFiles(files, maxWidth, quality, limit) {
+    var results = [];
+    var max = limit || 5;
+    for (var i = 0; i < Math.min(files.length, max); i++) {
+      try {
+        var dataUrl = await compressImage(files[i], maxWidth, quality);
+        results.push(dataUrl);
+      } catch (err) {
+        console.error("Image compress error:", err);
+      }
+    }
+    return results;
+  }
+
+  /* ---- Theme handling ---- */
+
+  function handleThemeChange(value) {
+    homepageState.theme = value || "default";
+    applyThemeVariant(homepageState.theme);
+  }
+
+  if (themeSelect) {
+    themeSelect.addEventListener("change", function () {
+      handleThemeChange(themeSelect.value);
+    });
+  }
+
+  /* ---- Show admin panel after auth ---- */
+
+  function showAdminPanel(welcome) {
+    if (loginSection) loginSection.style.display = "none";
+    if (loadingSection) {
+      loadingSection.style.display = "flex";
+      loadingSection.removeAttribute("aria-hidden");
+    }
+    if (welcomeMessageEl) welcomeMessageEl.textContent = welcome || "Bem-vindo(a)!";
+
+    // Start loading data immediately in background
+    loadAdminData();
+
+    setTimeout(function () {
+      if (loadingSection) {
+        loadingSection.style.display = "none";
+        loadingSection.setAttribute("aria-hidden", "true");
+      }
+      if (panelSection) panelSection.style.display = "block";
+      setBodyLoginMode(false);
+      buildMobileDropdown();
+    }, 4000);
+  }
+
+  function showAdminPanelInstant() {
+    if (loginSection) loginSection.style.display = "none";
+    if (loadingSection) loadingSection.style.display = "none";
+    if (panelSection) panelSection.style.display = "block";
+    setBodyLoginMode(false);
+    loadAdminData();
+    buildMobileDropdown();
+  }
+
+  /* ---- Login handler ---- */
+
   async function handleLogin() {
     if (!usernameInput || !passwordInput) return;
 
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
+    var username = usernameInput.value.trim();
+    var password = passwordInput.value;
 
     if (!username || !password) {
-      if (loginErrorEl) loginErrorEl.textContent = "Preencha usuário e senha.";
+      showLoginError("Preencha usuário e senha.");
       return;
     }
 
-    if (loginErrorEl) loginErrorEl.textContent = "";
+    showLoginError("");
     if (loginButton) loginButton.disabled = true;
 
     try {
-      const res = await fetch("/api/admin/login", {
+      var res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: username, password: password })
       });
 
-      const data = await res.json();
+      var data = await res.json();
 
       if (!res.ok) {
-        if (loginErrorEl) loginErrorEl.textContent = data.error || "Erro ao entrar.";
+        showLoginError(data.error || "Erro ao entrar.");
         if (loginButton) loginButton.disabled = false;
         return;
       }
 
-      // Show loading / welcome screen
-      if (loginSection) loginSection.style.display = "none";
-      if (loadingSection) {
-        loadingSection.style.display = "";
-        loadingSection.removeAttribute("aria-hidden");
-      }
-      if (welcomeMessageEl) welcomeMessageEl.textContent = data.welcome || "Bem vinda, Danielle!";
       if (userNameLabel) userNameLabel.textContent = "Danielle";
-
-      // Wait for the loading animation then show admin panel
-      setTimeout(() => {
-        if (loadingSection) {
-          loadingSection.style.display = "none";
-          loadingSection.setAttribute("aria-hidden", "true");
-        }
-        if (panelSection) panelSection.style.display = "";
-        setBodyLoginMode(false);
-      }, 4000);
+      showAdminPanel(data.welcome || "Bem vinda, Danielle!");
     } catch (err) {
       console.error("Login error:", err);
-      if (loginErrorEl) loginErrorEl.textContent = "Erro de conexão. Tente novamente.";
+      showLoginError("Erro de conexão. Tente novamente.");
       if (loginButton) loginButton.disabled = false;
     }
   }
@@ -1393,34 +1616,655 @@ function initAdminApp() {
   if (loginButton) {
     loginButton.addEventListener("click", handleLogin);
   }
-
-  // Allow pressing Enter to log in
   if (passwordInput) {
-    passwordInput.addEventListener("keydown", (e) => {
+    passwordInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") handleLogin();
     });
   }
   if (usernameInput) {
-    usernameInput.addEventListener("keydown", (e) => {
+    usernameInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") handleLogin();
     });
   }
 
-  // --- Logout handler ---
+  /* ---- Logout handler ---- */
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } catch (e) {
+      // ignore
+    }
+    if (panelSection) panelSection.style.display = "none";
+    if (loginSection) loginSection.style.display = "";
+    setBodyLoginMode(true);
+    if (usernameInput) usernameInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    showLoginError("");
+    if (loginButton) loginButton.disabled = false;
+  }
+
   if (logoutButton) {
-    logoutButton.addEventListener("click", async () => {
-      try {
-        await fetch("/api/admin/logout", { method: "POST" });
-      } catch {
-        // ignore network errors on logout
+    logoutButton.addEventListener("click", handleLogout);
+  }
+
+  /* ---- Check existing session on page load ---- */
+
+  async function checkSession() {
+    try {
+      var res = await fetch("/api/admin/session");
+      var data = await res.json();
+      if (data.authenticated) {
+        if (userNameLabel) userNameLabel.textContent = "Danielle";
+        showAdminPanelInstant();
       }
-      if (panelSection) panelSection.style.display = "none";
-      if (loginSection) loginSection.style.display = "";
-      setBodyLoginMode(true);
-      if (usernameInput) usernameInput.value = "";
-      if (passwordInput) passwordInput.value = "";
-      if (loginErrorEl) loginErrorEl.textContent = "";
-      if (loginButton) loginButton.disabled = false;
+    } catch (e) {
+      // Not authenticated, stay on login
+    }
+  }
+
+  checkSession();
+
+  /* ---- Load admin data (homepage + products) ---- */
+
+  async function loadAdminData() {
+    await Promise.all([loadHomepageData(), loadProducts()]);
+  }
+
+  async function loadHomepageData() {
+    try {
+      var res = await fetch("/api/homepage", { cache: "no-store" });
+      if (!res.ok) return;
+      var hp = await res.json();
+
+      homepageState.aboutText = typeof hp.aboutText === "string" ? hp.aboutText : "";
+      homepageState.aboutLongText = typeof hp.aboutLongText === "string" ? hp.aboutLongText : "";
+      homepageState.heroImages = normalizeList(hp.heroImages || [], MAX_HOMEPAGE_IMAGES);
+      homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
+      homepageState.notices = Array.isArray(hp.notices) ? hp.notices : [];
+      homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+
+      populateHomepageForm();
+      populateAboutForm();
+      renderNotices();
+      applyThemeVariant(homepageState.theme);
+
+      if (themeSelect) themeSelect.value = homepageState.theme;
+    } catch (err) {
+      console.error("Failed to load homepage data:", err);
+    }
+  }
+
+  async function loadProducts() {
+    try {
+      var res = await fetch("/api/admin/products", { cache: "no-store" });
+      if (!res.ok) return;
+      var data = await res.json();
+      allProducts = Array.isArray(data) ? data : [];
+      renderAdminProducts();
+    } catch (err) {
+      console.error("Failed to load products:", err);
+    }
+  }
+
+  /* ---- Populate homepage form ---- */
+
+  function populateHomepageForm() {
+    if (aboutTextEl) aboutTextEl.value = homepageState.aboutText || "";
+    renderHeroGallery();
+  }
+
+  function renderHeroGallery() {
+    if (!heroGalleryEl) return;
+    heroGalleryEl.innerHTML = "";
+
+    var images = homepageState.heroImages || [];
+    if (!images.length) return;
+
+    var frag = document.createDocumentFragment();
+    images.forEach(function (src, idx) {
+      var wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:relative;display:inline-block;margin:4px;";
+
+      var img = document.createElement("img");
+      img.src = src;
+      img.alt = "Hero " + (idx + 1);
+      img.loading = "lazy";
+      img.style.cssText = "width:80px;height:60px;object-fit:cover;border-radius:8px;";
+      wrapper.appendChild(img);
+
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "admin-button-ghost";
+      removeBtn.textContent = "×";
+      removeBtn.style.cssText = "position:absolute;top:-4px;right:-4px;font-size:14px;background:rgba(255,255,255,0.9);border-radius:50%;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;";
+      removeBtn.addEventListener("click", function () {
+        homepageState.heroImages.splice(idx, 1);
+        renderHeroGallery();
+      });
+      wrapper.appendChild(removeBtn);
+
+      frag.appendChild(wrapper);
+    });
+    heroGalleryEl.appendChild(frag);
+  }
+
+  /* ---- Populate about form ---- */
+
+  function populateAboutForm() {
+    if (aboutLongTextEl) aboutLongTextEl.value = homepageState.aboutLongText || "";
+    renderAboutCollage();
+  }
+
+  function renderAboutCollage() {
+    if (!aboutCollageEl) return;
+    aboutCollageEl.innerHTML = "";
+
+    var images = homepageState.aboutImages || [];
+
+    if (aboutImagePreviewEl && aboutImagePlaceholderEl) {
+      if (images.length) {
+        aboutImagePreviewEl.src = images[0];
+        aboutImagePreviewEl.style.display = "";
+        aboutImagePlaceholderEl.style.display = "none";
+      } else {
+        aboutImagePreviewEl.style.display = "none";
+        aboutImagePlaceholderEl.style.display = "";
+      }
+    }
+
+    if (!images.length) return;
+
+    var frag = document.createDocumentFragment();
+    images.forEach(function (src, idx) {
+      var wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:relative;display:inline-block;margin:4px;";
+
+      var img = document.createElement("img");
+      img.src = src;
+      img.alt = "About " + (idx + 1);
+      img.loading = "lazy";
+      img.style.cssText = "width:80px;height:80px;object-fit:cover;border-radius:8px;";
+      wrapper.appendChild(img);
+
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "admin-button-ghost";
+      removeBtn.textContent = "×";
+      removeBtn.style.cssText = "position:absolute;top:-4px;right:-4px;font-size:14px;background:rgba(255,255,255,0.9);border-radius:50%;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;";
+      removeBtn.addEventListener("click", function () {
+        homepageState.aboutImages.splice(idx, 1);
+        renderAboutCollage();
+      });
+      wrapper.appendChild(removeBtn);
+
+      frag.appendChild(wrapper);
+    });
+    aboutCollageEl.appendChild(frag);
+  }
+
+  /* ---- Hero images file upload ---- */
+
+  if (heroImagesFileButton && heroImagesFileInput) {
+    heroImagesFileButton.addEventListener("click", function () {
+      heroImagesFileInput.click();
+    });
+
+    heroImagesFileInput.addEventListener("change", async function () {
+      var files = heroImagesFileInput.files;
+      if (!files || !files.length) return;
+
+      setStatus(homepageStatusEl, "Processando imagens...", "");
+      try {
+        var remaining = MAX_HOMEPAGE_IMAGES - (homepageState.heroImages || []).length;
+        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        homepageState.heroImages = (homepageState.heroImages || []).concat(compressed);
+        homepageState.heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
+        renderHeroGallery();
+        setStatus(homepageStatusEl, compressed.length + " imagem(ns) adicionada(s).", "ok");
+      } catch (err) {
+        setStatus(homepageStatusEl, "Erro ao processar imagens.", "error");
+      }
+      heroImagesFileInput.value = "";
     });
   }
+
+  /* ---- About images file upload ---- */
+
+  if (aboutImagesFileButton && aboutImagesFileInput) {
+    aboutImagesFileButton.addEventListener("click", function () {
+      aboutImagesFileInput.click();
+    });
+
+    aboutImagesFileInput.addEventListener("change", async function () {
+      var files = aboutImagesFileInput.files;
+      if (!files || !files.length) return;
+
+      setStatus(aboutSaveStatusEl, "Processando imagens...", "");
+      try {
+        var remaining = MAX_ABOUT_IMAGES - (homepageState.aboutImages || []).length;
+        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        homepageState.aboutImages = (homepageState.aboutImages || []).concat(compressed);
+        homepageState.aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
+        renderAboutCollage();
+        setStatus(aboutSaveStatusEl, compressed.length + " imagem(ns) adicionada(s).", "ok");
+      } catch (err) {
+        setStatus(aboutSaveStatusEl, "Erro ao processar imagens.", "error");
+      }
+      aboutImagesFileInput.value = "";
+    });
+  }
+
+  /* ---- Save homepage ---- */
+
+  if (saveHomepageBtn) {
+    saveHomepageBtn.addEventListener("click", async function () {
+      saveHomepageBtn.disabled = true;
+      setStatus(homepageStatusEl, "Salvando...", "");
+
+      var payload = {
+        aboutText: aboutTextEl ? aboutTextEl.value : homepageState.aboutText,
+        heroImages: homepageState.heroImages || [],
+        notices: homepageState.notices || [],
+        theme: homepageState.theme || "default"
+      };
+
+      try {
+        var res = await fetch("/api/homepage", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          var err = await res.json().catch(function () { return {}; });
+          throw new Error(err.error || "Erro ao salvar.");
+        }
+
+        homepageState.aboutText = payload.aboutText;
+        setStatus(homepageStatusEl, "Página inicial salva com sucesso!", "ok");
+      } catch (err) {
+        setStatus(homepageStatusEl, err.message || "Erro ao salvar.", "error");
+      }
+
+      saveHomepageBtn.disabled = false;
+    });
+  }
+
+  /* ---- Save about page ---- */
+
+  if (saveAboutPageBtn) {
+    saveAboutPageBtn.addEventListener("click", async function () {
+      saveAboutPageBtn.disabled = true;
+      setStatus(aboutSaveStatusEl, "Salvando...", "");
+
+      var payload = {
+        aboutLongText: aboutLongTextEl ? aboutLongTextEl.value : homepageState.aboutLongText,
+        aboutImages: homepageState.aboutImages || []
+      };
+
+      try {
+        var res = await fetch("/api/homepage", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          var err = await res.json().catch(function () { return {}; });
+          throw new Error(err.error || "Erro ao salvar.");
+        }
+
+        homepageState.aboutLongText = payload.aboutLongText;
+        setStatus(aboutSaveStatusEl, "Página 'Sobre nós' salva com sucesso!", "ok");
+      } catch (err) {
+        setStatus(aboutSaveStatusEl, err.message || "Erro ao salvar.", "error");
+      }
+
+      saveAboutPageBtn.disabled = false;
+    });
+  }
+
+  /* ---- Notices management ---- */
+
+  function renderNotices() {
+    if (!noticeListEl) return;
+    noticeListEl.innerHTML = "";
+
+    var notices = homepageState.notices || [];
+    if (!notices.length) return;
+
+    var frag = document.createDocumentFragment();
+    notices.forEach(function (text, idx) {
+      if (!noticeItemTemplate) return;
+      var clone = noticeItemTemplate.content.cloneNode(true);
+      var textEl = clone.querySelector(".admin-notice-text");
+      if (textEl) textEl.textContent = text;
+
+      var editBtn = clone.querySelector(".admin-notice-edit");
+      if (editBtn) {
+        editBtn.addEventListener("click", function () {
+          var newText = prompt("Editar aviso:", text);
+          if (newText !== null && newText.trim()) {
+            homepageState.notices[idx] = newText.trim();
+            renderNotices();
+          }
+        });
+      }
+
+      var deleteBtn = clone.querySelector(".admin-notice-delete");
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", function () {
+          homepageState.notices.splice(idx, 1);
+          renderNotices();
+        });
+      }
+
+      frag.appendChild(clone);
+    });
+    noticeListEl.appendChild(frag);
+  }
+
+  if (addNoticeBtn) {
+    addNoticeBtn.addEventListener("click", function () {
+      var text = prompt("Texto do novo aviso:");
+      if (text && text.trim()) {
+        if (!Array.isArray(homepageState.notices)) homepageState.notices = [];
+        homepageState.notices.push(text.trim());
+        renderNotices();
+      }
+    });
+  }
+
+  /* ---- Product rendering in admin grids ---- */
+
+  function renderAdminProducts() {
+    Object.keys(grids).forEach(function (cat) {
+      var container = grids[cat];
+      if (!container) return;
+      container.innerHTML = "";
+
+      // Add "new product" card
+      if (addCardTemplate) {
+        var addClone = addCardTemplate.content.cloneNode(true);
+        var addButton = addClone.querySelector(".admin-add-product-button");
+        if (addButton) {
+          addButton.addEventListener("click", function () {
+            openProductModal(null, cat);
+          });
+        }
+        container.appendChild(addClone);
+      }
+
+      var items = allProducts.filter(function (p) {
+        return p && (p.category === cat);
+      });
+
+      items.sort(function (a, b) {
+        if (a.createdAt && b.createdAt) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        return 0;
+      });
+
+      items.forEach(function (p) {
+        if (!productCardTemplate) return;
+        var clone = productCardTemplate.content.cloneNode(true);
+        var card = clone.querySelector(".admin-product-card");
+        if (card) card.dataset.productId = p.id || "";
+
+        var img = clone.querySelector(".admin-product-image");
+        var imgSrc = p.imageUrl || (Array.isArray(p.imageUrls) && p.imageUrls[0]) || "";
+        if (img) {
+          img.src = imgSrc || "";
+          img.alt = p.name || "";
+          if (!imgSrc) img.style.display = "none";
+        }
+
+        var title = clone.querySelector(".admin-product-title");
+        if (title) title.textContent = p.name || "";
+
+        var desc = clone.querySelector(".admin-product-description");
+        if (desc) desc.textContent = p.description || "";
+
+        var price = clone.querySelector(".admin-product-price");
+        if (price) price.textContent = formatBRL(p.price);
+
+        var stock = clone.querySelector(".admin-product-stock");
+        if (stock) {
+          var s = typeof p.stock === "number" ? p.stock : 0;
+          stock.textContent = s > 0 ? "Estoque: " + s : "Sem estoque";
+        }
+
+        var editBtn = clone.querySelector(".admin-edit-product-button");
+        if (editBtn) {
+          editBtn.addEventListener("click", function () {
+            openProductModal(p, null);
+          });
+        }
+
+        container.appendChild(clone);
+      });
+    });
+  }
+
+  /* ---- Product modal ---- */
+
+  function openProductModal(product, defaultCategory) {
+    currentProductEditing = product || null;
+    currentProductImages = [];
+
+    if (productModalTitle) {
+      productModalTitle.textContent = product ? "Editar produto" : "Novo produto";
+    }
+
+    if (hiddenForm.category) hiddenForm.category.value = product ? (product.category || "specials") : (defaultCategory || "specials");
+    if (hiddenForm.name) hiddenForm.name.value = product ? (product.name || "") : "";
+    if (hiddenForm.description) hiddenForm.description.value = product ? (product.description || "") : "";
+    if (hiddenForm.price) hiddenForm.price.value = product ? (product.price || "") : "";
+    if (hiddenForm.originalPrice) hiddenForm.originalPrice.value = product ? (product.originalPrice || "") : "";
+    if (hiddenForm.discountLabel) hiddenForm.discountLabel.value = product ? (product.discountLabel || "") : "";
+    if (hiddenForm.stock) hiddenForm.stock.value = product ? (product.stock != null ? product.stock : "") : "";
+
+    // Load existing images
+    if (product) {
+      var imgs = Array.isArray(product.imageUrls) ? product.imageUrls.slice() : [];
+      if (product.imageUrl && !imgs.includes(product.imageUrl)) {
+        imgs.unshift(product.imageUrl);
+      }
+      currentProductImages = imgs.slice(0, MAX_PRODUCT_IMAGES);
+    }
+
+    renderProductImageThumbs();
+    updateProductImagePreview();
+
+    if (productDeleteButton) {
+      productDeleteButton.style.display = product ? "" : "none";
+    }
+
+    setStatus(hiddenForm.status, "", "");
+
+    if (productModalBackdrop) {
+      productModalBackdrop.style.display = "flex";
+    }
+  }
+
+  function closeProductModal() {
+    if (productModalBackdrop) {
+      productModalBackdrop.style.display = "none";
+    }
+    currentProductEditing = null;
+    currentProductImages = [];
+  }
+
+  if (productModalClose) {
+    productModalClose.addEventListener("click", closeProductModal);
+  }
+  if (productModalBackdrop) {
+    productModalBackdrop.addEventListener("click", function (e) {
+      if (e.target === productModalBackdrop) closeProductModal();
+    });
+  }
+
+  function updateProductImagePreview() {
+    if (productImagePreview && productImagePlaceholder) {
+      if (currentProductImages.length) {
+        productImagePreview.src = currentProductImages[0];
+        productImagePreview.style.display = "";
+        productImagePlaceholder.style.display = "none";
+      } else {
+        productImagePreview.style.display = "none";
+        productImagePlaceholder.style.display = "";
+      }
+    }
+  }
+
+  function renderProductImageThumbs() {
+    if (!productImageThumbs) return;
+    productImageThumbs.innerHTML = "";
+
+    currentProductImages.forEach(function (src, idx) {
+      var thumb = document.createElement("div");
+      thumb.className = "admin-image-thumb" + (idx === 0 ? " active" : "");
+
+      var img = document.createElement("img");
+      img.src = src;
+      img.alt = "Imagem " + (idx + 1);
+      thumb.appendChild(img);
+
+      // Click to set as cover
+      thumb.addEventListener("click", function () {
+        // Move this image to front
+        currentProductImages.splice(idx, 1);
+        currentProductImages.unshift(src);
+        renderProductImageThumbs();
+        updateProductImagePreview();
+      });
+
+      productImageThumbs.appendChild(thumb);
+    });
+  }
+
+  /* ---- Product image upload ---- */
+
+  if (productImageFileButton && hiddenForm.imageFile) {
+    productImageFileButton.addEventListener("click", function () {
+      hiddenForm.imageFile.click();
+    });
+
+    hiddenForm.imageFile.addEventListener("change", async function () {
+      var files = hiddenForm.imageFile.files;
+      if (!files || !files.length) return;
+
+      setStatus(hiddenForm.status, "Processando imagens...", "");
+      try {
+        var remaining = MAX_PRODUCT_IMAGES - currentProductImages.length;
+        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        currentProductImages = currentProductImages.concat(compressed);
+        currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
+        renderProductImageThumbs();
+        updateProductImagePreview();
+        setStatus(hiddenForm.status, "", "");
+      } catch (err) {
+        setStatus(hiddenForm.status, "Erro ao processar imagens.", "error");
+      }
+      hiddenForm.imageFile.value = "";
+    });
+  }
+
+  /* ---- Product form submit (create or update) ---- */
+
+  if (hiddenForm.el) {
+    hiddenForm.el.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      var category = hiddenForm.category ? hiddenForm.category.value : "";
+      var name = hiddenForm.name ? hiddenForm.name.value.trim() : "";
+      var description = hiddenForm.description ? hiddenForm.description.value.trim() : "";
+      var price = hiddenForm.price ? parseFloat(hiddenForm.price.value) : 0;
+      var stock = hiddenForm.stock ? parseInt(hiddenForm.stock.value, 10) : 0;
+
+      var originalPriceRaw = hiddenForm.originalPrice ? hiddenForm.originalPrice.value.trim() : "";
+      var originalPrice = originalPriceRaw ? parseFloat(originalPriceRaw) : null;
+      var discountLabel = hiddenForm.discountLabel ? hiddenForm.discountLabel.value.trim() : "";
+
+      if (!name || Number.isNaN(price) || Number.isNaN(stock)) {
+        setStatus(hiddenForm.status, "Preencha pelo menos nome, preço e estoque.", "error");
+        return;
+      }
+
+      var imageUrls = currentProductImages.slice();
+      var imageUrl = imageUrls[0] || "";
+
+      var payload = {
+        category: category,
+        name: name,
+        description: description,
+        price: price,
+        stock: stock,
+        imageUrl: imageUrl,
+        imageUrls: imageUrls,
+        originalPrice: originalPrice,
+        discountLabel: discountLabel
+      };
+
+      setStatus(hiddenForm.status, "Salvando...", "");
+
+      try {
+        var url = currentProductEditing
+          ? "/api/products/" + currentProductEditing.id
+          : "/api/products";
+        var method = currentProductEditing ? "PUT" : "POST";
+
+        var res = await fetch(url, {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          var errData = await res.json().catch(function () { return {}; });
+          throw new Error(errData.error || "Erro ao salvar produto.");
+        }
+
+        setStatus(hiddenForm.status, "Produto salvo!", "ok");
+        closeProductModal();
+        await loadProducts();
+      } catch (err) {
+        setStatus(hiddenForm.status, err.message || "Erro ao salvar produto.", "error");
+      }
+    });
+  }
+
+  /* ---- Product delete ---- */
+
+  if (productDeleteButton) {
+    productDeleteButton.addEventListener("click", async function () {
+      if (!currentProductEditing) return;
+
+      var confirmed = confirm("Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.");
+      if (!confirmed) return;
+
+      setStatus(hiddenForm.status, "Excluindo...", "");
+
+      try {
+        var res = await fetch("/api/products/" + currentProductEditing.id, {
+          method: "DELETE"
+        });
+
+        if (!res.ok) {
+          var errData = await res.json().catch(function () { return {}; });
+          throw new Error(errData.error || "Erro ao excluir produto.");
+        }
+
+        closeProductModal();
+        await loadProducts();
+      } catch (err) {
+        setStatus(hiddenForm.status, err.message || "Erro ao excluir.", "error");
+      }
+    });
+  }
+
+  /* ---- Initial view ---- */
+  switchView("home");
 }
