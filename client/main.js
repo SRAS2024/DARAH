@@ -1305,18 +1305,6 @@ function initAdminApp() {
   // Responsive mode state
   let isSmallDevice = false;
 
-  // Allowed users and welcome messages
-  const VALID_USERS = {
-    "Maria Eduarda": {
-      password: "Maria123@",
-      welcome: "Bem vinda, Maria Eduarda!"
-    },
-    "Danielle Almeida": {
-      password: "Dani123@",
-      welcome: "Bem vinda, Danielle!"
-    }
-  };
-
   function setBodyLoginMode(isLogin) {
     if (!bodyEl) return;
     if (isLogin) bodyEl.classList.add("is-admin-login");
@@ -1347,5 +1335,92 @@ function initAdminApp() {
   });
   isSmallDevice = responsive.isSmall();
 
-  // ... everything else in your admin code stays the same after this point ...
+  // --- Login handler (validates against server-side environment variables) ---
+  async function handleLogin() {
+    if (!usernameInput || !passwordInput) return;
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) {
+      if (loginErrorEl) loginErrorEl.textContent = "Preencha usuário e senha.";
+      return;
+    }
+
+    if (loginErrorEl) loginErrorEl.textContent = "";
+    if (loginButton) loginButton.disabled = true;
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (loginErrorEl) loginErrorEl.textContent = data.error || "Erro ao entrar.";
+        if (loginButton) loginButton.disabled = false;
+        return;
+      }
+
+      // Show loading / welcome screen
+      if (loginSection) loginSection.style.display = "none";
+      if (loadingSection) {
+        loadingSection.style.display = "";
+        loadingSection.removeAttribute("aria-hidden");
+      }
+      if (welcomeMessageEl) welcomeMessageEl.textContent = data.welcome || "Bem vinda, Danielle!";
+      if (userNameLabel) userNameLabel.textContent = "Danielle";
+
+      // Wait for the loading animation then show admin panel
+      setTimeout(() => {
+        if (loadingSection) {
+          loadingSection.style.display = "none";
+          loadingSection.setAttribute("aria-hidden", "true");
+        }
+        if (panelSection) panelSection.style.display = "";
+        setBodyLoginMode(false);
+      }, 4000);
+    } catch (err) {
+      console.error("Login error:", err);
+      if (loginErrorEl) loginErrorEl.textContent = "Erro de conexão. Tente novamente.";
+      if (loginButton) loginButton.disabled = false;
+    }
+  }
+
+  if (loginButton) {
+    loginButton.addEventListener("click", handleLogin);
+  }
+
+  // Allow pressing Enter to log in
+  if (passwordInput) {
+    passwordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleLogin();
+    });
+  }
+  if (usernameInput) {
+    usernameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleLogin();
+    });
+  }
+
+  // --- Logout handler ---
+  if (logoutButton) {
+    logoutButton.addEventListener("click", async () => {
+      try {
+        await fetch("/api/admin/logout", { method: "POST" });
+      } catch {
+        // ignore network errors on logout
+      }
+      if (panelSection) panelSection.style.display = "none";
+      if (loginSection) loginSection.style.display = "";
+      setBodyLoginMode(true);
+      if (usernameInput) usernameInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+      if (loginErrorEl) loginErrorEl.textContent = "";
+      if (loginButton) loginButton.disabled = false;
+    });
+  }
 }

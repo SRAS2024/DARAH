@@ -533,6 +533,37 @@ function renderIndexWithBootstrap() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Admin authentication                                                */
+/* ------------------------------------------------------------------ */
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin) return next();
+  return res.status(401).json({ error: "Não autorizado." });
+}
+
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body || {};
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    req.session.isAdmin = true;
+    return res.json({ ok: true, welcome: "Bem vinda, Danielle!" });
+  }
+  return res.status(401).json({ error: "Usuário ou senha inválidos." });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.json({ ok: true });
+  });
+});
+
+app.get("/api/admin/session", (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.isAdmin) });
+});
+
+/* ------------------------------------------------------------------ */
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -540,7 +571,7 @@ function renderIndexWithBootstrap() {
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Debug counts so we can see why products are missing
-app.get("/api/admin/debug/products", (_req, res) => {
+app.get("/api/admin/debug/products", requireAdmin, (_req, res) => {
   const total = db.products.length;
 
   const byCategory = {};
@@ -580,7 +611,7 @@ app.get("/api/homepage", (req, res) => {
   return sendJsonWithEtag(req, res, payload, "homepage");
 });
 
-app.put("/api/homepage", async (req, res) => {
+app.put("/api/homepage", requireAdmin, async (req, res) => {
   const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } =
     req.body || {};
 
@@ -631,7 +662,7 @@ app.get("/api/products", (req, res) => {
   return sendJsonWithEtag(req, res, grouped, "products");
 });
 
-app.get("/api/admin/products", (_req, res) => {
+app.get("/api/admin/products", requireAdmin, (_req, res) => {
   // Admin should show everything, even inactive and stock 0.
   const adminProducts = db.products.map((p) => {
     const imageUrls = normalizeImageArray(p.imageUrls || [], MAX_PRODUCT_IMAGES);
@@ -647,7 +678,7 @@ app.get("/api/admin/products", (_req, res) => {
   res.json(adminProducts);
 });
 
-app.post("/api/products", async (req, res) => {
+app.post("/api/products", requireAdmin, async (req, res) => {
   const {
     category,
     name,
@@ -748,7 +779,7 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-app.put("/api/products/:id", async (req, res) => {
+app.put("/api/products/:id", requireAdmin, async (req, res) => {
   const product = db.products.find((p) => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: "Produto não encontrado." });
 
@@ -837,7 +868,7 @@ app.put("/api/products/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/products/:id", async (req, res) => {
+app.delete("/api/products/:id", requireAdmin, async (req, res) => {
   const idx = db.products.findIndex((p) => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Produto não encontrado." });
 
@@ -952,6 +983,65 @@ app.post("/api/checkout-link", (req, res) => {
   const phone = "5565999883400";
   const text = encodeURIComponent(lines.join("\n"));
   res.json({ url: `https://wa.me/${phone}?text=${text}` });
+});
+
+/* ------------------------------------------------------------------ */
+/* Sitemap (excludes admin)                                            */
+/* ------------------------------------------------------------------ */
+
+app.get("/robots.txt", (req, res) => {
+  const protocol = req.protocol;
+  const host = req.get("host");
+  const base = process.env.SITE_URL || `${protocol}://${host}`;
+
+  const txt = [
+    "User-agent: *",
+    "Disallow: /admin",
+    "Disallow: /admin.html",
+    "Disallow: /api/",
+    "",
+    `Sitemap: ${base}/sitemap.xml`
+  ].join("\n");
+
+  res.setHeader("Content-Type", "text/plain");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(txt);
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  const protocol = req.protocol;
+  const host = req.get("host");
+  const base = process.env.SITE_URL || `${protocol}://${host}`;
+
+  const publicPaths = [
+    { loc: "/", priority: "1.0" },
+    { loc: "/#sobre-nos", priority: "0.8" },
+    { loc: "/#ofertas-especiais", priority: "0.7" },
+    { loc: "/#conjuntos", priority: "0.7" },
+    { loc: "/#aneis", priority: "0.7" },
+    { loc: "/#colares", priority: "0.7" },
+    { loc: "/#pulseiras", priority: "0.7" },
+    { loc: "/#brincos", priority: "0.7" }
+  ];
+
+  const today = new Date().toISOString().split("T")[0];
+
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+  for (const p of publicPaths) {
+    xml += "  <url>\n";
+    xml += `    <loc>${base}${p.loc}</loc>\n`;
+    xml += `    <lastmod>${today}</lastmod>\n`;
+    xml += `    <priority>${p.priority}</priority>\n`;
+    xml += "  </url>\n";
+  }
+
+  xml += "</urlset>\n";
+
+  res.setHeader("Content-Type", "application/xml");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(xml);
 });
 
 /* ------------------------------------------------------------------ */
