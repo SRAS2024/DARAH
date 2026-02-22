@@ -19,7 +19,7 @@ DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and 
 ### Admin Panel
 - Authenticated admin dashboard at `/admin.html`
 - Product management: create, edit, and delete products with multi-image uploads
-- Homepage editor: upload hero images, edit about text, manage notices
+- Homepage editor: upload hero images (up to 12), edit about text, manage notices
 - About page customization with image collages (up to 4 images)
 - Stock and pricing management including discount tracking
 - Theme selection interface
@@ -28,7 +28,7 @@ DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and 
 
 | Layer | Technology |
 |-------|-----------|
-| Back end | Node.js, Express |
+| Back end | Node.js, Express, compression |
 | Front end | Vanilla JavaScript, HTML5, CSS3 |
 | Database | PostgreSQL (falls back to in-memory if unavailable) |
 | Sessions | `express-session` with httpOnly cookies |
@@ -38,15 +38,19 @@ DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and 
 
 ```
 DARAH/
-├── server.js          # Express API and session handling
-├── db.js              # PostgreSQL persistence layer
+├── server.js              # Express API and session handling
+├── db.js                  # PostgreSQL persistence layer
 ├── package.json
 ├── LICENSE
 └── client/
-    ├── index.html     # Storefront UI
-    ├── admin.html     # Admin panel UI
-    ├── main.js        # Shared client script (auto-detects page context)
-    └── styles.css     # Styling with CSS variable theming
+    ├── index.html         # Storefront UI
+    ├── admin.html         # Admin panel UI
+    ├── main.js            # Shared client script (auto-detects page context)
+    ├── styles.css         # Styling with CSS variable theming
+    ├── favicon.svg        # Browser favicon
+    ├── favicon-32x32.png
+    ├── apple-touch-icon.png
+    └── site.webmanifest   # PWA manifest
 ```
 
 ## API Overview
@@ -63,10 +67,13 @@ DARAH/
 | POST | `/api/cart/update` | Update cart item quantity |
 | POST | `/api/checkout-link` | Generate a WhatsApp checkout link |
 
-### Admin
+### Admin (authentication required)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| POST | `/api/admin/login` | Authenticate as admin |
+| POST | `/api/admin/logout` | End admin session |
+| GET | `/api/admin/session` | Check current admin session |
 | PUT | `/api/homepage` | Update homepage content |
 | GET | `/api/admin/products` | All products including inactive |
 | POST | `/api/products` | Create a product |
@@ -87,16 +94,17 @@ npm install
 |----------|---------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | No (falls back to in-memory) |
 | `SESSION_SECRET` | Secret for signing session cookies | No (uses default in dev) |
-| `PORT` | Server port | No (defaults to 3000) |
+| `PORT` | Server port | No (defaults to 5000) |
 
 ### Run
 
 ```bash
-npm start
+npm start          # production
+npm run dev        # development with auto-reload (nodemon)
 ```
 
-The storefront will be available at `http://localhost:3000` and the admin panel at `http://localhost:3000/admin.html`.
+The storefront will be available at `http://localhost:5000` and the admin panel at `http://localhost:5000/admin.html`.
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+Apache 2.0 — see [LICENSE](LICENSE) for details.
