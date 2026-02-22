@@ -1479,14 +1479,31 @@ function initAdminApp() {
 
   /* ---- Image compression helper ---- */
 
-  var COMPRESS_MAX_WIDTH = 700;
+  var COMPRESS_MAX_WIDTH = 600;
   var COMPRESS_QUALITY = 0.45;
+
+  /**
+   * Encode a canvas to the smallest data URL by trying WebP and JPEG
+   * and picking whichever is smaller. WebP is typically 25-35% smaller
+   * than JPEG at the same visual quality.
+   */
+  function canvasToSmallestDataUrl(canvas, quality) {
+    var jpeg = canvas.toDataURL("image/jpeg", quality);
+
+    // Try WebP — not all browsers support WebP canvas export
+    var webp = canvas.toDataURL("image/webp", quality);
+    if (webp.startsWith("data:image/webp") && webp.length < jpeg.length) {
+      return webp;
+    }
+
+    return jpeg;
+  }
 
   /**
    * Step-down resize: shrink an image by halving repeatedly until close to
    * the target size, then do one final resize to exact dimensions.
    * This produces much smoother results (acts as anti-aliasing) and the
-   * smoother output compresses significantly smaller in JPEG.
+   * smoother output compresses significantly smaller.
    */
   function stepDownResize(sourceImg, targetW, targetH, quality) {
     var canvas = document.createElement("canvas");
@@ -1500,7 +1517,7 @@ function initAdminApp() {
       canvas.width = targetW;
       canvas.height = targetH;
       ctx.drawImage(sourceImg, 0, 0, targetW, targetH);
-      return canvas.toDataURL("image/jpeg", quality);
+      return canvasToSmallestDataUrl(canvas, quality);
     }
 
     // Use an offscreen canvas pair for the halving steps
@@ -1535,7 +1552,7 @@ function initAdminApp() {
     canvas.height = targetH;
     ctx.drawImage(stepCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
 
-    return canvas.toDataURL("image/jpeg", quality);
+    return canvasToSmallestDataUrl(canvas, quality);
   }
 
   function compressImage(file, maxWidth, quality) {
