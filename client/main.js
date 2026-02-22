@@ -1724,20 +1724,19 @@ function initAdminApp() {
     var frag = document.createDocumentFragment();
     images.forEach(function (src, idx) {
       var wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:relative;display:inline-block;margin:4px;";
+      wrapper.style.cssText = "position:relative;";
 
       var img = document.createElement("img");
       img.src = src;
       img.alt = "Hero " + (idx + 1);
       img.loading = "lazy";
-      img.style.cssText = "width:80px;height:60px;object-fit:cover;border-radius:8px;";
       wrapper.appendChild(img);
 
       var removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "admin-button-ghost";
       removeBtn.textContent = "×";
-      removeBtn.style.cssText = "position:absolute;top:-4px;right:-4px;font-size:14px;background:rgba(255,255,255,0.9);border-radius:50%;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;";
+      removeBtn.style.cssText = "position:absolute;top:4px;right:4px;font-size:14px;background:rgba(0,0,0,0.55);color:#fff;border-radius:50%;width:22px;height:22px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;z-index:1;";
       removeBtn.addEventListener("click", function () {
         homepageState.heroImages.splice(idx, 1);
         renderHeroGallery();
@@ -1778,20 +1777,19 @@ function initAdminApp() {
     var frag = document.createDocumentFragment();
     images.forEach(function (src, idx) {
       var wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:relative;display:inline-block;margin:4px;";
+      wrapper.style.cssText = "position:relative;";
 
       var img = document.createElement("img");
       img.src = src;
       img.alt = "About " + (idx + 1);
       img.loading = "lazy";
-      img.style.cssText = "width:80px;height:80px;object-fit:cover;border-radius:8px;";
       wrapper.appendChild(img);
 
       var removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "admin-button-ghost";
       removeBtn.textContent = "×";
-      removeBtn.style.cssText = "position:absolute;top:-4px;right:-4px;font-size:14px;background:rgba(255,255,255,0.9);border-radius:50%;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;";
+      removeBtn.style.cssText = "position:absolute;top:4px;right:4px;font-size:14px;background:rgba(0,0,0,0.55);color:#fff;border-radius:50%;width:22px;height:22px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;z-index:1;";
       removeBtn.addEventListener("click", function () {
         homepageState.aboutImages.splice(idx, 1);
         renderAboutCollage();

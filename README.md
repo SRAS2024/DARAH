@@ -1,6 +1,6 @@
 # DARAH · Boutique Jewelry Storefront
 
-**Live site:** [https://darah.up.railway.app](https://darah.up.railway.app)
+**Live site:** [https://darahjoias.com](https://darahjoias.com)
 
 DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and fully functional checkout flow, crafted for small brands that want something elegant, focused, and fast. Built for the Brazilian market with BRL pricing and Portuguese language support.
 
