@@ -1479,8 +1479,64 @@ function initAdminApp() {
 
   /* ---- Image compression helper ---- */
 
-  var COMPRESS_MAX_WIDTH = 800;
-  var COMPRESS_QUALITY = 0.55;
+  var COMPRESS_MAX_WIDTH = 700;
+  var COMPRESS_QUALITY = 0.45;
+
+  /**
+   * Step-down resize: shrink an image by halving repeatedly until close to
+   * the target size, then do one final resize to exact dimensions.
+   * This produces much smoother results (acts as anti-aliasing) and the
+   * smoother output compresses significantly smaller in JPEG.
+   */
+  function stepDownResize(sourceImg, targetW, targetH, quality) {
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+
+    var curW = sourceImg.width || sourceImg.naturalWidth;
+    var curH = sourceImg.height || sourceImg.naturalHeight;
+
+    // If the source is already at or below target, just draw directly
+    if (curW <= targetW * 1.5 && curH <= targetH * 1.5) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.drawImage(sourceImg, 0, 0, targetW, targetH);
+      return canvas.toDataURL("image/jpeg", quality);
+    }
+
+    // Use an offscreen canvas pair for the halving steps
+    var stepCanvas = document.createElement("canvas");
+    var stepCtx = stepCanvas.getContext("2d");
+
+    // First step: draw original to full-size canvas
+    stepCanvas.width = curW;
+    stepCanvas.height = curH;
+    stepCtx.drawImage(sourceImg, 0, 0, curW, curH);
+
+    // Halve until we are within 1.5x of target
+    while (curW > targetW * 1.5 || curH > targetH * 1.5) {
+      var halfW = Math.max(Math.round(curW / 2), targetW);
+      var halfH = Math.max(Math.round(curH / 2), targetH);
+
+      canvas.width = halfW;
+      canvas.height = halfH;
+      ctx.drawImage(stepCanvas, 0, 0, curW, curH, 0, 0, halfW, halfH);
+
+      // Swap: copy result back to stepCanvas for next iteration
+      stepCanvas.width = halfW;
+      stepCanvas.height = halfH;
+      stepCtx.drawImage(canvas, 0, 0);
+
+      curW = halfW;
+      curH = halfH;
+    }
+
+    // Final resize to exact target dimensions
+    canvas.width = targetW;
+    canvas.height = targetH;
+    ctx.drawImage(stepCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
+
+    return canvas.toDataURL("image/jpeg", quality);
+  }
 
   function compressImage(file, maxWidth, quality) {
     maxWidth = maxWidth || COMPRESS_MAX_WIDTH;
@@ -1491,7 +1547,6 @@ function initAdminApp() {
       reader.onload = function (e) {
         var img = new Image();
         img.onload = function () {
-          var canvas = document.createElement("canvas");
           var w = img.width;
           var h = img.height;
 
@@ -1500,12 +1555,7 @@ function initAdminApp() {
             w = maxWidth;
           }
 
-          canvas.width = w;
-          canvas.height = h;
-          var ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-
-          var dataUrl = canvas.toDataURL("image/jpeg", quality);
+          var dataUrl = stepDownResize(img, w, h, quality);
           resolve(dataUrl);
         };
         img.onerror = function () { reject(new Error("Failed to load image")); };
@@ -1541,15 +1591,14 @@ function initAdminApp() {
         resolve(dataUrl);
         return;
       }
-      // Skip tiny images (under ~30KB base64) — already small enough
-      if (dataUrl.length < 40000) {
+      // Skip tiny images (under ~20KB base64) — already small enough
+      if (dataUrl.length < 27000) {
         resolve(dataUrl);
         return;
       }
 
       var img = new Image();
       img.onload = function () {
-        var canvas = document.createElement("canvas");
         var w = img.width;
         var h = img.height;
 
@@ -1558,12 +1607,7 @@ function initAdminApp() {
           w = maxWidth;
         }
 
-        canvas.width = w;
-        canvas.height = h;
-        var ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, w, h);
-
-        var newDataUrl = canvas.toDataURL("image/jpeg", quality);
+        var newDataUrl = stepDownResize(img, w, h, quality);
         // Only use re-compressed version if it is actually smaller
         resolve(newDataUrl.length < dataUrl.length ? newDataUrl : dataUrl);
       };
