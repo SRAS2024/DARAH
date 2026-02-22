@@ -1479,9 +1479,12 @@ function initAdminApp() {
 
   /* ---- Image compression helper ---- */
 
+  var COMPRESS_MAX_WIDTH = 800;
+  var COMPRESS_QUALITY = 0.55;
+
   function compressImage(file, maxWidth, quality) {
-    maxWidth = maxWidth || 1200;
-    quality = quality || 0.7;
+    maxWidth = maxWidth || COMPRESS_MAX_WIDTH;
+    quality = quality || COMPRESS_QUALITY;
 
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -1525,6 +1528,125 @@ function initAdminApp() {
       }
     }
     return results;
+  }
+
+  /* ---- Re-compress existing data URL images ---- */
+
+  function recompressDataUrl(dataUrl, maxWidth, quality) {
+    maxWidth = maxWidth || COMPRESS_MAX_WIDTH;
+    quality = quality || COMPRESS_QUALITY;
+
+    return new Promise(function (resolve) {
+      if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) {
+        resolve(dataUrl);
+        return;
+      }
+      // Skip tiny images (under ~30KB base64) — already small enough
+      if (dataUrl.length < 40000) {
+        resolve(dataUrl);
+        return;
+      }
+
+      var img = new Image();
+      img.onload = function () {
+        var canvas = document.createElement("canvas");
+        var w = img.width;
+        var h = img.height;
+
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        var newDataUrl = canvas.toDataURL("image/jpeg", quality);
+        // Only use re-compressed version if it is actually smaller
+        resolve(newDataUrl.length < dataUrl.length ? newDataUrl : dataUrl);
+      };
+      img.onerror = function () {
+        resolve(dataUrl);
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  async function recompressDataUrlArray(arr, maxWidth, quality) {
+    if (!Array.isArray(arr) || !arr.length) return arr || [];
+    var results = [];
+    for (var i = 0; i < arr.length; i++) {
+      var compressed = await recompressDataUrl(arr[i], maxWidth, quality);
+      results.push(compressed);
+    }
+    return results;
+  }
+
+  async function compressAllSiteImages(statusEl) {
+    // 1. Re-compress hero images
+    if (homepageState.heroImages && homepageState.heroImages.length) {
+      setStatus(statusEl, "Otimizando imagens da página inicial...", "");
+      homepageState.heroImages = await recompressDataUrlArray(
+        homepageState.heroImages, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY
+      );
+    }
+
+    // 2. Re-compress about images
+    if (homepageState.aboutImages && homepageState.aboutImages.length) {
+      setStatus(statusEl, "Otimizando imagens da página sobre nós...", "");
+      homepageState.aboutImages = await recompressDataUrlArray(
+        homepageState.aboutImages, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY
+      );
+    }
+
+    // 3. Fetch all products and re-compress their images
+    try {
+      setStatus(statusEl, "Buscando produtos para otimizar imagens...", "");
+      var res = await fetch("/api/admin/products");
+      if (!res.ok) throw new Error("Erro ao buscar produtos");
+      var products = await res.json();
+
+      var updatedProducts = [];
+      for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var imgs = p.imageUrls || p.images || [];
+        if (!imgs.length) continue;
+
+        setStatus(statusEl, "Otimizando produto " + (i + 1) + " de " + products.length + "...", "");
+        var compressed = await recompressDataUrlArray(imgs, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY);
+
+        // Only queue update if something actually changed
+        var changed = false;
+        for (var j = 0; j < compressed.length; j++) {
+          if (compressed[j] !== imgs[j]) { changed = true; break; }
+        }
+
+        if (changed) {
+          updatedProducts.push({
+            id: p.id,
+            imageUrl: compressed[0] || "",
+            imageUrls: compressed
+          });
+        }
+      }
+
+      // Batch update products with compressed images
+      if (updatedProducts.length) {
+        setStatus(statusEl, "Salvando " + updatedProducts.length + " produto(s) otimizado(s)...", "");
+        var batchRes = await fetch("/api/admin/compress-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ products: updatedProducts })
+        });
+        if (!batchRes.ok) {
+          throw new Error("Erro ao salvar imagens otimizadas");
+        }
+      }
+    } catch (err) {
+      console.error("Error compressing product images:", err);
+    }
   }
 
   /* ---- Theme handling ---- */
@@ -1815,7 +1937,7 @@ function initAdminApp() {
       setStatus(homepageStatusEl, "Processando imagens...", "");
       try {
         var remaining = MAX_HOMEPAGE_IMAGES - (homepageState.heroImages || []).length;
-        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        var compressed = await compressFiles(files, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY, remaining);
         homepageState.heroImages = (homepageState.heroImages || []).concat(compressed);
         homepageState.heroImages = normalizeList(homepageState.heroImages, MAX_HOMEPAGE_IMAGES);
         renderHeroGallery();
@@ -1841,7 +1963,7 @@ function initAdminApp() {
       setStatus(aboutSaveStatusEl, "Processando imagens...", "");
       try {
         var remaining = MAX_ABOUT_IMAGES - (homepageState.aboutImages || []).length;
-        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        var compressed = await compressFiles(files, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY, remaining);
         homepageState.aboutImages = (homepageState.aboutImages || []).concat(compressed);
         homepageState.aboutImages = normalizeList(homepageState.aboutImages, MAX_ABOUT_IMAGES);
         renderAboutCollage();
@@ -1858,16 +1980,20 @@ function initAdminApp() {
   if (saveHomepageBtn) {
     saveHomepageBtn.addEventListener("click", async function () {
       saveHomepageBtn.disabled = true;
-      setStatus(homepageStatusEl, "Salvando...", "");
-
-      var payload = {
-        aboutText: aboutTextEl ? aboutTextEl.value : homepageState.aboutText,
-        heroImages: homepageState.heroImages || [],
-        notices: homepageState.notices || [],
-        theme: homepageState.theme || "default"
-      };
 
       try {
+        // Compress all site images first (hero, about, and all products)
+        await compressAllSiteImages(homepageStatusEl);
+
+        setStatus(homepageStatusEl, "Salvando página inicial...", "");
+
+        var payload = {
+          aboutText: aboutTextEl ? aboutTextEl.value : homepageState.aboutText,
+          heroImages: homepageState.heroImages || [],
+          notices: homepageState.notices || [],
+          theme: homepageState.theme || "default"
+        };
+
         var res = await fetch("/api/homepage", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1880,7 +2006,8 @@ function initAdminApp() {
         }
 
         homepageState.aboutText = payload.aboutText;
-        setStatus(homepageStatusEl, "Página inicial salva com sucesso!", "ok");
+        renderHeroGallery();
+        setStatus(homepageStatusEl, "Página inicial salva e imagens otimizadas!", "ok");
       } catch (err) {
         setStatus(homepageStatusEl, err.message || "Erro ao salvar.", "error");
       }
@@ -1894,14 +2021,18 @@ function initAdminApp() {
   if (saveAboutPageBtn) {
     saveAboutPageBtn.addEventListener("click", async function () {
       saveAboutPageBtn.disabled = true;
-      setStatus(aboutSaveStatusEl, "Salvando...", "");
-
-      var payload = {
-        aboutLongText: aboutLongTextEl ? aboutLongTextEl.value : homepageState.aboutLongText,
-        aboutImages: homepageState.aboutImages || []
-      };
 
       try {
+        // Compress all site images first (hero, about, and all products)
+        await compressAllSiteImages(aboutSaveStatusEl);
+
+        setStatus(aboutSaveStatusEl, "Salvando página sobre nós...", "");
+
+        var payload = {
+          aboutLongText: aboutLongTextEl ? aboutLongTextEl.value : homepageState.aboutLongText,
+          aboutImages: homepageState.aboutImages || []
+        };
+
         var res = await fetch("/api/homepage", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1914,7 +2045,8 @@ function initAdminApp() {
         }
 
         homepageState.aboutLongText = payload.aboutLongText;
-        setStatus(aboutSaveStatusEl, "Página 'Sobre nós' salva com sucesso!", "ok");
+        renderAboutCollage();
+        setStatus(aboutSaveStatusEl, "Página 'Sobre nós' salva e imagens otimizadas!", "ok");
       } catch (err) {
         setStatus(aboutSaveStatusEl, err.message || "Erro ao salvar.", "error");
       }
@@ -2157,7 +2289,7 @@ function initAdminApp() {
       setStatus(hiddenForm.status, "Processando imagens...", "");
       try {
         var remaining = MAX_PRODUCT_IMAGES - currentProductImages.length;
-        var compressed = await compressFiles(files, 1200, 0.7, remaining);
+        var compressed = await compressFiles(files, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY, remaining);
         currentProductImages = currentProductImages.concat(compressed);
         currentProductImages = currentProductImages.slice(0, MAX_PRODUCT_IMAGES);
         renderProductImageThumbs();

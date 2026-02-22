@@ -887,6 +887,44 @@ app.delete("/api/products/:id", requireAdmin, async (req, res) => {
   }
 });
 
+// Batch compress product images (called by admin save buttons)
+app.post("/api/admin/compress-images", requireAdmin, async (req, res) => {
+  const { products } = req.body || {};
+
+  if (!Array.isArray(products)) {
+    return res.status(400).json({ error: "Payload inválido." });
+  }
+
+  let updated = 0;
+  for (const update of products) {
+    if (!update || !update.id) continue;
+
+    const product = db.products.find((p) => p.id === update.id);
+    if (!product) continue;
+
+    const imageUrls = normalizeImageArray(update.imageUrls || [], MAX_PRODUCT_IMAGES);
+    const imageUrl = String(update.imageUrl || imageUrls[0] || "");
+
+    product.imageUrl = imageUrl;
+    product.imageUrls = imageUrls;
+
+    try {
+      await persistProductUpsert(product);
+      updated++;
+    } catch (err) {
+      console.error("[compress] Error persisting product:", err);
+    }
+  }
+
+  if (updated > 0) {
+    bumpProductsVersion();
+    cachedIndexHtml = null;
+    cachedIndexVersionKey = "";
+  }
+
+  res.json({ ok: true, updated });
+});
+
 // Cart
 app.get("/api/cart", (req, res) =>
   res.json(summarizeCart(ensureSessionCart(req)))
