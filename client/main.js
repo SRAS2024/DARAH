@@ -174,7 +174,6 @@ function initStorefrontApp() {
   const cartCountEl = document.getElementById("cartCount");
   const checkoutItemsEl = document.getElementById("checkoutItems");
   const summarySubtotalEl = document.getElementById("summarySubtotal");
-  const summaryTaxesEl = document.getElementById("summaryTaxes");
   const summaryTotalEl = document.getElementById("summaryTotal");
   const checkoutButton = document.getElementById("checkoutButton");
 
@@ -251,6 +250,109 @@ function initStorefrontApp() {
       .filter((u, index, arr) => u && arr.indexOf(u) === index);
     if (primary && !cleaned.includes(primary)) cleaned.unshift(primary);
     return cleaned.slice(0, MAX_PRODUCT_IMAGES);
+  }
+
+  // Photo lightbox
+  function openProductLightbox(images, startIndex) {
+    if (!images || !images.length) return;
+    let currentIdx = Math.max(0, Math.min(startIndex || 0, images.length - 1));
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "product-lightbox-backdrop";
+
+    const container = document.createElement("div");
+    container.className = "product-lightbox-container";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "product-lightbox-close";
+    closeBtn.textContent = "\u00d7";
+    closeBtn.setAttribute("aria-label", "Fechar");
+    container.appendChild(closeBtn);
+
+    const img = document.createElement("img");
+    img.className = "product-lightbox-image";
+    container.appendChild(img);
+
+    let controlsEl = null;
+    let leftArrow = null;
+    let rightArrow = null;
+    let indicatorEl = null;
+
+    if (images.length > 1) {
+      controlsEl = document.createElement("div");
+      controlsEl.className = "product-lightbox-controls";
+
+      leftArrow = document.createElement("button");
+      leftArrow.type = "button";
+      leftArrow.className = "product-lightbox-arrow";
+      leftArrow.textContent = "\u2039";
+
+      indicatorEl = document.createElement("div");
+      indicatorEl.className = "product-lightbox-indicator";
+
+      rightArrow = document.createElement("button");
+      rightArrow.type = "button";
+      rightArrow.className = "product-lightbox-arrow";
+      rightArrow.textContent = "\u203a";
+
+      controlsEl.appendChild(leftArrow);
+      controlsEl.appendChild(indicatorEl);
+      controlsEl.appendChild(rightArrow);
+      container.appendChild(controlsEl);
+    }
+
+    backdrop.appendChild(container);
+
+    function updateLightbox() {
+      img.src = images[currentIdx];
+      img.alt = "Foto " + (currentIdx + 1) + " de " + images.length;
+      if (indicatorEl) {
+        indicatorEl.textContent = (currentIdx + 1) + "/" + images.length;
+      }
+      if (leftArrow) leftArrow.disabled = currentIdx === 0;
+      if (rightArrow) rightArrow.disabled = currentIdx === images.length - 1;
+    }
+
+    function closeLightbox() {
+      backdrop.remove();
+    }
+
+    closeBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      closeLightbox();
+    });
+
+    backdrop.addEventListener("click", function (e) {
+      if (e.target === backdrop) closeLightbox();
+    });
+
+    if (leftArrow) {
+      leftArrow.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (currentIdx > 0) { currentIdx--; updateLightbox(); }
+      });
+    }
+
+    if (rightArrow) {
+      rightArrow.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (currentIdx < images.length - 1) { currentIdx++; updateLightbox(); }
+      });
+    }
+
+    document.addEventListener("keydown", function onKey(e) {
+      if (!document.body.contains(backdrop)) {
+        document.removeEventListener("keydown", onKey);
+        return;
+      }
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft" && currentIdx > 0) { currentIdx--; updateLightbox(); }
+      if (e.key === "ArrowRight" && currentIdx < images.length - 1) { currentIdx++; updateLightbox(); }
+    });
+
+    updateLightbox();
+    document.body.appendChild(backdrop);
   }
 
   function getProductById(productId) {
@@ -573,7 +675,7 @@ function initStorefrontApp() {
 
   // Checkout rendering
   function renderCheckout() {
-    if (!checkoutItemsEl || !summarySubtotalEl || !summaryTaxesEl || !summaryTotalEl) return;
+    if (!checkoutItemsEl || !summarySubtotalEl || !summaryTotalEl) return;
 
     checkoutItemsEl.innerHTML = "";
 
@@ -592,7 +694,6 @@ function initStorefrontApp() {
       checkoutItemsEl.appendChild(empty);
 
       summarySubtotalEl.textContent = "R$ 0,00";
-      summaryTaxesEl.textContent = "R$ 0,00";
       summaryTotalEl.textContent = "R$ 0,00";
       if (checkoutButton) checkoutButton.disabled = true;
       return;
@@ -672,11 +773,9 @@ function initStorefrontApp() {
       checkoutItemsEl.appendChild(row);
     });
 
-    const taxes = 0;
-    const total = subtotal + taxes;
+    const total = subtotal;
 
     summarySubtotalEl.textContent = formatBRL(subtotal);
-    summaryTaxesEl.textContent = formatBRL(taxes);
     summaryTotalEl.textContent = formatBRL(total);
 
     if (checkoutButton) checkoutButton.disabled = false;
@@ -692,6 +791,8 @@ function initStorefrontApp() {
 
     const imageWrapper = document.createElement("div");
     imageWrapper.className = "product-image-wrapper";
+
+    let carouselIndex = { value: 0 };
 
     if (images.length <= 1) {
       if (images.length === 1) {
@@ -744,6 +845,7 @@ function initStorefrontApp() {
       function updateCarousel() {
         const index = Math.max(0, Math.min(images.length - 1, currentIndex));
         currentIndex = index;
+        carouselIndex.value = index;
         track.style.transform = "translateX(" + String(-index * 100) + "%)";
         indicator.textContent = String(index + 1) + "/" + String(images.length);
         leftBtn.disabled = index === 0;
@@ -767,6 +869,13 @@ function initStorefrontApp() {
       });
 
       updateCarousel();
+    }
+
+    if (images.length) {
+      imageWrapper.style.cursor = "pointer";
+      imageWrapper.addEventListener("click", function () {
+        openProductLightbox(images, carouselIndex.value);
+      });
     }
 
     card.appendChild(imageWrapper);
@@ -1238,6 +1347,11 @@ function initAdminApp() {
   const aboutSaveStatusEl = document.getElementById("adminAboutSaveStatus");
   const saveAboutPageBtn = document.getElementById("saveAboutPageBtn");
 
+  const siteLogoFileInput = document.getElementById("adminSiteLogoFile");
+  const siteLogoFileButton = document.getElementById("adminSiteLogoFileButton");
+  const siteLogoPreviewEl = document.getElementById("adminSiteLogoPreview");
+  const siteLogoPlaceholderEl = document.getElementById("adminSiteLogoPlaceholder");
+
   const productModalBackdrop = document.getElementById("adminProductModalBackdrop");
   const productModalTitle = document.getElementById("adminProductModalTitle");
   const productModalClose = document.getElementById("adminProductModalClose");
@@ -1280,7 +1394,8 @@ function initAdminApp() {
     heroImages: [],
     notices: [],
     theme: "default",
-    aboutImages: []
+    aboutImages: [],
+    siteLogo: ""
   };
   let currentProductEditing = null;
   let currentProductImages = [];
@@ -1866,10 +1981,12 @@ function initAdminApp() {
       homepageState.aboutImages = normalizeList(hp.aboutImages || [], MAX_ABOUT_IMAGES);
       homepageState.notices = Array.isArray(hp.notices) ? hp.notices : [];
       homepageState.theme = typeof hp.theme === "string" ? hp.theme : "default";
+      homepageState.siteLogo = typeof hp.siteLogo === "string" ? hp.siteLogo : "";
 
       populateHomepageForm();
       populateAboutForm();
       renderNotices();
+      renderSiteLogoPreview();
       applyThemeVariant(homepageState.theme);
 
       if (themeSelect) themeSelect.value = homepageState.theme;
@@ -2036,6 +2153,41 @@ function initAdminApp() {
     });
   }
 
+  /* ---- Site logo upload ---- */
+
+  function renderSiteLogoPreview() {
+    if (siteLogoPreviewEl && siteLogoPlaceholderEl) {
+      if (homepageState.siteLogo) {
+        siteLogoPreviewEl.src = homepageState.siteLogo;
+        siteLogoPreviewEl.style.display = "";
+        siteLogoPlaceholderEl.style.display = "none";
+      } else {
+        siteLogoPreviewEl.style.display = "none";
+        siteLogoPlaceholderEl.style.display = "";
+      }
+    }
+  }
+
+  if (siteLogoFileButton && siteLogoFileInput) {
+    siteLogoFileButton.addEventListener("click", function () {
+      siteLogoFileInput.click();
+    });
+
+    siteLogoFileInput.addEventListener("change", function () {
+      var file = siteLogoFileInput.files && siteLogoFileInput.files[0];
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var dataUrl = ev.target.result;
+        homepageState.siteLogo = dataUrl;
+        renderSiteLogoPreview();
+      };
+      reader.readAsDataURL(file);
+      siteLogoFileInput.value = "";
+    });
+  }
+
   /* ---- Save homepage ---- */
 
   if (saveHomepageBtn) {
@@ -2052,7 +2204,8 @@ function initAdminApp() {
           aboutText: aboutTextEl ? aboutTextEl.value : homepageState.aboutText,
           heroImages: homepageState.heroImages || [],
           notices: homepageState.notices || [],
-          theme: homepageState.theme || "default"
+          theme: homepageState.theme || "default",
+          siteLogo: homepageState.siteLogo || ""
         };
 
         var res = await fetch("/api/homepage", {

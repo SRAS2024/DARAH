@@ -165,7 +165,8 @@ const db = {
     heroImages: [],
     notices: [],
     theme: "default",
-    aboutImages: []
+    aboutImages: [],
+    siteLogo: ""
   },
   products: []
 };
@@ -437,7 +438,8 @@ function buildPublicHomepagePayload() {
     heroImages,
     aboutImages,
     notices,
-    theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default"
+    theme: typeof db.homepage.theme === "string" ? db.homepage.theme : "default",
+    siteLogo: db.homepage.siteLogo || ""
   };
 }
 
@@ -477,6 +479,7 @@ function renderIndexWithBootstrap() {
     aboutLongText: homepage.aboutLongText,
     notices: homepage.notices,
     theme: homepage.theme,
+    siteLogo: homepage.siteLogo || "",
     // Images excluded - will load via API
     heroImages: [],
     aboutImages: []
@@ -612,7 +615,7 @@ app.get("/api/homepage", (req, res) => {
 });
 
 app.put("/api/homepage", requireAdmin, async (req, res) => {
-  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme } =
+  const { aboutText, aboutLongText, heroImages, aboutImages, notices, theme, siteLogo } =
     req.body || {};
 
   if (typeof aboutText === "string") {
@@ -643,6 +646,10 @@ app.put("/api/homepage", requireAdmin, async (req, res) => {
     db.homepage.theme = trimmed || "default";
   }
 
+  if (typeof siteLogo === "string") {
+    db.homepage.siteLogo = siteLogo;
+  }
+
   homepageVersion += 1;
   cachedIndexHtml = null;
   cachedIndexVersionKey = "";
@@ -654,6 +661,27 @@ app.put("/api/homepage", requireAdmin, async (req, res) => {
     console.error("[homepage] Error persisting homepage to DB:", err);
     res.status(500).json({ error: "Erro ao salvar homepage." });
   }
+});
+
+// Site logo / dynamic favicon
+app.get("/api/site-logo", (req, res) => {
+  const logo = db.homepage.siteLogo || "";
+  if (!logo) {
+    return res.status(404).json({ error: "No logo uploaded." });
+  }
+
+  // If it's a data URL, extract and send the binary
+  const match = logo.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+  if (match) {
+    const mimeType = match[1];
+    const buffer = Buffer.from(match[2], "base64");
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.send(buffer);
+  }
+
+  // Otherwise redirect to the URL
+  return res.redirect(logo);
 });
 
 // Products
