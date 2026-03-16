@@ -6,10 +6,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>DARAH · Admin</title>
 
-    <!-- Favicon and site icons -->
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Favicon and site icons (dynamically replaced by uploaded logo if available) -->
+    <link rel="icon" id="dynamicFavicon" href="/api/site-logo" type="image/png" />
+    <link rel="apple-touch-icon" id="dynamicAppleIcon" href="/api/site-logo" />
     <meta name="theme-color" content="#a9b9a4" />
 
     <!-- Cinzel font for the whole site -->
@@ -798,6 +797,43 @@
                 ></textarea>
               </div>
 
+              <!-- Logo do site -->
+              <div style="margin-top:16px">
+                <div class="notice-row">
+                  <span class="admin-label">Logo do site (favicon e identidade)</span>
+                </div>
+                <div class="admin-image-upload-row" style="margin-top:8px">
+                  <div class="admin-image-preview" style="width:40px;height:40px;border-radius:8px;">
+                    <div id="adminSiteLogoPlaceholder" class="admin-image-placeholder" style="font-size:18px;">
+                      D
+                    </div>
+                    <img
+                      id="adminSiteLogoPreview"
+                      alt="Logo do site"
+                      style="display:none"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      id="adminSiteLogoFile"
+                      type="file"
+                      accept="image/*"
+                      style="display:none"
+                    />
+                    <button
+                      type="button"
+                      id="adminSiteLogoFileButton"
+                      class="admin-button-secondary"
+                    >
+                      Enviar logo do site
+                    </button>
+                    <p class="admin-status" style="margin-top:4px">
+                      Use como favicon e identidade visual do site.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Avisos -->
               <div style="margin-top:16px">
                 <div class="notice-row">
@@ -971,11 +1007,10 @@
               </div>
 
               <div class="admin-field">
-                <label for="productDescription" class="admin-label">Descrição</label>
+                <label for="productDescription" class="admin-label">Descrição (opcional)</label>
                 <textarea
                   id="productDescription"
                   class="admin-textarea"
-                  required
                 ></textarea>
               </div>
 
