@@ -20,6 +20,8 @@
     />
 
     <link rel="stylesheet" href="styles.css" />
+    <!-- Chart.js para gráficos no painel de análise -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
       /* Layout base */
       .admin-main {
@@ -597,6 +599,175 @@
           display: none;
         }
       }
+
+      /* ---- Insights ---- */
+      .insights-nav-btn {
+        background: var(--accent) !important;
+        color: #fff !important;
+        border-radius: 999px !important;
+        padding: 5px 14px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        border: none !important;
+      }
+      .insights-nav-btn:hover {
+        opacity: 0.88;
+      }
+      .insights-nav-btn.active {
+        background: var(--text-main) !important;
+        color: #fff !important;
+      }
+      .insights-header {
+        margin-bottom: 24px;
+      }
+      .insights-header h2 {
+        margin: 0 0 4px;
+        font-size: 22px;
+      }
+      .insights-header p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .insights-card {
+        background: var(--card-bg);
+        border-radius: 18px;
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-soft);
+        padding: 20px 22px;
+        margin-bottom: 20px;
+      }
+      .insights-card-title {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 0 0 14px;
+        color: var(--text-main);
+      }
+      .insights-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .insights-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .insights-filter-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .insights-select {
+        border-radius: 10px;
+        border: 1px solid var(--border-soft);
+        padding: 7px 10px;
+        font-size: 13px;
+        background: var(--input-bg, #fff);
+        color: var(--text-main);
+        cursor: pointer;
+      }
+      .insights-select:focus {
+        outline: none;
+        border-color: var(--accent-soft);
+      }
+      .insights-total-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .insights-total-number {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .insights-total-label {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .insights-chart-wrapper {
+        position: relative;
+        height: 240px;
+      }
+      .insights-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 80px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      /* Demographics bars */
+      .insights-demo-section {
+        margin-top: 6px;
+      }
+      .insights-demo-group {
+        margin-bottom: 20px;
+      }
+      .insights-demo-group-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .insights-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .insights-bar-label {
+        font-size: 13px;
+        color: var(--text-main);
+        width: 80px;
+        flex-shrink: 0;
+      }
+      .insights-bar-track {
+        flex: 1;
+        height: 8px;
+        background: var(--accent-soft);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .insights-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 999px;
+        transition: width 0.4s ease;
+      }
+      .insights-bar-pct {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        width: 38px;
+        text-align: right;
+      }
+      .insights-note {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 14px;
+        padding: 10px 12px;
+        background: rgba(0,0,0,0.02);
+        border-radius: 8px;
+        line-height: 1.5;
+      }
+      /* Small stats on product cards */
+      .admin-product-stats-row {
+        display: flex;
+        gap: 10px;
+        padding: 0 14px 10px;
+      }
+      .admin-product-stat {
+        font-size: 11px;
+        color: var(--text-muted);
+        opacity: 0.7;
+      }
     </style>
   </head>
   <body class="admin-page">
@@ -636,6 +807,9 @@
           </button>
           <button class="nav-link" data-view="about">
             Sobre nós
+          </button>
+          <button class="nav-link insights-nav-btn" data-view="insights">
+            📊 Análises
           </button>
           <button class="nav-link" data-view="specials">
             Ofertas especiais
@@ -857,6 +1031,111 @@
             <p class="home-highlight-text">
               Explore nossas coleções de anéis, colares, pulseiras e brincos.
             </p>
+          </div>
+        </section>
+
+        <!-- VISÃO ANÁLISES -->
+        <section id="view-insights" class="view">
+          <div class="insights-header">
+            <h2 class="section-title" style="margin-top:0">Análises</h2>
+            <p>Acompanhe as visitas ao site e métricas de produtos.</p>
+          </div>
+
+          <!-- Rastreador de Visitas -->
+          <div class="insights-card">
+            <div class="insights-card-title">Rastreador de Visitas</div>
+
+            <div class="insights-filters">
+              <div class="insights-filter-group">
+                <label for="insightsDateRange" class="insights-filter-label">Período:</label>
+                <select id="insightsDateRange" class="insights-select">
+                  <option value="today" selected>Hoje</option>
+                  <option value="7days">7 dias</option>
+                  <option value="30days">30 dias</option>
+                  <option value="90days">90 dias</option>
+                </select>
+              </div>
+              <div class="insights-filter-group">
+                <label for="insightsPage" class="insights-filter-label">Páginas:</label>
+                <select id="insightsPage" class="insights-select">
+                  <option value="site" selected>Site: (todas)</option>
+                  <option value="home">Início</option>
+                  <option value="about">Sobre nós</option>
+                  <option value="specials">Ofertas especiais</option>
+                  <option value="sets">Conjuntos</option>
+                  <option value="rings">Anéis</option>
+                  <option value="necklaces">Colares</option>
+                  <option value="bracelets">Pulseiras</option>
+                  <option value="earrings">Brincos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="insights-total-row">
+              <span class="insights-total-number" id="insightsTotalVisits">—</span>
+              <span class="insights-total-label">visitas no período</span>
+            </div>
+
+            <div class="insights-chart-wrapper">
+              <canvas id="insightsVisitChart"></canvas>
+            </div>
+            <div id="insightsChartLoading" class="insights-loading">Carregando dados...</div>
+          </div>
+
+          <!-- Visitor Insights -->
+          <div class="insights-card">
+            <div class="insights-card-title">Dados dos Visitantes</div>
+
+            <div class="insights-demo-section" id="insightsDemoSection">
+              <div class="insights-loading" id="insightsDemoLoading">Carregando...</div>
+
+              <div id="insightsDemoContent" style="display:none">
+                <div class="insights-demo-group">
+                  <div class="insights-demo-group-title">Origem do Tráfego</div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Instagram</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barInstagram" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctInstagram">0%</span>
+                  </div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Direto</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barDirect" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctDirect">0%</span>
+                  </div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Outros</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barOther" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctOther">0%</span>
+                  </div>
+                </div>
+
+                <div class="insights-demo-group">
+                  <div class="insights-demo-group-title">Tipo de Dispositivo</div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Celular</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barMobile" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctMobile">0%</span>
+                  </div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Desktop</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barDesktop" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctDesktop">0%</span>
+                  </div>
+                  <div class="insights-bar-row">
+                    <span class="insights-bar-label">Tablet</span>
+                    <div class="insights-bar-track"><div class="insights-bar-fill" id="barTablet" style="width:0%"></div></div>
+                    <span class="insights-bar-pct" id="pctTablet">0%</span>
+                  </div>
+                </div>
+
+                <p class="insights-note">
+                  Os dados de origem são baseados no referenciador HTTP (referrer) da visita.
+                  Dados demográficos como gênero e idade não estão disponíveis sem integração com
+                  plataformas de anúncio (ex.: Meta Business) e consentimento explícito dos usuários.
+                  As métricas exibidas refletem visitas únicas com janela de deduplicação de 30 minutos.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1186,6 +1465,10 @@
                 <span class="admin-product-price"></span>
                 <span class="admin-product-stock"></span>
               </div>
+            </div>
+            <div class="admin-product-stats-row">
+              <span class="admin-product-stat admin-product-view-count"></span>
+              <span class="admin-product-stat admin-product-cart-count"></span>
             </div>
             <div class="admin-product-actions-row">
               <button

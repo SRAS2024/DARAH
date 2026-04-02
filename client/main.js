@@ -446,6 +446,24 @@ function initStorefrontApp() {
   }
 
   // Views
+  // Client-side visit tracking with 30-min dedup per page
+  function trackPageVisit(page) {
+    const key = "darah_track_" + page;
+    const now = Date.now();
+    try {
+      const last = Number(sessionStorage.getItem(key) || 0);
+      if (now - last < 30 * 60 * 1000) return;
+      sessionStorage.setItem(key, String(now));
+    } catch (_) {}
+    const referrer = document.referrer || "";
+    fetch("/api/track/visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page, referrer }),
+      keepalive: true
+    }).catch(() => {});
+  }
+
   function switchView(id) {
     Object.values(views).forEach((v) => v && v.classList.remove("active-view"));
     const el = views[id];
@@ -458,6 +476,7 @@ function initStorefrontApp() {
 
     closeMobileMenu();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    trackPageVisit(id);
   }
 
   // Mobile menu
@@ -1300,6 +1319,7 @@ function initAdminApp() {
   const views = {
     home: document.getElementById("view-home"),
     about: document.getElementById("view-about"),
+    insights: document.getElementById("view-insights"),
     specials: document.getElementById("view-specials"),
     sets: document.getElementById("view-sets"),
     rings: document.getElementById("view-rings"),
@@ -1386,6 +1406,18 @@ function initAdminApp() {
     earrings: document.getElementById("grid-earrings")
   };
 
+  // Insights refs
+  const insightsDateRange = document.getElementById("insightsDateRange");
+  const insightsPage = document.getElementById("insightsPage");
+  const insightsTotalVisits = document.getElementById("insightsTotalVisits");
+  const insightsChartLoading = document.getElementById("insightsChartLoading");
+  const insightsDemoLoading = document.getElementById("insightsDemoLoading");
+  const insightsDemoContent = document.getElementById("insightsDemoContent");
+
+  // Insights state
+  let insightsChart = null;
+  let insightsProductStats = {};
+
   // State
   let allProducts = [];
   let homepageState = {
@@ -1448,6 +1480,138 @@ function initAdminApp() {
     el.className = "admin-status" + (type === "ok" ? " ok" : type === "error" ? " error" : "");
   }
 
+  /* ---- Insights ---- */
+
+  function loadInsightsData() {
+    var range = insightsDateRange ? insightsDateRange.value : "today";
+    var page = insightsPage ? insightsPage.value : "site";
+
+    // Chart data
+    if (insightsChartLoading) insightsChartLoading.style.display = "";
+    var canvas = document.getElementById("insightsVisitChart");
+    if (canvas) canvas.style.display = "none";
+
+    fetch("/api/admin/insights?range=" + encodeURIComponent(range) + "&page=" + encodeURIComponent(page))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (insightsChartLoading) insightsChartLoading.style.display = "none";
+        if (canvas) canvas.style.display = "";
+        if (insightsTotalVisits) insightsTotalVisits.textContent = String(data.total || 0);
+        renderInsightsChart(data.labels || [], data.counts || []);
+      })
+      .catch(function () {
+        if (insightsChartLoading) insightsChartLoading.style.display = "none";
+      });
+
+    // Sources / demographics
+    if (insightsDemoLoading) insightsDemoLoading.style.display = "";
+    if (insightsDemoContent) insightsDemoContent.style.display = "none";
+
+    fetch("/api/admin/insights/sources?range=" + encodeURIComponent(range) + "&page=" + encodeURIComponent(page))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (insightsDemoLoading) insightsDemoLoading.style.display = "none";
+        if (insightsDemoContent) insightsDemoContent.style.display = "";
+        renderInsightsSources(data);
+      })
+      .catch(function () {
+        if (insightsDemoLoading) insightsDemoLoading.style.display = "none";
+      });
+  }
+
+  function renderInsightsChart(labels, counts) {
+    var canvas = document.getElementById("insightsVisitChart");
+    if (!canvas) return;
+    if (typeof Chart === "undefined") return;
+
+    if (insightsChart) {
+      insightsChart.destroy();
+      insightsChart = null;
+    }
+
+    insightsChart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: labels.length ? labels : ["—"],
+        datasets: [{
+          label: "Visitas",
+          data: counts.length ? counts : [0],
+          backgroundColor: "rgba(78, 107, 90, 0.65)",
+          borderColor: "rgba(78, 107, 90, 1)",
+          borderWidth: 1,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) { return ctx.parsed.y + " visita(s)"; }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, stepSize: 1 },
+            grid: { color: "rgba(0,0,0,0.05)" }
+          },
+          x: {
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  function setInsightsBar(fillId, pctId, value, total) {
+    var pct = total > 0 ? Math.round((value / total) * 100) : 0;
+    var fill = document.getElementById(fillId);
+    var pctEl = document.getElementById(pctId);
+    if (fill) fill.style.width = pct + "%";
+    if (pctEl) pctEl.textContent = pct + "%";
+  }
+
+  function renderInsightsSources(data) {
+    var total = data.total || 0;
+    setInsightsBar("barInstagram", "pctInstagram", data.instagram || 0, total);
+    setInsightsBar("barDirect", "pctDirect", data.direct || 0, total);
+    setInsightsBar("barOther", "pctOther", data.other || 0, total);
+    setInsightsBar("barMobile", "pctMobile", data.mobile || 0, total);
+    setInsightsBar("barDesktop", "pctDesktop", data.desktop || 0, total);
+    setInsightsBar("barTablet", "pctTablet", data.tablet || 0, total);
+  }
+
+  function loadInsightsProductStats() {
+    fetch("/api/admin/insights/products")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!Array.isArray(data)) return;
+        insightsProductStats = {};
+        data.forEach(function (item) {
+          if (item && item.id) {
+            insightsProductStats[item.id] = {
+              viewCount: item.viewCount || 0,
+              cartCount: item.cartCount || 0
+            };
+          }
+        });
+        renderAdminProducts();
+      })
+      .catch(function () {});
+  }
+
+  // Wire insights filters
+  if (insightsDateRange) {
+    insightsDateRange.addEventListener("change", loadInsightsData);
+  }
+  if (insightsPage) {
+    insightsPage.addEventListener("change", loadInsightsData);
+  }
+
   /* ---- View switching ---- */
 
   function switchView(id) {
@@ -1471,6 +1635,11 @@ function initAdminApp() {
 
     closeMobileMenu();
     window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Load insights when switching to that view
+    if (id === "insights") {
+      loadInsightsData();
+    }
   }
 
   /* ---- Mobile menu ---- */
@@ -2001,7 +2170,8 @@ function initAdminApp() {
       if (!res.ok) return;
       var data = await res.json();
       allProducts = Array.isArray(data) ? data : [];
-      renderAdminProducts();
+      // Load product stats in parallel then render
+      loadInsightsProductStats();
     } catch (err) {
       console.error("Failed to load products:", err);
     }
@@ -2378,6 +2548,15 @@ function initAdminApp() {
         if (stock) {
           var s = typeof p.stock === "number" ? p.stock : 0;
           stock.textContent = s > 0 ? "Estoque: " + s : "Sem estoque";
+        }
+
+        // Product stats (view count and cart count)
+        var viewCountEl = clone.querySelector(".admin-product-view-count");
+        var cartCountEl = clone.querySelector(".admin-product-cart-count");
+        if (viewCountEl || cartCountEl) {
+          var stats = insightsProductStats[p.id] || { viewCount: 0, cartCount: 0 };
+          if (viewCountEl) viewCountEl.textContent = stats.viewCount + " visualizações";
+          if (cartCountEl) cartCountEl.textContent = stats.cartCount + " no carrinho";
         }
 
         var editBtn = clone.querySelector(".admin-edit-product-button");
