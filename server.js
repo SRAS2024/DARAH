@@ -17,9 +17,16 @@ const http = require("http");
 // Database persistence helpers
 const {
   initDatabase,
+  initAnalyticsTables,
   persistHomepage,
   persistProductUpsert,
-  persistProductDelete
+  persistProductDelete,
+  recordPageVisit,
+  getVisitData,
+  getVisitorSources,
+  getProductStats,
+  incrementProductView,
+  incrementCartCount
 } = require("./db");
 
 const app = express();
@@ -983,6 +990,14 @@ app.post("/api/cart/add", (req, res) => {
     item.quantity = next;
   } else {
     cart.items.push({ productId, quantity: 1 });
+    // Track first-time add to cart for this product in this session
+    incrementCartCount(productId).catch((e) =>
+      console.error("[cart/add] incrementCartCount:", e.message)
+    );
+    if (!process.env.DATABASE_URL) {
+      if (!memProductStats[productId]) memProductStats[productId] = { viewCount: 0, cartCount: 0 };
+      memProductStats[productId].cartCount++;
+    }
   }
 
   res.json(summarizeCart(cart));
@@ -1014,6 +1029,181 @@ app.post("/api/cart/update", (req, res) => {
   }
 
   res.json(summarizeCart(cart));
+});
+
+// ------------------------------------------------------------------ //
+// Visit & product tracking (public)                                   //
+// ------------------------------------------------------------------ //
+
+// In-memory visit log for environments without a DB (volatile)
+const memVisits = [];
+const memProductStats = {};
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return req.socket?.remoteAddress || "";
+}
+
+app.post("/api/track/visit", async (req, res) => {
+  const { page, referrer } = req.body || {};
+  const safePage = String(page || "home").slice(0, 64);
+  const sessionId = req.session?.id || "";
+  const ipAddress = getClientIp(req);
+  const userAgent = req.headers["user-agent"] || "";
+  const safeRef = String(referrer || "").slice(0, 512);
+
+  try {
+    const counted = await recordPageVisit({
+      page: safePage,
+      sessionId,
+      ipAddress,
+      userAgent,
+      referrer: safeRef
+    });
+
+    // In-memory fallback dedup (30-min window keyed by sessionId+page)
+    if (!counted && process.env.DATABASE_URL) {
+      return res.json({ ok: true, counted: false });
+    }
+
+    if (!process.env.DATABASE_URL) {
+      // Memory fallback
+      const key = `${sessionId}:${safePage}`;
+      const now = Date.now();
+      const recent = memVisits.find(
+        (v) => v.key === key && now - v.at < 30 * 60 * 1000
+      );
+      if (recent) return res.json({ ok: true, counted: false });
+      memVisits.push({ key, at: now, page: safePage, referrer: safeRef, userAgent });
+      // Trim memory log
+      if (memVisits.length > 10000) memVisits.splice(0, memVisits.length - 10000);
+    }
+
+    return res.json({ ok: true, counted: true });
+  } catch (err) {
+    console.error("[track/visit] Error:", err.message);
+    return res.json({ ok: true, counted: false });
+  }
+});
+
+app.post("/api/track/product-view", async (req, res) => {
+  const { productId } = req.body || {};
+  if (!productId) return res.json({ ok: false });
+
+  try {
+    await incrementProductView(String(productId));
+
+    // Memory fallback
+    if (!process.env.DATABASE_URL) {
+      if (!memProductStats[productId]) memProductStats[productId] = { viewCount: 0, cartCount: 0 };
+      memProductStats[productId].viewCount++;
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[track/product-view] Error:", err.message);
+    return res.json({ ok: false });
+  }
+});
+
+// ------------------------------------------------------------------ //
+// Admin insights (authenticated)                                      //
+// ------------------------------------------------------------------ //
+
+app.get("/api/admin/insights", requireAdmin, async (req, res) => {
+  const range = String(req.query.range || "today");
+  const page = String(req.query.page || "site");
+
+  const validRanges = ["today", "7days", "30days", "90days"];
+  const safeRange = validRanges.includes(range) ? range : "today";
+  const safePage = page === "site" ? "site" : page.slice(0, 64);
+
+  try {
+    if (process.env.DATABASE_URL) {
+      const data = await getVisitData(safeRange, safePage);
+      return res.json(data);
+    }
+
+    // Memory fallback
+    const now = Date.now();
+    const msMap = { today: 86400000, "7days": 7 * 86400000, "30days": 30 * 86400000, "90days": 90 * 86400000 };
+    const since = now - (msMap[safeRange] || 86400000);
+    const filtered = memVisits.filter(
+      (v) => v.at >= since && (safePage === "site" || v.page === safePage)
+    );
+    return res.json({ labels: [], counts: [], total: filtered.length });
+  } catch (err) {
+    console.error("[admin/insights] Error:", err.message);
+    return res.status(500).json({ error: "Erro ao carregar dados de acesso." });
+  }
+});
+
+app.get("/api/admin/insights/sources", requireAdmin, async (req, res) => {
+  const range = String(req.query.range || "today");
+  const page = String(req.query.page || "site");
+
+  const validRanges = ["today", "7days", "30days", "90days"];
+  const safeRange = validRanges.includes(range) ? range : "today";
+  const safePage = page === "site" ? "site" : page.slice(0, 64);
+
+  try {
+    if (process.env.DATABASE_URL) {
+      const data = await getVisitorSources(safeRange, safePage);
+      return res.json(data);
+    }
+
+    // Memory fallback
+    const now = Date.now();
+    const msMap = { today: 86400000, "7days": 7 * 86400000, "30days": 30 * 86400000, "90days": 90 * 86400000 };
+    const since = now - (msMap[safeRange] || 86400000);
+    const filtered = memVisits.filter(
+      (v) => v.at >= since && (safePage === "site" || v.page === safePage)
+    );
+
+    let instagram = 0, direct = 0, other = 0, mobile = 0, desktop = 0, tablet = 0;
+    for (const v of filtered) {
+      const ref = (v.referrer || "").toLowerCase();
+      if (ref.includes("instagram") || ref.includes("ig.me")) instagram++;
+      else if (!ref) direct++;
+      else other++;
+      const ua = (v.userAgent || "").toLowerCase();
+      if (ua.includes("tablet") || ua.includes("ipad")) tablet++;
+      else if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone")) mobile++;
+      else desktop++;
+    }
+    return res.json({ instagram, direct, other, mobile, desktop, tablet, total: filtered.length });
+  } catch (err) {
+    console.error("[admin/insights/sources] Error:", err.message);
+    return res.status(500).json({ error: "Erro ao carregar fontes de acesso." });
+  }
+});
+
+app.get("/api/admin/insights/products", requireAdmin, async (req, res) => {
+  try {
+    const productIds = db.products.map((p) => p.id);
+    if (!productIds.length) return res.json([]);
+
+    let statsMap = {};
+    if (process.env.DATABASE_URL) {
+      statsMap = await getProductStats(productIds);
+    } else {
+      statsMap = memProductStats;
+    }
+
+    const result = db.products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      viewCount: (statsMap[p.id] && statsMap[p.id].viewCount) || 0,
+      cartCount: (statsMap[p.id] && statsMap[p.id].cartCount) || 0
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error("[admin/insights/products] Error:", err.message);
+    return res.status(500).json({ error: "Erro ao carregar estatísticas de produtos." });
+  }
 });
 
 // WhatsApp checkout
@@ -1161,6 +1351,7 @@ app.get("*", (_req, res) => {
 async function start() {
   try {
     await initDatabase(db);
+    await initAnalyticsTables();
 
     homepageVersion += 1;
     bumpProductsVersion();
