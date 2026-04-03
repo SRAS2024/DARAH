@@ -26,9 +26,16 @@ DARAH is a modern jewelry e-commerce storefront with a built-in admin panel and 
 - Homepage editor: upload hero images (up to 12), edit about text, manage notices
 - About page customization with short text, long text, and image collages (up to 4 images)
 - Stock and pricing management including discount tracking
-- Custom site logo upload
+- Custom site logo upload (also updates the dynamic favicon)
 - Batch image compression (client-side WebP optimization)
 - Theme selection interface (Default, Christmas, Easter)
+
+### Analytics
+- Page visit tracking with 30-minute session-based deduplication
+- Visitor source detection: Instagram, Direct, and Other referrers
+- Device type breakdown: Mobile, Desktop, and Tablet
+- Product performance metrics: view counts and cart addition counts
+- Admin insights dashboard with Chart.js visualizations and selectable date ranges (today, 7 days, 30 days, 90 days)
 
 ### Performance
 - ETag-based caching for homepage and product API responses
@@ -86,6 +93,8 @@ DARAH/
 | POST | `/api/cart/add` | Add a product to the cart |
 | POST | `/api/cart/update` | Update cart item quantity |
 | POST | `/api/checkout-link` | Generate a WhatsApp checkout link |
+| POST | `/api/track/visit` | Record a page visit (30-minute dedup per session) |
+| POST | `/api/track/product-view` | Record a product view |
 | GET | `/robots.txt` | SEO robots directive |
 | GET | `/sitemap.xml` | SEO sitemap |
 
@@ -103,6 +112,9 @@ DARAH/
 | PUT | `/api/products/:id` | Update a product |
 | DELETE | `/api/products/:id` | Delete a product |
 | POST | `/api/admin/compress-images` | Batch compress product images |
+| GET | `/api/admin/insights` | Visit analytics with date range filter |
+| GET | `/api/admin/insights/sources` | Visitor sources and device type breakdown |
+| GET | `/api/admin/insights/products` | Product view and cart addition counts |
 
 ## Getting Started
 
