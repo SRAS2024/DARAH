@@ -491,7 +491,7 @@ async function getVisitorSources(dateRange, page) {
 
   const result = await pg.query(
     `SELECT referrer, user_agent FROM page_visits
-     WHERE visited_at >= NOW() - INTERVAL $1
+     WHERE visited_at >= NOW() - $1::interval
      ${pageFilter}`,
     params
   );
