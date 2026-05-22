@@ -21,8 +21,10 @@ a Brazilian Portuguese interface.
 
 ## 🎬 Live walkthrough
 
-A guided run through the storefront — browsing categories, opening the product image
-lightbox, adding pieces to the cart, adjusting quantities, and reaching the checkout.
+An end-to-end screen recording of the application in use: scrolling through the product
+collections, opening the product image lightbox, adding pieces to the cart, adjusting
+quantities at checkout, and finishing on the **WhatsApp checkout** — where the order
+arrives pre-formatted and the shop replies.
 
 ![DARAH storefront walkthrough](docs/walkthrough.gif)
 
@@ -184,11 +186,60 @@ and a device-type breakdown (Mobile / Desktop / Tablet).
 ## 🗄️ Database
 
 DARAH persists to **PostgreSQL** through the `db.js` layer (with an in-memory fallback
-when no database is configured). The diagram below was generated from the **live demo
-database** — column types, constraints, indexes and row counts are read directly from
-`information_schema`.
+when no database is configured).
+
+### Schema
+
+The entity diagram below was generated from the **live demo database** — column types,
+constraints, indexes and row counts are read directly from `information_schema`.
 
 ![Database schema](docs/database-schema.png)
+
+### Live table data
+
+These are the **actual rows** held in that database — the result of running `SELECT`
+queries against the running instance. Every product, the homepage record, the
+per-product metrics and the visit log are genuinely persisted.
+
+![Live database table data](docs/database-tables.png)
+
+---
+
+## 🔎 SEO endpoints
+
+The server generates `robots.txt` and `sitemap.xml` on every request. Live output from
+the running instance:
+
+```text
+GET /robots.txt
+
+User-agent: *
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /api/
+
+Sitemap: https://darahjoias.com/sitemap.xml
+```
+
+```xml
+GET /sitemap.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://darahjoias.com/</loc>
+    <lastmod>2026-05-22</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://darahjoias.com/#sobre-nos</loc>
+    <lastmod>2026-05-22</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <!-- … plus the six category anchors: ofertas-especiais, conjuntos,
+       aneis, colares, pulseiras, brincos (8 public URLs in total) -->
+</urlset>
+```
 
 ---
 
@@ -216,8 +267,10 @@ Every capability of the application, mapped to where it is demonstrated above.
 | Visit analytics + Chart.js charts | `admin-insights.png` |
 | Traffic-source & device breakdown | `admin-insights.png` |
 | Per-product view / cart metrics | `admin-products.png` — stat line on cards |
-| Guided walkthrough video | `walkthrough.gif` |
-| PostgreSQL persistence layer | `database-schema.png` |
+| End-to-end walkthrough (incl. WhatsApp) | `walkthrough.gif` |
+| PostgreSQL schema (tables, types, indexes) | `database-schema.png` |
+| Real data persisted in every table | `database-tables.png` |
+| Generated `robots.txt` / `sitemap.xml` | [SEO endpoints](#-seo-endpoints) |
 
 ---
 
